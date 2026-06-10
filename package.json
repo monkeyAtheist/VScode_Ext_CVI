@@ -3,7 +3,7 @@
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
   "version": "0.5.2",
-  "publisher": "jc-tools",
+  "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
