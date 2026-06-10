@@ -1,0 +1,675 @@
+{
+  "name": "labwindows-cvi-project-manager",
+  "displayName": "LabWindows/CVI Project Manager",
+  "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
+  "version": "0.3.0",
+  "publisher": "jc-tools",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "LabWindows",
+    "CVI",
+    "National Instruments",
+    "NI",
+    "C"
+  ],
+  "activationEvents": [
+    "onView:labwindowsCvi.workspaceExplorer",
+    "onCommand:labwindowsCvi.openHome"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "labwindowsCvi",
+          "title": "LabWindows/CVI",
+          "icon": "media/cvi.svg"
+        }
+      ]
+    },
+    "views": {
+      "labwindowsCvi": [
+        {
+          "id": "labwindowsCvi.workspaceExplorer",
+          "name": "CVI Workspace",
+          "contextualTitle": "LabWindows/CVI",
+          "showCollapseAll": true
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "labwindowsCvi.workspaceExplorer",
+        "contents": "No LabWindows/CVI workspace is currently loaded.\n[Open a workspace](command:labwindowsCvi.openWorkspace)\n[Create a workspace and project](command:labwindowsCvi.createWorkspaceProject)\n[Open the CVI home page](command:labwindowsCvi.openHome)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "labwindowsCvi.openHome",
+        "title": "LabWindows/CVI: Open Home"
+      },
+      {
+        "command": "labwindowsCvi.openWorkspace",
+        "title": "LabWindows/CVI: Open Workspace or Project"
+      },
+      {
+        "command": "labwindowsCvi.createWorkspaceProject",
+        "title": "LabWindows/CVI: Create Workspace and Project"
+      },
+      {
+        "command": "labwindowsCvi.refresh",
+        "title": "LabWindows/CVI: Refresh Workspace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "labwindowsCvi.configureInstallation",
+        "title": "LabWindows/CVI: Select Installation",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "labwindowsCvi.syncCppTools",
+        "title": "LabWindows/CVI: Synchronize C/C++ IntelliSense Configuration",
+        "icon": "$(symbol-namespace)"
+      },
+      {
+        "command": "labwindowsCvi.selectBuildMode",
+        "title": "LabWindows/CVI: Select Build Mode"
+      },
+      {
+        "command": "labwindowsCvi.build",
+        "title": "LabWindows/CVI: Build Active Project",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.rebuild",
+        "title": "LabWindows/CVI: Rebuild Active Project"
+      },
+      {
+        "command": "labwindowsCvi.run",
+        "title": "LabWindows/CVI: Run Active Target",
+        "icon": "$(play)"
+      },
+      {
+        "command": "labwindowsCvi.openWorkspaceInCvi",
+        "title": "Open Workspace in CVI",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "labwindowsCvi.setActiveProject",
+        "title": "Set Active Project"
+      },
+      {
+        "command": "labwindowsCvi.buildProject",
+        "title": "Build"
+      },
+      {
+        "command": "labwindowsCvi.rebuildProject",
+        "title": "Rebuild"
+      },
+      {
+        "command": "labwindowsCvi.executeProject",
+        "title": "Execute"
+      },
+      {
+        "command": "labwindowsCvi.editProjectInCvi",
+        "title": "Edit Project in CVI..."
+      },
+      {
+        "command": "labwindowsCvi.openProjectFile",
+        "title": "Browse Project File..."
+      },
+      {
+        "command": "labwindowsCvi.addExistingProject",
+        "title": "Add Existing Project to Workspace"
+      },
+      {
+        "command": "labwindowsCvi.removeProject",
+        "title": "Remove Project From Workspace"
+      },
+      {
+        "command": "labwindowsCvi.addFiles",
+        "title": "Add Existing File..."
+      },
+      {
+        "command": "labwindowsCvi.createNewFile",
+        "title": "Create New File..."
+      },
+      {
+        "command": "labwindowsCvi.addFolder",
+        "title": "Add Folder..."
+      },
+      {
+        "command": "labwindowsCvi.renameFolder",
+        "title": "Rename Folder..."
+      },
+      {
+        "command": "labwindowsCvi.removeFolder",
+        "title": "Remove Folder"
+      },
+      {
+        "command": "labwindowsCvi.removeFile",
+        "title": "Remove File"
+      },
+      {
+        "command": "labwindowsCvi.excludeFile",
+        "title": "Exclude File from Build"
+      },
+      {
+        "command": "labwindowsCvi.includeFile",
+        "title": "Include File in Build"
+      },
+      {
+        "command": "labwindowsCvi.toggleObjOption",
+        "title": "Toggle .Obj Option"
+      },
+      {
+        "command": "labwindowsCvi.replaceFile",
+        "title": "Replace File in Project..."
+      },
+      {
+        "command": "labwindowsCvi.compileFile",
+        "title": "Compile File"
+      },
+      {
+        "command": "labwindowsCvi.saveFile",
+        "title": "Save"
+      },
+      {
+        "command": "labwindowsCvi.saveAll",
+        "title": "Save All"
+      },
+      {
+        "command": "labwindowsCvi.openFile",
+        "title": "Open"
+      },
+      {
+        "command": "labwindowsCvi.openPanelInCvi",
+        "title": "Open Panel in CVI UI Editor"
+      },
+      {
+        "command": "labwindowsCvi.revealProjectFile",
+        "title": "Reveal Project File in Explorer"
+      },
+      {
+        "command": "labwindowsCvi.revealFile",
+        "title": "Browse File..."
+      },
+      {
+        "command": "labwindowsCvi.exploreProjectDirectory",
+        "title": "Explore Directory..."
+      },
+      {
+        "command": "labwindowsCvi.exploreFolderDirectory",
+        "title": "Explore Directory..."
+      },
+      {
+        "command": "labwindowsCvi.exploreFileDirectory",
+        "title": "Explore Directory..."
+      },
+      {
+        "command": "labwindowsCvi.findProject",
+        "title": "Find..."
+      },
+      {
+        "command": "labwindowsCvi.findFolder",
+        "title": "Find..."
+      },
+      {
+        "command": "labwindowsCvi.findFile",
+        "title": "Find..."
+      },
+      {
+        "command": "labwindowsCvi.expandAll",
+        "title": "Expand All"
+      },
+      {
+        "command": "labwindowsCvi.collapseAll",
+        "title": "Collapse All"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "labwindowsCvi.openHome",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.build",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.run",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.refresh",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.configureInstallation",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@5"
+        },
+        {
+          "command": "labwindowsCvi.syncCppTools",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@6"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "labwindowsCvi.openWorkspaceInCvi",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "inline@1"
+        },
+        {
+          "command": "labwindowsCvi.addExistingProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "modification@1"
+        },
+        {
+          "command": "labwindowsCvi.saveAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "project@1"
+        },
+        {
+          "command": "labwindowsCvi.setActiveProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "project@2"
+        },
+        {
+          "command": "labwindowsCvi.buildProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@1"
+        },
+        {
+          "command": "labwindowsCvi.rebuildProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@2"
+        },
+        {
+          "command": "labwindowsCvi.editProjectInCvi",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@3"
+        },
+        {
+          "command": "labwindowsCvi.executeProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@4"
+        },
+        {
+          "command": "labwindowsCvi.removeProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@5"
+        },
+        {
+          "command": "labwindowsCvi.addFolder",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "modification@1"
+        },
+        {
+          "command": "labwindowsCvi.addFiles",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "modification@2"
+        },
+        {
+          "command": "labwindowsCvi.createNewFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "modification@3"
+        },
+        {
+          "command": "labwindowsCvi.openProjectFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.revealProjectFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.exploreProjectDirectory",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.findProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.expandAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@5"
+        },
+        {
+          "command": "labwindowsCvi.collapseAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "navigation@6"
+        },
+        {
+          "command": "labwindowsCvi.renameFolder",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "modification@1"
+        },
+        {
+          "command": "labwindowsCvi.removeFolder",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "modification@2"
+        },
+        {
+          "command": "labwindowsCvi.addFolder",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "modification@3"
+        },
+        {
+          "command": "labwindowsCvi.addFiles",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "modification@4"
+        },
+        {
+          "command": "labwindowsCvi.createNewFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "modification@5"
+        },
+        {
+          "command": "labwindowsCvi.findFolder",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.exploreFolderDirectory",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.expandAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.collapseAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.openFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.(source|header|library|other)\\./",
+          "group": "inline@1"
+        },
+        {
+          "command": "labwindowsCvi.openPanelInCvi",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.panel\\./",
+          "group": "inline@1"
+        },
+        {
+          "command": "labwindowsCvi.saveFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.(source|header|library|other)\\./",
+          "group": "file@2"
+        },
+        {
+          "command": "labwindowsCvi.excludeFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.included\\./",
+          "group": "build@1"
+        },
+        {
+          "command": "labwindowsCvi.includeFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.excluded\\./",
+          "group": "build@1"
+        },
+        {
+          "command": "labwindowsCvi.toggleObjOption",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.source\\./",
+          "group": "build@2"
+        },
+        {
+          "command": "labwindowsCvi.replaceFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "modification@1"
+        },
+        {
+          "command": "labwindowsCvi.removeFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "modification@2"
+        },
+        {
+          "command": "labwindowsCvi.compileFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.source\\./",
+          "group": "build@3"
+        },
+        {
+          "command": "labwindowsCvi.revealFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.exploreFileDirectory",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.findFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.expandAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.collapseAll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "navigation@5"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "labwindowsCvi.setActiveProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.buildProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.rebuildProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.executeProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.editProjectInCvi",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.openProjectFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.removeProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.addFiles",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.createNewFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.addFolder",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.renameFolder",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.removeFolder",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.removeFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.excludeFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.includeFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.toggleObjOption",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.replaceFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.compileFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.saveFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.openFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.openPanelInCvi",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.revealProjectFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.revealFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.exploreProjectDirectory",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.exploreFolderDirectory",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.exploreFileDirectory",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.findProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.findFolder",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.findFile",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "LabWindows/CVI Project Manager",
+      "properties": {
+        "labwindowsCvi.installations": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Known LabWindows/CVI installation root directories. Example: C:\\Program Files (x86)\\National Instruments\\CVI2012"
+        },
+        "labwindowsCvi.activeInstallation": {
+          "type": "string",
+          "default": "",
+          "description": "Selected LabWindows/CVI installation root directory. Leave empty to use automatic detection."
+        },
+        "labwindowsCvi.buildMode": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "release",
+            "debug64",
+            "release64"
+          ],
+          "default": "debug",
+          "description": "Build mode passed to compile.exe."
+        },
+        "labwindowsCvi.customBuildConfiguration": {
+          "type": "string",
+          "default": "",
+          "description": "Optional CVI custom build configuration name passed through -config=..."
+        },
+        "labwindowsCvi.extraCompilerArguments": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional arguments appended to compile.exe invocations."
+        },
+        "labwindowsCvi.runArguments": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments passed to the active executable when running it."
+        },
+        "labwindowsCvi.projectFormatVersion": {
+          "type": "number",
+          "default": 1200,
+          "minimum": 1,
+          "description": "Version value used when generating new .cws and .prj files. The default matches the supplied CVI 2012 examples."
+        },
+        "labwindowsCvi.autoLoadWorkspace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically load a .cws file when the opened VS Code folder contains exactly one CVI workspace."
+        },
+        "labwindowsCvi.autoConfigureCppTools": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically create or update the managed LabWindows/CVI entry in .vscode/c_cpp_properties.json when a CVI workspace is opened or the selected installation changes."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.7.2"
+  }
+}
