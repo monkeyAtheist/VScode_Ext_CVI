@@ -23,7 +23,7 @@ function unique(values: string[]): string[] {
   return result;
 }
 
-function findExecutable(root: string, names: string[]): string | undefined {
+function findExecutable(root: string, names: string[], recursive = false): string | undefined {
   const commonDirectories = [
     root,
     path.join(root, 'bin'),
@@ -36,6 +36,37 @@ function findExecutable(root: string, names: string[]): string | undefined {
       const candidate = path.join(directory, name);
       if (exists(candidate)) {
         return candidate;
+      }
+    }
+  }
+  return recursive ? findExecutableBelow(path.join(root, 'bin'), names, 5) ?? findExecutableBelow(path.join(root, 'Bin'), names, 5) : undefined;
+}
+
+function findExecutableBelow(root: string, names: string[], maxDepth: number): string | undefined {
+  if (!fs.existsSync(root)) {
+    return undefined;
+  }
+  const expected = new Set(names.map((name) => name.toLowerCase()));
+  const queue: Array<{ directory: string; depth: number }> = [{ directory: root, depth: 0 }];
+  while (queue.length) {
+    const current = queue.shift()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current.directory, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && expected.has(entry.name.toLowerCase())) {
+        return path.join(current.directory, entry.name);
+      }
+    }
+    if (current.depth >= maxDepth) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        queue.push({ directory: path.join(current.directory, entry.name), depth: current.depth + 1 });
       }
     }
   }
@@ -56,7 +87,7 @@ export class CviInstallationService {
       label: path.basename(normalizedRoot),
       compileExe: findExecutable(normalizedRoot, ['compile.exe']),
       ideExe: findExecutable(normalizedRoot, ['cvi.exe', 'CVI.exe']),
-      clangCcExe: findExecutable(normalizedRoot, ['clang-cc.exe']),
+      clangCcExe: findExecutable(normalizedRoot, ['clang-cc.exe', 'clang.exe', 'clang-cl.exe'], true),
       source
     };
   }
@@ -131,7 +162,7 @@ export class CviInstallationService {
     const choices: Array<vscode.QuickPickItem & { installation?: CviInstallation; manual?: boolean }> = installations.map((installation) => ({
       label: installation.label,
       description: installation.root,
-      detail: `${installation.compileExe ? 'compile.exe detected' : 'compile.exe missing'} · ${installation.ideExe ? 'CVI IDE detected' : 'CVI IDE missing'} · ${installation.source}`,
+      detail: `${installation.compileExe ? 'compile.exe detected' : 'compile.exe missing'} · ${installation.ideExe ? 'CVI IDE detected' : 'CVI IDE missing'} · ${installation.clangCcExe ? 'IntelliSense compiler detected' : 'IntelliSense compiler missing'} · ${installation.source}`,
       installation
     }));
     choices.push({
@@ -175,6 +206,9 @@ export class CviInstallationService {
     this.output.appendLine(`[CVI] Selected installation: ${installation.root}`);
     if (!installation.compileExe) {
       vscode.window.showWarningMessage('The selected directory does not expose compile.exe in a known location. Build commands will remain unavailable until the correct installation root is selected.');
+    }
+    if (!installation.clangCcExe) {
+      this.output.appendLine('[CVI] No internal CVI Clang executable detected. Explicit include paths and the dynamic provider will still be used. You can set labwindowsCvi.intelliSenseCompilerPath manually if required.');
     }
     return installation;
   }

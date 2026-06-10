@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { CviParser, defaultFolderForType } from '../model/cviParser';
 import { CviProject, CviProjectFile, CviWorkspace, CviWorkspaceProjectRef } from '../model/types';
 import { CviInstallationService } from './cviInstallationService';
+import { CviTemplateService } from './cviTemplateService';
 
 const LAST_WORKSPACE_KEY = 'labwindowsCvi.lastWorkspace';
 
@@ -17,6 +18,7 @@ export class CviWorkspaceService implements vscode.Disposable {
     private readonly context: vscode.ExtensionContext,
     private readonly parser: CviParser,
     private readonly installations: CviInstallationService,
+    private readonly templates: CviTemplateService,
     private readonly output: vscode.OutputChannel
   ) {
     this.disposables.push(
@@ -292,42 +294,28 @@ export class CviWorkspaceService implements vscode.Disposable {
       return;
     }
 
-    const type = await vscode.window.showQuickPick([
-      { label: 'C source file', extension: '.c', description: 'Create an empty C source file' },
-      { label: 'C header file', extension: '.h', description: 'Create a guarded C header file' },
-      { label: 'Text file', extension: '.txt', description: 'Create an empty text file' }
-    ], { title: `Create a new file in ${ref.name}` });
-    if (!type) {
+    const generated = await this.templates.generateNewFiles(path.dirname(ref.absolutePath));
+    if (!generated) {
       return;
     }
 
-    const uri = await vscode.window.showSaveDialog({
-      title: `Create ${type.label}`,
-      defaultUri: vscode.Uri.file(path.join(path.dirname(ref.absolutePath), `new_file${type.extension}`)),
-      filters: { [type.label]: [type.extension.slice(1)] }
-    });
-    if (!uri) {
-      return;
+    const added = this.parser.addFilesToProject(ref.absolutePath, generated.files, folderOverride);
+    this.refresh();
+
+    if (generated.primaryPath && fs.existsSync(generated.primaryPath) && path.extname(generated.primaryPath).toLowerCase() !== '.uir') {
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.file(generated.primaryPath));
+      await vscode.window.showTextDocument(document, { preview: false });
     }
 
-    let filePath = uri.fsPath;
-    if (!path.extname(filePath)) {
-      filePath += type.extension;
-    }
-    if (fs.existsSync(filePath)) {
-      const answer = await vscode.window.showWarningMessage(`${path.basename(filePath)} already exists. Add the existing file to the CVI project?`, { modal: true }, 'Add existing file');
-      if (answer !== 'Add existing file') {
-        return;
+    const summary = `${added} project reference(s) added. ${generated.createdFiles.length} file(s) written.`;
+    if (generated.uirPath) {
+      const action = await vscode.window.showInformationMessage(`${summary} The blank UIR resource is ready for graphical editing.`, 'Open panel in CVI');
+      if (action === 'Open panel in CVI') {
+        await vscode.commands.executeCommand('labwindowsCvi.openPanelPathInCvi', generated.uirPath);
       }
     } else {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      fs.writeFileSync(filePath, initialFileContents(filePath), 'utf8');
+      vscode.window.showInformationMessage(summary);
     }
-
-    this.parser.addFilesToProject(ref.absolutePath, [filePath], folderOverride);
-    this.refresh();
-    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
-    await vscode.window.showTextDocument(document);
   }
 
   async addFolder(projectRef?: CviWorkspaceProjectRef, parentFolder = ''): Promise<void> {
@@ -523,14 +511,6 @@ function inferType(filePath: string): string {
     case '.lib': return 'Library';
     default: return 'Other';
   }
-}
-
-function initialFileContents(filePath: string): string {
-  if (path.extname(filePath).toLowerCase() !== '.h') {
-    return '';
-  }
-  const guard = `${path.basename(filePath, path.extname(filePath)).replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}_H`;
-  return `#ifndef ${guard}\r\n#define ${guard}\r\n\r\n#endif /* ${guard} */\r\n`;
 }
 
 function commonAncestor(paths: string[]): string | undefined {

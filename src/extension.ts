@@ -7,15 +7,19 @@ import { CviCppToolsService } from './services/cviCppToolsService';
 import { CviInstallationService } from './services/cviInstallationService';
 import { CviWorkspaceService } from './services/cviWorkspaceService';
 import { HomePanel } from './views/homePanel';
+import { activate as activateCviLibraryExplorer } from './jcLibEmbedded';
+import { ensureBundledCviLibraryPack } from './services/cviLibraryPackService';
+import { CviTemplateService } from './services/cviTemplateService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
   const parser = new CviParser();
   const installations = new CviInstallationService(output);
-  const cppTools = new CviCppToolsService(installations, output);
-  const workspaces = new CviWorkspaceService(context, parser, installations, output);
+  const cppTools = new CviCppToolsService(installations, parser, output);
+  const templates = new CviTemplateService(context, installations, output);
+  const workspaces = new CviWorkspaceService(context, parser, installations, templates, output);
   const builds = new CviBuildService(parser, workspaces, installations, output);
-  const treeProvider = new CviTreeProvider(workspaces);
+  const treeProvider = new CviTreeProvider(workspaces, context.extensionUri);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
   const home = new HomePanel(context, workspaces, builds, installations);
 
@@ -54,15 +58,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     statusBar,
     workspaces.onDidChange(() => {
       updateStatusBar();
-      cppTools.requestSync(workspaces.currentWorkspace);
+      void cppTools.ensureConfigurationRootInWorkspace(workspaces.currentWorkspace).finally(() => {
+        cppTools.requestSync(workspaces.currentWorkspace);
+      });
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('labwindowsCvi')) {
         updateStatusBar();
         home.update();
       }
-      if (event.affectsConfiguration('labwindowsCvi.activeInstallation') || event.affectsConfiguration('labwindowsCvi.autoConfigureCppTools')) {
-        cppTools.requestSync(workspaces.currentWorkspace);
+      if (event.affectsConfiguration('labwindowsCvi.activeInstallation') || event.affectsConfiguration('labwindowsCvi.autoConfigureCppTools') || event.affectsConfiguration('labwindowsCvi.autoAddCviFolderToWorkspace') || event.affectsConfiguration('labwindowsCvi.useCppToolsConfigurationProvider') || event.affectsConfiguration('labwindowsCvi.intelliSenseCompilerPath') || event.affectsConfiguration('labwindowsCvi.additionalIncludePaths')) {
+        void cppTools.ensureConfigurationRootInWorkspace(workspaces.currentWorkspace).finally(() => {
+          cppTools.requestSync(workspaces.currentWorkspace);
+        });
       }
     }),
     register('labwindowsCvi.openHome', () => home.show()),
@@ -77,15 +85,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
     register('labwindowsCvi.syncCppTools', () => cppTools.sync(workspaces.currentWorkspace, true)),
+    register('labwindowsCvi.diagnoseCppTools', () => cppTools.diagnose(workspaces.currentWorkspace)),
+    register('labwindowsCvi.addWorkspaceFolderForIntelliSense', () => cppTools.addConfigurationRootToWorkspace(workspaces.currentWorkspace)),
     register('labwindowsCvi.selectBuildMode', () => builds.selectBuildMode()),
     register('labwindowsCvi.build', () => builds.build(false)),
     register('labwindowsCvi.rebuild', () => builds.build(true)),
     register('labwindowsCvi.run', () => builds.run()),
+    register('labwindowsCvi.debugInCvi', () => builds.debugInCvi()),
     register('labwindowsCvi.openWorkspaceInCvi', () => builds.openWorkspaceInCvi()),
     register('labwindowsCvi.setActiveProject', (node?: ProjectNode) => workspaces.setActiveProject(node?.ref)),
     register('labwindowsCvi.buildProject', (node?: ProjectNode) => node ? builds.build(false, node.ref) : undefined),
     register('labwindowsCvi.rebuildProject', (node?: ProjectNode) => node ? builds.build(true, node.ref) : undefined),
     register('labwindowsCvi.executeProject', (node?: ProjectNode) => node ? builds.run(node.ref) : undefined),
+    register('labwindowsCvi.debugProjectInCvi', (node?: ProjectNode) => builds.debugInCvi(node?.ref)),
     register('labwindowsCvi.editProjectInCvi', (node?: ProjectNode) => node ? builds.openProjectInCvi(node.ref.absolutePath) : undefined),
     register('labwindowsCvi.openProjectFile', (node?: ProjectNode) => node ? workspaces.openPath(node.ref.absolutePath) : undefined),
     register('labwindowsCvi.addExistingProject', () => workspaces.addExistingProject()),
@@ -118,6 +130,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.compileFile', (node?: FileNode) => node ? builds.compileFile(node.file.absolutePath, node.ref) : undefined),
     register('labwindowsCvi.saveFile', (node?: FileNode) => node ? workspaces.saveFile(node.file.absolutePath) : undefined),
     register('labwindowsCvi.openPanelInCvi', (node?: FileNode) => node ? builds.openPanelInCvi(node.file.absolutePath) : undefined),
+    register('labwindowsCvi.openPanelPathInCvi', (filePath?: string) => filePath ? builds.openPanelInCvi(filePath) : undefined),
+    register('labwindowsCvi.insertSnippet', () => templates.insertSnippet()),
+    register('labwindowsCvi.saveSelectionAsSnippet', () => templates.saveSelectionAsSnippet()),
+    register('labwindowsCvi.manageSnippets', () => templates.manageSnippets()),
+    register('labwindowsCvi.saveFileAsTemplate', (node?: FileNode) => templates.saveCurrentFileAsTemplate(node?.file.absolutePath)),
+    register('labwindowsCvi.importFileTemplate', () => templates.importFileTemplate()),
+    register('labwindowsCvi.manageFileTemplates', () => templates.manageFileTemplates()),
     register('labwindowsCvi.openFile', (node?: FileNode) => node ? workspaces.openPath(node.file.absolutePath) : undefined),
     register('labwindowsCvi.revealProjectFile', (node?: ProjectNode) => node ? workspaces.revealInExplorer(node.ref.absolutePath) : undefined),
     register('labwindowsCvi.revealFile', (node?: FileNode) => node ? workspaces.revealInExplorer(node.file.absolutePath) : undefined),
@@ -132,7 +151,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.collapseAll', () => focusTreeThen('list.collapseAll'))
   );
 
+  ensureBundledCviLibraryPack(context, output);
+  activateCviLibraryExplorer(context);
+
+  await cppTools.initializeProvider();
   await workspaces.restoreOrAutoLoad();
+  await cppTools.ensureConfigurationRootInWorkspace(workspaces.currentWorkspace);
   await cppTools.sync(workspaces.currentWorkspace);
   updateStatusBar();
 }

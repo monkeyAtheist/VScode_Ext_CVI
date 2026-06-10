@@ -140,7 +140,30 @@ function renderHtml(state: HomeState): string {
         <button data-command="labwindowsCvi.build">Build</button>
         <button class="secondary" data-command="labwindowsCvi.rebuild">Rebuild</button>
         <button class="secondary" data-command="labwindowsCvi.run">Run</button>
+        <button class="secondary" data-command="labwindowsCvi.debugInCvi">Debug in CVI</button>
         <button class="secondary" data-command="labwindowsCvi.selectBuildMode">Build mode</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>CVI libraries</h2>
+      <strong>Embedded CVI function explorer</strong>
+      <div class="detail">Browse CVI APIs, search symbols and open the parameterized prototype page from the CVI Libraries view.</div>
+      <div class="actions">
+        <button data-command="labwindowsCvi.library.findFunction">Find symbol</button>
+        <button class="secondary" data-command="labwindowsCvi.library.reloadPacks">Reload pack</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Templates and snippets</h2>
+      <strong>CVI starter files and reusable code fragments</strong>
+      <div class="detail">Create .c, .h, .uir, DLL and error-management baselines. Save your own creation templates or insert snippets at the active cursor position.</div>
+      <div class="actions">
+        <button data-command="labwindowsCvi.createNewFile">Create file</button>
+        <button class="secondary" data-command="labwindowsCvi.insertSnippet">Insert snippet</button>
+        <button class="secondary" data-command="labwindowsCvi.manageFileTemplates">Manage templates</button>
+        <button class="secondary" data-command="labwindowsCvi.manageSnippets">Manage snippets</button>
       </div>
     </section>
 

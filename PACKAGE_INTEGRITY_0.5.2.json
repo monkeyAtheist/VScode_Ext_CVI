@@ -1,0 +1,41 @@
+{
+  "artifact": "LabWindows/CVI Project Manager",
+  "version": "0.5.2",
+  "scope": "Standard Explorer synchronization and CVI/Windows IntelliSense paths",
+  "checks": {
+    "manifestVersion": true,
+    "autoExplorerSetting": true,
+    "autoExplorerDefaultEnabled": true,
+    "automaticWorkspaceFolderHook": true,
+    "workspaceFolderUpdateApi": true,
+    "existingWorkspaceFolderGuard": true,
+    "windowsKits10Discovery": true,
+    "windowsKits81Discovery": true,
+    "windowsSdk71ADiscovery": true,
+    "windowsSdkUmSegment": true,
+    "windowsSdkSharedSegment": true,
+    "windowsSdkUcrtSegment": true,
+    "ansiHeaderDiscovery": true,
+    "windowsHeaderDiagnostic": true,
+    "ansiHeaderDiagnostic": true,
+    "manualAddCommandPreserved": true,
+    "diagnosticCommandPreserved": true,
+    "syncCommandPreserved": true,
+    "compiledJavaScriptPresent": true,
+    "runtimeValidation": true
+  },
+  "status": "ok",
+  "requiredCommands": [
+    "labwindowsCvi.addWorkspaceFolderForIntelliSense",
+    "labwindowsCvi.diagnoseCppTools",
+    "labwindowsCvi.syncCppTools"
+  ],
+  "requiredSettings": [
+    "labwindowsCvi.autoAddCviFolderToWorkspace",
+    "labwindowsCvi.autoConfigureCppTools",
+    "labwindowsCvi.additionalIncludePaths",
+    "labwindowsCvi.intelliSenseCompilerPath",
+    "labwindowsCvi.useCppToolsConfigurationProvider"
+  ],
+  "compiledJavaScriptFiles": 14
+}

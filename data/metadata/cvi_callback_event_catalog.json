@@ -1,0 +1,708 @@
+{
+  "schemaVersion": "1.2.0",
+  "name": "LabWindows/CVI Callback, UI Event and Run-Time Engine Catalog",
+  "sourceHeaders": [
+    "CVI 2020 include/userint.h",
+    "CVI 2012 include/userint.h"
+  ],
+  "notes": [
+    "The standard callback typedefs are shared by CVI 2012 and CVI 2020.",
+    "EVENT_RING_BEGIN_MENU, EVENT_TAB_PAGE_CLOSE and EVENT_MOUSE_WHEEL_CLICK are present in the CVI 2020 reference header and absent from the CVI 2012 header.",
+    "Event numbers 1000 through 10000 are reserved for user programs according to userint.h.",
+    "Version 1.1.0 groups EVENT_* macros into family selectors so the explorer is compact while numeric values remain visible in the picker.",
+    "Callback pointer typedef cards are declarative parameterized templates rather than static historical snippets.",
+    "The cvirte.h lifecycle API is exposed through InitCVIRTE, InitCVIRTEEx, CVIRTEHasBeenDetached and CloseCVIRTE cards.",
+    "Version 1.2.0 consolidates the former CVI Patterns & References library into CVI Basics through dedicated Keywords and Examples / Workflows categories."
+  ],
+  "stats": {
+    "callbackTypePrototypes": 10,
+    "parameterizedSkeletons": 10,
+    "standardUiEvents": 58,
+    "eventSpecifiers": 26,
+    "recipes": 6,
+    "eventSelectorCards": 8,
+    "eventDataSelectorCards": 5,
+    "runtimeLifecycleCards": 6,
+    "keywordCards": 2,
+    "exampleWorkflowCards": 4,
+    "standalonePatternLibrariesMerged": 1
+  },
+  "callbackTypes": [
+    {
+      "name": "PanelCallbackPtr",
+      "declaration": "typedef int (CVICALLBACK * PanelCallbackPtr)(int panel, int event, void *callbackData, int eventData1, int eventData2);",
+      "description": "Panel callback invoked for panel-level events."
+    },
+    {
+      "name": "CtrlCallbackPtr",
+      "declaration": "typedef int (CVICALLBACK * CtrlCallbackPtr)(int panel, int control, int event, void *callbackData, int eventData1, int eventData2);",
+      "description": "Control callback invoked for control-level events."
+    },
+    {
+      "name": "MenuCallbackPtr",
+      "declaration": "typedef void (CVICALLBACK * MenuCallbackPtr)(int menubar, int menuItem, void *callbackData, int panel);",
+      "description": "Menu or menu-item callback invoked when the item is selected."
+    },
+    {
+      "name": "MenuDimmerCallbackPtr",
+      "declaration": "typedef void (CVICALLBACK * MenuDimmerCallbackPtr)(int menuBar, int panel);",
+      "description": "Menu dimmer callback used to update enabled or dimmed menu states."
+    },
+    {
+      "name": "MainCallbackPtr",
+      "declaration": "typedef int (CVICALLBACK * MainCallbackPtr)(int panelOrMenuBar, int controlOrMenuItem, int event, void *callbackData, int eventData1, int eventData2);",
+      "description": "Global callback for main UI events including EVENT_END_TASK and optional idle events."
+    },
+    {
+      "name": "DeferredCallbackPtr",
+      "declaration": "typedef void (CVICALLBACK * DeferredCallbackPtr)(void *callbackData);",
+      "description": "Deferred callback dispatched with PostDeferredCall or PostDeferredCallToThread."
+    },
+    {
+      "name": "CellCompareCallbackPtr",
+      "declaration": "typedef int (CVICALLBACK * CellCompareCallbackPtr)(int panel, int control, Point item1, Point item2, void *callbackData);",
+      "description": "Comparison callback used when sorting table cells."
+    },
+    {
+      "name": "TreeCellCompareCallbackPtr",
+      "declaration": "typedef int (CVICALLBACK * TreeCellCompareCallbackPtr)(int panel, int control, int item1, int item2, int keyCol, void *callbackData);",
+      "description": "Comparison callback used when sorting tree cells."
+    },
+    {
+      "name": "CtrlMenuCallbackPtr",
+      "declaration": "typedef void (CVICALLBACK * CtrlMenuCallbackPtr)(int panel, int control, int menuItem, void *callbackData);",
+      "description": "Custom control-menu callback."
+    },
+    {
+      "name": "WinMsgCallbackPtr",
+      "declaration": "typedef void (CVICALLBACK * WinMsgCallbackPtr)(WinMsgWParam wParam, WinMsgLParam lParam, void *callbackData);",
+      "description": "Windows-message callback registered through RegisterWinMsgCallback."
+    }
+  ],
+  "events": [
+    {
+      "name": "EVENT_NONE",
+      "value": 0,
+      "description": "No event. Useful as a neutral value when initializing or documenting an event variable.",
+      "group": "General",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_COMMIT",
+      "value": 1,
+      "description": "Commit or activation event. Common for buttons, menu selections, tables and trees. For tables, eventData1/eventData2 identify the affected row and column.",
+      "group": "Core interactions",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_VAL_CHANGED",
+      "value": 2,
+      "description": "Control value changed. For tables, eventData1/eventData2 identify the affected cell. For trees, eventData1 describes the tree sub-event.",
+      "group": "Core interactions",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_LEFT_CLICK",
+      "value": 3,
+      "description": "Left mouse-button press. eventData1 is the vertical position and eventData2 is the horizontal position.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_LEFT_DOUBLE_CLICK",
+      "value": 4,
+      "description": "Left mouse-button double-click. eventData1 is the vertical position and eventData2 is the horizontal position.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_RIGHT_CLICK",
+      "value": 5,
+      "description": "Right mouse-button press. eventData1 is the vertical position and eventData2 is the horizontal position.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_RIGHT_DOUBLE_CLICK",
+      "value": 6,
+      "description": "Right mouse-button double-click. eventData1 is the vertical position and eventData2 is the horizontal position.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_KEYPRESS",
+      "value": 7,
+      "description": "Keyboard event. Use the KeyPressEvent helper functions to decode or modify eventData2.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_GOT_FOCUS",
+      "value": 8,
+      "description": "Focus gained. eventData1 contains the previous control with focus.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_LOST_FOCUS",
+      "value": 9,
+      "description": "Focus lost. eventData1 contains the new control with focus.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_IDLE",
+      "value": 10,
+      "description": "Idle callback notification. InstallMainCallback can request idle events.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_CLOSE",
+      "value": 11,
+      "description": "Panel close request. A panel callback typically handles this event to call QuitUserInterface or hide the panel.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_SIZE",
+      "value": 12,
+      "description": "Panel size changed after resizing.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_MOVE",
+      "value": 13,
+      "description": "Panel position changed after moving.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_END_TASK",
+      "value": 14,
+      "description": "Application termination request sent to the main callback. Return 0 to quit or 1 to abort termination. eventData1 distinguishes APP_CLOSE and SYSTEM_CLOSE.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TIMER_TICK",
+      "value": 15,
+      "description": "Timer tick. Use GetTimerTickData to retrieve the current time and elapsed interval portably.",
+      "group": "Core interactions",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_DISCARD",
+      "value": 16,
+      "description": "Panel or control discarded.",
+      "group": "Focus and lifecycle",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_EXPAND",
+      "value": 17,
+      "description": "Expandable item expanded, typically in tree-like controls.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_COLLAPSE",
+      "value": 18,
+      "description": "Expandable item collapsed, typically in tree-like controls.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_DRAG",
+      "value": 19,
+      "description": "Drag operation in progress.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_DROP",
+      "value": 20,
+      "description": "Drop operation requested.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_DROPPED",
+      "value": 21,
+      "description": "Drop operation completed.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_SORT",
+      "value": 22,
+      "description": "Sort request.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_SELECTION_CHANGE",
+      "value": 23,
+      "description": "Selection changed.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_HSCROLL",
+      "value": 24,
+      "description": "Horizontal scroll event.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_VSCROLL",
+      "value": 25,
+      "description": "Vertical scroll event.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_MARK_STATE_CHANGE",
+      "value": 26,
+      "description": "Mark-state change in controls such as tree controls.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_COMBO_BOX_INSERT",
+      "value": 27,
+      "description": "Combo-box insertion. eventData1/eventData2 identify the related table cell when applicable.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_ACTIVE_CELL_CHANGE",
+      "value": 28,
+      "description": "Active table cell changed.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_ROW_SIZE_CHANGE",
+      "value": 29,
+      "description": "Table row size changed. eventData1 contains the row.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_COLUMN_SIZE_CHANGE",
+      "value": 30,
+      "description": "Table column size changed. eventData2 contains the column.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_ACTIVE_TAB_CHANGE",
+      "value": 31,
+      "description": "Active tab changed. eventData1 is the old page and eventData2 is the new page.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_EDIT_MODE_STATE_CHANGE",
+      "value": 32,
+      "description": "Edit-mode state changed. eventData1 is the new edit state and eventData2 is the index.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_MOUSE_POINTER_MOVE",
+      "value": 33,
+      "description": "Mouse pointer moved. eventData1/eventData2 contain vertical/horizontal coordinates.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_LEFT_CLICK_UP",
+      "value": 34,
+      "description": "Left mouse-button release. eventData1/eventData2 contain vertical/horizontal coordinates.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_RIGHT_CLICK_UP",
+      "value": 35,
+      "description": "Right mouse-button release. eventData1/eventData2 contain vertical/horizontal coordinates.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_MOUSE_WHEEL_SCROLL",
+      "value": 36,
+      "description": "Mouse-wheel scroll. eventData1 is a MOUSE_WHEEL_* action and eventData2 is the amount to scroll.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_SIZING",
+      "value": 37,
+      "description": "Panel is being resized. eventData1 is a PANEL_SIZING_* edge; use GetPanelEventRect or SetPanelEventRect with eventData2.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_MOVING",
+      "value": 38,
+      "description": "Panel is being moved. Use GetPanelEventRect or SetPanelEventRect with eventData2.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_RADIX_CHANGE",
+      "value": 39,
+      "description": "Numeric radix or format changed. eventData1 is the new format.",
+      "group": "Graphs and specialized controls",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_ZOOM",
+      "value": 40,
+      "description": "Graph zoom action. eventData1 is a ZOOM_* value.",
+      "group": "Graphs and specialized controls",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_AXIS_VAL_CHANGE",
+      "value": 41,
+      "description": "Graph axis value changed. eventData1 identifies the axis.",
+      "group": "Graphs and specialized controls",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_INTERACTIVE_LEGEND",
+      "value": 42,
+      "description": "Interactive graph legend action. eventData1 is the plot identifier and eventData2 is the built-in control-menu identifier.",
+      "group": "Graphs and specialized controls",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TABLE_ROW_COL_LABEL_CLICK",
+      "value": 43,
+      "description": "Table row or column label clicked. eventData1 is the row and eventData2 is the column.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_BEGIN_EDIT_TREE_CELL",
+      "value": 44,
+      "description": "Tree-cell edit is about to begin. eventData1 is the row and eventData2 is the column.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TREE_CELL_COMMIT",
+      "value": 45,
+      "description": "Tree-cell edit committed. eventData1 is the row and eventData2 is the column.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TREE_CELL_BEGIN_MENU",
+      "value": 46,
+      "description": "Tree-cell contextual menu is about to open.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TREE_CELL_ACTIVE_ITEM_CHANGE",
+      "value": 47,
+      "description": "Tree-cell active item changed. eventData1 is the row and eventData2 is the column.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_TREE_CELL_VAL_CHANGED",
+      "value": 48,
+      "description": "Tree-cell value changed. eventData1 is the row and eventData2 is the column.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_CTRL_MENU",
+      "value": 49,
+      "description": "Built-in or custom control menu action.",
+      "group": "Core interactions",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_DROP_COPY",
+      "value": 50,
+      "description": "Drop-copy operation.",
+      "group": "Lists, trees and drag-and-drop",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_VAL_COERCED",
+      "value": 51,
+      "description": "Table value coerced. eventData1/eventData2 identify the affected cell.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_MINIMIZE",
+      "value": 52,
+      "description": "Panel minimized.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_MAXIMIZE",
+      "value": 53,
+      "description": "Panel maximized.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_PANEL_RESTORE",
+      "value": 54,
+      "description": "Panel restored from minimized or maximized state.",
+      "group": "Panel lifecycle and geometry",
+      "availableSince": "CVI 2012 or earlier"
+    },
+    {
+      "name": "EVENT_RING_BEGIN_MENU",
+      "value": 55,
+      "description": "Ring control menu is about to open. Present in the CVI 2020 userint.h reference header.",
+      "group": "Graphs and specialized controls",
+      "availableSince": "CVI 2020 reference header"
+    },
+    {
+      "name": "EVENT_TAB_PAGE_CLOSE",
+      "value": 56,
+      "description": "Tab page close requested. eventData1 is the page index and eventData2 is 0. Present in the CVI 2020 userint.h reference header.",
+      "group": "Tables, tabs and edit state",
+      "availableSince": "CVI 2020 reference header"
+    },
+    {
+      "name": "EVENT_MOUSE_WHEEL_CLICK",
+      "value": 57,
+      "description": "Mouse-wheel button click. eventData1/eventData2 contain vertical/horizontal coordinates. Present in the CVI 2020 userint.h reference header.",
+      "group": "Mouse and keyboard",
+      "availableSince": "CVI 2020 reference header"
+    }
+  ],
+  "eventSpecifiers": [
+    {
+      "name": "MARK_STATE_CHANGE",
+      "value": 0,
+      "description": "Tree callback sub-event: mark state changed.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "LABEL_CHANGE",
+      "value": 1,
+      "description": "Tree callback sub-event: item label changed.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "LEFT_DOUBLE_CLICK",
+      "value": 2,
+      "description": "Tree callback sub-event: left double-click.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "ENTER_KEY",
+      "value": 3,
+      "description": "Tree callback sub-event: Enter key.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "ACTIVE_ITEM_CHANGE",
+      "value": 4,
+      "description": "Tree callback sub-event: active item changed.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "COLUMN_LABEL_CLICK",
+      "value": 5,
+      "description": "Tree callback sub-event: column label clicked.",
+      "group": "Tree eventData specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_PAGE_UP",
+      "value": 0,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: page up.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_PAGE_DOWN",
+      "value": 1,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: page down.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_SCROLL_UP",
+      "value": 2,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: scroll up.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_SCROLL_DOWN",
+      "value": 3,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: scroll down.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_SCROLL_LEFT",
+      "value": 4,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: scroll left.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "MOUSE_WHEEL_SCROLL_RIGHT",
+      "value": 5,
+      "description": "EVENT_MOUSE_WHEEL_SCROLL action: scroll right.",
+      "group": "Mouse-wheel specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_TOPLEFT",
+      "value": 1,
+      "description": "EVENT_PANEL_SIZING edge: top-left.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_TOP",
+      "value": 2,
+      "description": "EVENT_PANEL_SIZING edge: top.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_TOPRIGHT",
+      "value": 3,
+      "description": "EVENT_PANEL_SIZING edge: top-right.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_RIGHT",
+      "value": 4,
+      "description": "EVENT_PANEL_SIZING edge: right.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_BOTTOMRIGHT",
+      "value": 5,
+      "description": "EVENT_PANEL_SIZING edge: bottom-right.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_BOTTOM",
+      "value": 6,
+      "description": "EVENT_PANEL_SIZING edge: bottom.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_BOTTOMLEFT",
+      "value": 7,
+      "description": "EVENT_PANEL_SIZING edge: bottom-left.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "PANEL_SIZING_LEFT",
+      "value": 8,
+      "description": "EVENT_PANEL_SIZING edge: left.",
+      "group": "Panel-sizing specifiers"
+    },
+    {
+      "name": "ZOOM_IN",
+      "value": 1,
+      "description": "EVENT_ZOOM action: zoom in.",
+      "group": "Graph zoom specifiers"
+    },
+    {
+      "name": "ZOOM_OUT",
+      "value": 2,
+      "description": "EVENT_ZOOM action: zoom out.",
+      "group": "Graph zoom specifiers"
+    },
+    {
+      "name": "ZOOM_PAN",
+      "value": 3,
+      "description": "EVENT_ZOOM action: pan.",
+      "group": "Graph zoom specifiers"
+    },
+    {
+      "name": "ZOOM_RESTORE",
+      "value": 4,
+      "description": "EVENT_ZOOM action: restore original view.",
+      "group": "Graph zoom specifiers"
+    },
+    {
+      "name": "APP_CLOSE",
+      "value": 0,
+      "description": "EVENT_END_TASK origin: application close.",
+      "group": "Termination specifiers"
+    },
+    {
+      "name": "SYSTEM_CLOSE",
+      "value": 1,
+      "description": "EVENT_END_TASK origin: operating-system shutdown or close.",
+      "group": "Termination specifiers"
+    }
+  ],
+  "runtimeLifecycle": [
+    {
+      "name": "InitCVIRTE",
+      "signature": "int CVIFUNC InitCVIRTE(void *hInstance, char *argv[], void *reserved); /* macro alias of InitCVIRTEEx */",
+      "description": "Initialize the LabWindows/CVI Run-Time Engine through the documented InitCVIRTE macro alias."
+    },
+    {
+      "name": "InitCVIRTEEx",
+      "signature": "int CVIFUNC InitCVIRTEEx(void *hInstance, char *argv[], void *reserved);",
+      "description": "Initialize the LabWindows/CVI Run-Time Engine explicitly. InitCVIRTE is a macro alias for this function."
+    },
+    {
+      "name": "CVIRTEHasBeenDetached",
+      "signature": "int CVIFUNC CVIRTEHasBeenDetached(void);",
+      "description": "Report whether the CVI Run-Time Engine has already been detached."
+    },
+    {
+      "name": "CloseCVIRTE",
+      "signature": "void CVIFUNC CloseCVIRTE(void);",
+      "description": "Close the LabWindows/CVI Run-Time Engine after the application no longer requires it."
+    },
+    {
+      "name": "Executable CVI Run-Time Engine initialization recipe",
+      "signature": "InitCVIRTE(0, argv, 0) / CloseCVIRTE()",
+      "description": "Minimal executable-side initialization and shutdown sequence for code that calls CVI runtime APIs."
+    },
+    {
+      "name": "DLL-side CVI Run-Time Engine initialization recipe",
+      "signature": "InitCVIRTE(hInstance, 0, 0)",
+      "description": "Minimal DLL-side Run-Time Engine initialization sequence. Keep heavy work out of DllMain whenever possible."
+    }
+  ],
+  "keywords": [
+    {
+      "name": "CVICALLBACK",
+      "description": "CVI callback calling-convention marker used by panel, control, timer and asynchronous callbacks."
+    },
+    {
+      "name": "CVIFUNC",
+      "description": "CVI exported-function calling-convention marker used by the LabWindows/CVI runtime headers."
+    }
+  ],
+  "examplesWorkflows": [
+    {
+      "name": "CVI control callback skeleton",
+      "description": "Minimal static callback example retained as a compact reference workflow."
+    },
+    {
+      "name": "Load, display and discard a panel",
+      "description": "Minimal UIR lifecycle workflow."
+    },
+    {
+      "name": "SetCtrlVal and GetCtrlVal",
+      "description": "Read-modify-write workflow for a numeric control."
+    },
+    {
+      "name": "CVI callbackData context",
+      "description": "Typed callbackData context workflow avoiding global state."
+    }
+  ]
+}

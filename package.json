@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.3.0",
+  "version": "0.5.2",
   "publisher": "jc-tools",
   "license": "MIT",
   "engines": {
@@ -21,7 +21,20 @@
   ],
   "activationEvents": [
     "onView:labwindowsCvi.workspaceExplorer",
-    "onCommand:labwindowsCvi.openHome"
+    "onCommand:labwindowsCvi.openHome",
+    "onView:labwindowsCvi.libraryExplorer",
+    "onCommand:labwindowsCvi.debugInCvi",
+    "onCommand:labwindowsCvi.library.findFunction",
+    "onCommand:labwindowsCvi.library.managePacks",
+    "onCommand:labwindowsCvi.library.reloadPacks",
+    "onCommand:labwindowsCvi.insertSnippet",
+    "onCommand:labwindowsCvi.saveSelectionAsSnippet",
+    "onCommand:labwindowsCvi.manageSnippets",
+    "onCommand:labwindowsCvi.saveFileAsTemplate",
+    "onCommand:labwindowsCvi.importFileTemplate",
+    "onCommand:labwindowsCvi.manageFileTemplates",
+    "onCommand:labwindowsCvi.diagnoseCppTools",
+    "onCommand:labwindowsCvi.addWorkspaceFolderForIntelliSense"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -47,6 +60,12 @@
           "name": "CVI Workspace",
           "contextualTitle": "LabWindows/CVI",
           "showCollapseAll": true
+        },
+        {
+          "id": "labwindowsCvi.libraryExplorer",
+          "name": "CVI Libraries",
+          "contextualTitle": "CVI Libraries",
+          "showCollapseAll": true
         }
       ]
     },
@@ -59,7 +78,8 @@
     "commands": [
       {
         "command": "labwindowsCvi.openHome",
-        "title": "LabWindows/CVI: Open Home"
+        "title": "LabWindows/CVI: Open Home",
+        "icon": "$(home)"
       },
       {
         "command": "labwindowsCvi.openWorkspace",
@@ -83,6 +103,15 @@
         "command": "labwindowsCvi.syncCppTools",
         "title": "LabWindows/CVI: Synchronize C/C++ IntelliSense Configuration",
         "icon": "$(symbol-namespace)"
+      },
+      {
+        "command": "labwindowsCvi.diagnoseCppTools",
+        "title": "LabWindows/CVI: Diagnose C/C++ IntelliSense Configuration",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "labwindowsCvi.addWorkspaceFolderForIntelliSense",
+        "title": "LabWindows/CVI: Add CVI Folder to VS Code Workspace for IntelliSense"
       },
       {
         "command": "labwindowsCvi.selectBuildMode",
@@ -145,7 +174,7 @@
       },
       {
         "command": "labwindowsCvi.createNewFile",
-        "title": "Create New File..."
+        "title": "Create New File or Starter..."
       },
       {
         "command": "labwindowsCvi.addFolder",
@@ -238,6 +267,145 @@
       {
         "command": "labwindowsCvi.collapseAll",
         "title": "Collapse All"
+      },
+      {
+        "command": "labwindowsCvi.debugInCvi",
+        "title": "LabWindows/CVI: Build Debug and Open Native Debugger",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "labwindowsCvi.debugProjectInCvi",
+        "title": "Build Debug and Open Native Debugger",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.library.refresh",
+        "title": "Refresh Libraries",
+        "category": "CVI Libraries",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "labwindowsCvi.library.showFunctionDetails",
+        "title": "Show Symbol Details",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.insertCall",
+        "title": "Insert Symbol Call",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.findFunction",
+        "title": "Find Symbol",
+        "category": "CVI Libraries",
+        "icon": "$(search)"
+      },
+      {
+        "command": "labwindowsCvi.library.clearFind",
+        "title": "Clear Filter",
+        "category": "CVI Libraries",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "labwindowsCvi.library.reloadPacks",
+        "title": "Reload Library Packs",
+        "category": "CVI Libraries",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "labwindowsCvi.library.managePacks",
+        "title": "Manage Library Packs",
+        "category": "CVI Libraries",
+        "icon": "$(package)"
+      },
+      {
+        "command": "labwindowsCvi.library.importPack",
+        "title": "Import Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.createPack",
+        "title": "Add Library Pack",
+        "category": "CVI Libraries",
+        "icon": "$(add)"
+      },
+      {
+        "command": "labwindowsCvi.library.openVisualEditor",
+        "title": "Open Visual Library Pack Editor",
+        "category": "CVI Libraries",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "labwindowsCvi.library.generateHeader",
+        "title": "Generate Header From Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.importSymbols",
+        "title": "Import Source/Header Into Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.importPrototypes",
+        "title": "Import Prototypes Into Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.importSnippetFile",
+        "title": "Import Snippet File Into Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.addLanguageStarter",
+        "title": "Add Language Starter Into Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.addContent",
+        "title": "Add Content To Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.exportContent",
+        "title": "Export Content From Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.library.deleteContent",
+        "title": "Delete Content From Library Pack",
+        "category": "CVI Libraries"
+      },
+      {
+        "command": "labwindowsCvi.insertSnippet",
+        "title": "LabWindows/CVI: Insert CVI Snippet...",
+        "category": "LabWindows/CVI",
+        "icon": "$(symbol-snippet)"
+      },
+      {
+        "command": "labwindowsCvi.saveSelectionAsSnippet",
+        "title": "LabWindows/CVI: Save Selection as CVI Snippet...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.manageSnippets",
+        "title": "LabWindows/CVI: Manage CVI Snippets...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.saveFileAsTemplate",
+        "title": "Save as CVI Creation Template...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.importFileTemplate",
+        "title": "LabWindows/CVI: Import Creation Template From File...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.manageFileTemplates",
+        "title": "LabWindows/CVI: Manage Creation Templates...",
+        "category": "LabWindows/CVI"
       }
     ],
     "menus": {
@@ -260,17 +428,52 @@
         {
           "command": "labwindowsCvi.refresh",
           "when": "view == labwindowsCvi.workspaceExplorer",
-          "group": "navigation@4"
+          "group": "navigation@5"
         },
         {
           "command": "labwindowsCvi.configureInstallation",
           "when": "view == labwindowsCvi.workspaceExplorer",
-          "group": "navigation@5"
+          "group": "navigation@6"
         },
         {
           "command": "labwindowsCvi.syncCppTools",
           "when": "view == labwindowsCvi.workspaceExplorer",
-          "group": "navigation@6"
+          "group": "navigation@7"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseCppTools",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@8"
+        },
+        {
+          "command": "labwindowsCvi.debugInCvi",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.library.findFunction",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.library.clearFind",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.library.managePacks",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.library.openVisualEditor",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.library.reloadPacks",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
@@ -307,17 +510,17 @@
         {
           "command": "labwindowsCvi.editProjectInCvi",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "build@3"
+          "group": "build@4"
         },
         {
           "command": "labwindowsCvi.executeProject",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "build@4"
+          "group": "build@5"
         },
         {
           "command": "labwindowsCvi.removeProject",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "build@5"
+          "group": "build@6"
         },
         {
           "command": "labwindowsCvi.addFolder",
@@ -478,6 +681,21 @@
           "command": "labwindowsCvi.collapseAll",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
           "group": "navigation@5"
+        },
+        {
+          "command": "labwindowsCvi.debugProjectInCvi",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "build@3"
+        },
+        {
+          "command": "labwindowsCvi.library.insertCall",
+          "when": "view == labwindowsCvi.libraryExplorer && viewItem == cviFunction",
+          "group": "inline@9"
+        },
+        {
+          "command": "labwindowsCvi.saveFileAsTemplate",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.(source|header|other)\\./",
+          "group": "modification@3"
         }
       ],
       "commandPalette": [
@@ -511,10 +729,6 @@
         },
         {
           "command": "labwindowsCvi.addFiles",
-          "when": "false"
-        },
-        {
-          "command": "labwindowsCvi.createNewFile",
           "when": "false"
         },
         {
@@ -596,6 +810,22 @@
         {
           "command": "labwindowsCvi.findFile",
           "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.debugProjectInCvi",
+          "when": "false"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "labwindowsCvi.insertSnippet",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "modification@1"
+        },
+        {
+          "command": "labwindowsCvi.saveSelectionAsSnippet",
+          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
+          "group": "modification@2"
         }
       ]
     },
@@ -662,9 +892,55 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically create or update the managed LabWindows/CVI entry in .vscode/c_cpp_properties.json when a CVI workspace is opened or the selected installation changes."
+        },
+        "labwindowsCvi.autoAddCviFolderToWorkspace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically add the directory containing an opened CVI .cws or .prj file to the standard VS Code Explorer. This activates the generated .vscode/c_cpp_properties.json file and improves header resolution."
+        },
+        "labwindowsCvi.uirTemplateVersion": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "cvi2012",
+            "cvi2020"
+          ],
+          "default": "auto",
+          "description": "Blank .uir binary template used when creating CVI panels. auto selects CVI 2020 for a CVI2020 installation and otherwise uses the CVI 2012-compatible template."
+        },
+        "labwindowsCvi.useCppToolsConfigurationProvider": {
+          "type": "boolean",
+          "default": true,
+          "description": "Register this extension as a dynamic Microsoft C/C++ IntelliSense configuration provider. This keeps CVI headers resolvable even when project files are opened from the CVI explorer outside the current VS Code folder."
+        },
+        "labwindowsCvi.intelliSenseCompilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit compiler executable used by Microsoft C/C++ IntelliSense. Leave empty to auto-detect the internal CVI Clang executable."
+        },
+        "labwindowsCvi.additionalIncludePaths": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional include directories appended to the generated CVI IntelliSense configuration and dynamic provider."
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "labwindowsCvi.library.findFunction",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      },
+      {
+        "command": "labwindowsCvi.insertSnippet",
+        "key": "ctrl+alt+i",
+        "mac": "cmd+alt+i",
+        "when": "editorTextFocus"
+      }
+    ]
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

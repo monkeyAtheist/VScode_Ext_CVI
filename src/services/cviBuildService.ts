@@ -116,6 +116,45 @@ export class CviBuildService {
     this.output.appendLine(`[CVI] Started ${targetPath} ${args.map(renderArgument).join(' ')}`);
   }
 
+  /**
+   * Build a debug target and hand the workspace to the native CVI debugger.
+   *
+   * VS Code-native breakpoints and variable panes require a dedicated Debug
+   * Adapter Protocol bridge. Until that bridge is implemented, CVI remains the
+   * debugger frontend while this extension prepares the correct debug build.
+   */
+  async debugInCvi(projectRef?: CviWorkspaceProjectRef): Promise<void> {
+    const ref = projectRef ?? this.workspaces.activeProjectRef;
+    if (!ref?.exists) {
+      vscode.window.showErrorMessage('No existing CVI project is available for debugging.');
+      return;
+    }
+
+    if (this.buildMode === 'release' || this.buildMode === 'release64') {
+      const debugMode: CviBuildMode = this.buildMode === 'release64' ? 'debug64' : 'debug';
+      const answer = await vscode.window.showWarningMessage(
+        `The active build mode is ${this.buildMode}. Switch to ${debugMode}, build the project and open the native CVI debugger?`,
+        'Switch, build and open',
+        'Cancel'
+      );
+      if (answer !== 'Switch, build and open') {
+        return;
+      }
+      await vscode.workspace.getConfiguration('labwindowsCvi').update('buildMode', debugMode, vscode.ConfigurationTarget.Workspace);
+    }
+
+    const success = await this.build(false, ref);
+    if (!success) {
+      return;
+    }
+
+    const workspace = this.workspaces.currentWorkspace;
+    await this.openInCvi(workspace?.path ?? ref.absolutePath, workspace);
+    vscode.window.showInformationMessage(
+      'Debug build opened in CVI. Use the CVI Run menu for breakpoints, step commands, watch expressions and variable inspection.'
+    );
+  }
+
   async openWorkspaceInCvi(): Promise<void> {
     const workspace = this.workspaces.currentWorkspace;
     if (!workspace) {
