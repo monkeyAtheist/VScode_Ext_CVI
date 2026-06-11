@@ -7,7 +7,8 @@ import { CviInstallationService } from './cviInstallationService';
 
 const MANAGED_CONFIGURATION_NAME = 'LabWindows/CVI (managed)';
 const CPPTOOLS_EXTENSION_ID = 'ms-vscode.cpptools';
-const CVI_CONFIGURATION_PROVIDER_ID = 'jc-tools.labwindows-cvi-project-manager';
+const CVI_CONFIGURATION_PROVIDER_ID = 'JerryCrozet-ElectronicEngineer.labwindows-cvi-project-manager';
+const LEGACY_CVI_CONFIGURATION_PROVIDER_IDS = ['jc-tools.labwindows-cvi-project-manager', CVI_CONFIGURATION_PROVIDER_ID];
 
 interface CppPropertiesDocument {
   version?: number;
@@ -109,36 +110,11 @@ export class CviCppToolsService implements vscode.Disposable {
   }
 
   async initializeProvider(): Promise<void> {
-    if (this.providerRegistered) {
-      return;
-    }
-
-    const enabled = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('useCppToolsConfigurationProvider', true);
-    if (!enabled) {
-      this.output.appendLine('[CVI] Dynamic C/C++ IntelliSense provider disabled by settings.');
-      return;
-    }
-
-    const extension = vscode.extensions.getExtension<any>(CPPTOOLS_EXTENSION_ID);
-    if (!extension) {
-      this.output.appendLine('[CVI] Microsoft C/C++ extension not detected. The generated c_cpp_properties.json file remains available as a fallback.');
-      return;
-    }
-
-    try {
-      const exported = await extension.activate();
-      const api = typeof exported?.getApi === 'function' ? exported.getApi(1) : exported;
-      if (!api || typeof api.registerCustomConfigurationProvider !== 'function' || typeof api.notifyReady !== 'function') {
-        this.output.appendLine('[CVI] Microsoft C/C++ extension detected, but its custom configuration provider API is unavailable.');
-        return;
-      }
-      this.cppToolsApi = api as CppToolsApiLike;
-      this.cppToolsApi.registerCustomConfigurationProvider(this.provider);
-      this.cppToolsApi.notifyReady(this.provider);
-      this.providerRegistered = true;
-      this.output.appendLine('[CVI] Registered the LabWindows/CVI dynamic IntelliSense configuration provider.');
-    } catch (error) {
-      this.output.appendLine(`[CVI] Cannot register the dynamic IntelliSense provider: ${error instanceof Error ? error.message : String(error)}`);
+    // Disabled permanently since 0.6.0. Registering a custom C/C++ provider can
+    // remain selected globally by cpptools and affect unrelated C/C++ folders.
+    // The extension now relies on the managed c_cpp_properties.json entry only.
+    if (!this.providerRegistered) {
+      this.output.appendLine('[CVI] Dynamic C/C++ IntelliSense provider registration is disabled. Using managed c_cpp_properties.json.');
     }
   }
 
@@ -155,8 +131,6 @@ export class CviCppToolsService implements vscode.Disposable {
 
   async sync(workspace: CviWorkspace | undefined, notify = false): Promise<string | undefined> {
     this.setCurrentWorkspace(workspace);
-    await this.initializeProvider();
-
     if (!workspace) {
       if (notify) {
         vscode.window.showErrorMessage('Open a LabWindows/CVI workspace or project before synchronizing IntelliSense.');
@@ -287,10 +261,123 @@ export class CviCppToolsService implements vscode.Disposable {
       : `Added ${root} to the standard VS Code Explorer for CVI IntelliSense.`);
   }
 
+  async offerProviderRepairIfNeeded(workspace: CviWorkspace | undefined = this.currentWorkspace): Promise<void> {
+    if (!this.hasConfiguredCviProviderReference()) {
+      return;
+    }
+    const action = await vscode.window.showWarningMessage(
+      'The LabWindows/CVI dynamic C/C++ provider is still selected in VS Code. It can override normal IntelliSense settings outside CVI projects. Use the managed c_cpp_properties.json configuration instead?',
+      'Repair IntelliSense',
+      'Keep provider'
+    );
+    if (action === 'Repair IntelliSense') {
+      await this.repairCppToolsProviderSelection(workspace);
+    }
+  }
+
+  async autoRepairStaleProviderSelection(workspace: CviWorkspace | undefined = this.currentWorkspace): Promise<boolean> {
+    const clearedScopes: string[] = [];
+    const settingName = 'default.configurationProvider';
+    const clearIfManaged = async (resource: vscode.Uri | undefined, target: vscode.ConfigurationTarget, value: unknown, scopeLabel: string): Promise<void> => {
+      if (!isCviProviderId(value)) {
+        return;
+      }
+      await vscode.workspace.getConfiguration('C_Cpp', resource).update(settingName, undefined, target);
+      clearedScopes.push(scopeLabel);
+    };
+
+    const globalConfig = vscode.workspace.getConfiguration('C_Cpp');
+    const globalInspect = globalConfig.inspect<string>(settingName);
+    await clearIfManaged(undefined, vscode.ConfigurationTarget.Global, globalInspect?.globalValue, 'user settings');
+    await clearIfManaged(undefined, vscode.ConfigurationTarget.Workspace, globalInspect?.workspaceValue, 'workspace settings');
+
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const scoped = vscode.workspace.getConfiguration('C_Cpp', folder.uri);
+      const inspected = scoped.inspect<string>(settingName);
+      await clearIfManaged(folder.uri, vscode.ConfigurationTarget.WorkspaceFolder, inspected?.workspaceFolderValue, `folder settings: ${folder.name}`);
+    }
+
+    const oldSetting = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('useCppToolsConfigurationProvider', false);
+    if (oldSetting) {
+      await vscode.workspace.getConfiguration('labwindowsCvi').update('useCppToolsConfigurationProvider', false, vscode.ConfigurationTarget.Global);
+      clearedScopes.push('deprecated LabWindows/CVI provider setting');
+    }
+    const removedFromFiles = await this.removeManagedProviderReferencesFromOpenedFolders();
+    if (workspace) {
+      await this.sync(workspace, false);
+    }
+    const changed = clearedScopes.length > 0 || removedFromFiles > 0;
+    if (changed) {
+      this.output.appendLine(`[CVI] Automatically removed stale dynamic IntelliSense provider references${clearedScopes.length ? ` from ${clearedScopes.join(', ')}` : ''}${removedFromFiles ? ` and ${removedFromFiles} managed c_cpp_properties.json file(s)` : ''}.`);
+    }
+    return changed;
+  }
+
+  async repairCppToolsProviderSelection(workspace: CviWorkspace | undefined = this.currentWorkspace): Promise<void> {
+    const changed = await this.autoRepairStaleProviderSelection(workspace);
+    this.output.appendLine(changed
+      ? '[CVI] IntelliSense repair removed stale provider references.'
+      : '[CVI] IntelliSense repair found no stale LabWindows/CVI provider reference.');
+    const action = await vscode.window.showInformationMessage(
+      'LabWindows/CVI C/C++ provider cleanup completed. Reload VS Code, then run C/C++: Reset IntelliSense Database once to restore native completion such as printf.',
+      'Reload Window'
+    );
+    if (action === 'Reload Window') {
+      await vscode.commands.executeCommand('workbench.action.reloadWindow');
+    }
+  }
+
+  private hasConfiguredCviProviderReference(): boolean {
+    const settingName = 'default.configurationProvider';
+    const inspect = vscode.workspace.getConfiguration('C_Cpp').inspect<string>(settingName);
+    if (isCviProviderId(inspect?.globalValue) || isCviProviderId(inspect?.workspaceValue)) {
+      return true;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const scoped = vscode.workspace.getConfiguration('C_Cpp', folder.uri).inspect<string>(settingName);
+      if (isCviProviderId(scoped?.workspaceFolderValue)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async removeManagedProviderReferencesFromOpenedFolders(): Promise<number> {
+    let modifiedFiles = 0;
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const configPath = path.join(folder.uri.fsPath, '.vscode', 'c_cpp_properties.json');
+      if (!fs.existsSync(configPath)) {
+        continue;
+      }
+      const document = this.readExistingDocument(configPath);
+      if (!document || !Array.isArray(document.configurations)) {
+        continue;
+      }
+      let changed = false;
+      for (const configuration of document.configurations) {
+        if (configuration?.name !== MANAGED_CONFIGURATION_NAME) {
+          continue;
+        }
+        if (isCviProviderId(configuration.configurationProvider)) {
+          delete configuration.configurationProvider;
+          changed = true;
+        }
+        if (configuration.mergeConfigurations !== undefined) {
+          delete configuration.mergeConfigurations;
+          changed = true;
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(configPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
+        this.output.appendLine(`[CVI] Removed stale provider reference from ${configPath}`);
+        modifiedFiles += 1;
+      }
+    }
+    return modifiedFiles;
+  }
+
   async diagnose(workspace: CviWorkspace | undefined = this.currentWorkspace): Promise<void> {
     this.setCurrentWorkspace(workspace);
-    await this.initializeProvider();
-
     this.output.appendLine('');
     this.output.appendLine('========== LabWindows/CVI IntelliSense diagnostic ==========');
     if (!workspace) {
@@ -327,8 +414,10 @@ export class CviCppToolsService implements vscode.Disposable {
     this.output.appendLine(`[CVI] IntelliSense compiler: ${compilerPath ?? 'not detected; explicit include paths will be used'}`);
     const ansiHeaderCandidates = findHeaderCandidates(includeRoot, ['ansi.h', 'ansi_c.h'], 5, 600);
     const windowsHeaderCandidates = findWindowsHeaderCandidates();
+    const exceptionHeaderCandidates = findMsvcCompatibilityIncludeDirectories().map((directory) => path.join(directory, 'excpt.h')).filter((candidate) => fs.existsSync(candidate)).map(toForwardSlashes);
     this.output.appendLine(`[CVI] ANSI header candidates: ${ansiHeaderCandidates.length ? ansiHeaderCandidates.join(' · ') : 'not found under the selected CVI include directory'}`);
     this.output.appendLine(`[CVI] windows.h candidates: ${windowsHeaderCandidates.length ? windowsHeaderCandidates.join(' · ') : 'not found in detected Windows SDK directories'}`);
+    this.output.appendLine(`[CVI] excpt.h candidates: ${exceptionHeaderCandidates.length ? exceptionHeaderCandidates.join(' · ') : 'not found in detected MSVC compatibility include directories'}`);
 
     const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
     if (activeFile) {
@@ -448,6 +537,7 @@ export class CviCppToolsService implements vscode.Disposable {
     const toolsLibraryRoot = path.join(installation.root, 'toolslib');
     const toolboxRoot = path.join(toolsLibraryRoot, 'toolbox');
     const windowsKitRoots = findWindowsKitIncludeDirectories();
+    const msvcCompatibilityRoots = findMsvcCompatibilityIncludeDirectories();
     const ansiHeaderDirectories = findHeaderCandidates(includeRoot, ['ansi.h', 'ansi_c.h'], 5, 600).map((header) => path.dirname(header));
     const includePath = unique([
       ...projectDirectories,
@@ -457,6 +547,7 @@ export class CviCppToolsService implements vscode.Disposable {
       ...collectHeaderDirectories(includeRoot, 5, 600),
       ...collectHeaderDirectories(toolsLibraryRoot, 7, 900),
       ...windowsKitRoots.flatMap((directory) => collectHeaderDirectories(directory, 3, 300)),
+      ...msvcCompatibilityRoots,
       ...additional
     ].filter((entry) => fs.existsSync(entry)).map(toForwardSlashes));
     const browsePath = unique([
@@ -467,6 +558,7 @@ export class CviCppToolsService implements vscode.Disposable {
       toolsLibraryRoot,
       toolboxRoot,
       ...windowsKitRoots,
+      ...msvcCompatibilityRoots,
       ...additional
     ].filter((entry) => fs.existsSync(entry)).map(toForwardSlashes));
     const value: ProviderPaths = {
@@ -549,6 +641,7 @@ export class CviCppToolsService implements vscode.Disposable {
     const toolsLibraryDirectory = path.join(installation.root, 'toolslib');
     const toolboxDirectory = path.join(toolsLibraryDirectory, 'toolbox');
     const windowsKitIncludeDirectories = findWindowsKitIncludeDirectories();
+    const msvcCompatibilityIncludeDirectories = findMsvcCompatibilityIncludeDirectories();
     const projectDirectories = this.collectProjectDirectories(workspace);
     const additional = this.getAdditionalIncludePaths();
 
@@ -563,6 +656,7 @@ export class CviCppToolsService implements vscode.Disposable {
       existingPath(toolboxDirectory),
       ...windowsKitIncludeDirectories,
       ...windowsKitIncludeDirectories.map((directory) => `${directory}${path.sep}**`),
+      ...msvcCompatibilityIncludeDirectories,
       ...additional.map(existingPath)
     ].filter((value): value is string => !!value).map(toForwardSlashes));
 
@@ -575,10 +669,10 @@ export class CviCppToolsService implements vscode.Disposable {
       existingPath(toolsLibraryDirectory),
       existingPath(toolboxDirectory),
       ...windowsKitIncludeDirectories,
+      ...msvcCompatibilityIncludeDirectories,
       ...additional.map(existingPath)
     ].filter((value): value is string => !!value).map(toForwardSlashes));
 
-    const useProvider = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('useCppToolsConfigurationProvider', true);
     const configuration: CppToolsConfiguration = {
       name: MANAGED_CONFIGURATION_NAME,
       intelliSenseMode: 'windows-clang-x86',
@@ -589,8 +683,7 @@ export class CviCppToolsService implements vscode.Disposable {
         path: browsePath,
         limitSymbolsToIncludedHeaders: false
       },
-      defines: defaultDefines(),
-      ...(useProvider ? { configurationProvider: CVI_CONFIGURATION_PROVIDER_ID, mergeConfigurations: true } : {})
+      defines: defaultDefines()
     };
 
     const compilerPath = this.resolveCompilerPath(installation);
@@ -599,6 +692,34 @@ export class CviCppToolsService implements vscode.Disposable {
     }
     return configuration;
   }
+}
+
+function isCviProviderId(value: unknown): boolean {
+  return typeof value === 'string' && LEGACY_CVI_CONFIGURATION_PROVIDER_IDS.includes(value);
+}
+
+function findMsvcCompatibilityIncludeDirectories(): string[] {
+  const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
+  const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
+  const roots = unique([
+    path.join(programFiles, 'Microsoft Visual Studio'),
+    path.join(programFilesX86, 'Microsoft Visual Studio'),
+    path.join(programFilesX86, 'Microsoft Visual Studio 14.0', 'VC', 'include'),
+    path.join(programFiles, 'Microsoft Visual Studio 14.0', 'VC', 'include')
+  ]);
+  const directories: string[] = [];
+  for (const root of roots) {
+    if (!fs.existsSync(root)) {
+      continue;
+    }
+    if (fs.existsSync(path.join(root, 'excpt.h'))) {
+      directories.push(root);
+    }
+    for (const header of findHeaderCandidates(root, ['excpt.h'], 9, 3000)) {
+      directories.push(path.dirname(header));
+    }
+  }
+  return unique(directories.map(toForwardSlashes));
 }
 
 function defaultDefines(): string[] {

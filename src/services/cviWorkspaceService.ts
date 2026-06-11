@@ -118,6 +118,35 @@ export class CviWorkspaceService implements vscode.Disposable {
     await this.context.workspaceState.update(LAST_WORKSPACE_KEY, filePath);
     this.output.appendLine(`[CVI] Loaded ${extension === '.cws' ? 'workspace' : 'project'}: ${filePath}`);
     this.changeEmitter.fire();
+    if (extension === '.cws') {
+      const issues = this.parser.inspectWorkspaceCompatibility(filePath);
+      if (issues.length > 0) {
+        this.output.appendLine('[CVI] Native workspace compatibility issues detected:');
+        issues.forEach((issue) => this.output.appendLine(`  - ${issue}`));
+        void vscode.window.showWarningMessage(
+          `${path.basename(filePath)} contains ${issues.length} CVI workspace compatibility issue(s). Repair the native workspace before saving new run settings.`,
+          'Repair workspace',
+          'Ignore'
+        ).then((answer) => answer === 'Repair workspace' ? this.repairNativeWorkspaceCompatibility() : undefined);
+      }
+    }
+  }
+
+  async repairNativeWorkspaceCompatibility(): Promise<void> {
+    const workspace = this.workspace;
+    if (!workspace || path.extname(workspace.path).toLowerCase() !== '.cws') {
+      vscode.window.showErrorMessage('Open a .cws LabWindows/CVI workspace before running the compatibility repair.');
+      return;
+    }
+    const result = this.parser.repairWorkspaceCompatibility(workspace.path);
+    if (!result.changed) {
+      vscode.window.showInformationMessage(`${path.basename(workspace.path)} does not require a native CVI compatibility repair.`);
+      return;
+    }
+    this.output.appendLine(`[CVI] Native workspace compatibility repair applied to ${workspace.path}:`);
+    result.changes.forEach((change) => this.output.appendLine(`  - ${change}`));
+    this.refresh();
+    vscode.window.showInformationMessage(`Repaired ${path.basename(workspace.path)}. A backup was stored in .vscode/cvi-native-backups.`);
   }
 
   refresh(): void {
@@ -447,6 +476,53 @@ export class CviWorkspaceService implements vscode.Disposable {
     return commonAncestor(files) ?? path.dirname(projectRef.absolutePath);
   }
 
+
+  async selectTargetType(projectRef?: CviWorkspaceProjectRef): Promise<void> {
+    const ref = projectRef ?? this.activeProjectRef;
+    if (!ref?.exists) {
+      vscode.window.showErrorMessage('No existing CVI project is selected.');
+      return;
+    }
+    const project = this.getProject(ref);
+    const selected = await vscode.window.showQuickPick([
+      { label: 'Executable', value: 'Executable', description: 'Generate an .exe target' },
+      { label: 'Dynamic Link Library', value: 'Dynamic Link Library', description: 'Generate a .dll target and import library' },
+      { label: 'Static Library', value: 'Static Library', description: 'Generate a .lib target' }
+    ], { title: `Select the CVI target type for ${ref.name}`, placeHolder: project?.targetType });
+    if (!selected) {
+      return;
+    }
+    this.parser.setTargetType(ref.absolutePath, selected.value);
+    this.refresh();
+    vscode.window.showInformationMessage(`${ref.name} target type: ${selected.label}.`);
+  }
+
+  async generatePrototypes(projectRef: CviWorkspaceProjectRef, file: CviProjectFile): Promise<void> {
+    if (path.extname(file.absolutePath).toLowerCase() !== '.c') {
+      vscode.window.showErrorMessage('Generate Prototypes is available only for C source files.');
+      return;
+    }
+    if (!fs.existsSync(file.absolutePath)) {
+      vscode.window.showErrorMessage(`Source file not found: ${file.absolutePath}`);
+      return;
+    }
+    const headerPath = path.join(path.dirname(file.absolutePath), `${path.basename(file.absolutePath, '.c')}.h`);
+    if (fs.existsSync(headerPath)) {
+      const answer = await vscode.window.showWarningMessage(`${path.basename(headerPath)} already exists. Replace it with generated prototypes?`, { modal: true }, 'Replace');
+      if (answer !== 'Replace') {
+        return;
+      }
+    }
+    const source = fs.readFileSync(file.absolutePath, 'utf8');
+    const header = generatePrototypeHeader(source, path.basename(headerPath));
+    fs.writeFileSync(headerPath, header, 'utf8');
+    this.parser.addFilesToProject(projectRef.absolutePath, [headerPath]);
+    this.refresh();
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(headerPath));
+    await vscode.window.showTextDocument(document, { preview: false });
+    vscode.window.showInformationMessage(`Generated ${path.basename(headerPath)}. Review the prototypes before using the header as a public API.`);
+  }
+
   private findFilesAtLimitedDepth(directory: string, extension: string, depth: number): string[] {
     if (depth < 0 || !fs.existsSync(directory)) {
       return [];
@@ -530,4 +606,30 @@ function commonAncestor(paths: string[]): string | undefined {
     }
   }
   return length > 0 ? first.slice(0, length).join(path.sep) || path.parse(paths[0]).root : undefined;
+}
+
+
+export function generatePrototypeHeader(source: string, headerName: string): string {
+  const stripped = source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const pattern = /(^|\n)\s*((?:(?!\bstatic\b)[A-Za-z_][A-Za-z0-9_\s\*]*?))\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^;{}]*)\)\s*\{/g;
+  const blocked = new Set(['if', 'for', 'while', 'switch', 'catch']);
+  const prototypes: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(stripped)) !== null) {
+    const returnType = match[2].replace(/\s+/g, ' ').trim();
+    const name = match[3];
+    const parameters = match[4].replace(/\s+/g, ' ').trim();
+    if (!returnType || blocked.has(name) || /\bstatic\b/.test(returnType)) {
+      continue;
+    }
+    const prototype = `${returnType} ${name} (${parameters || 'void'});`;
+    if (!prototypes.includes(prototype)) {
+      prototypes.push(prototype);
+    }
+  }
+  const guard = headerName.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
+  const body = prototypes.length ? prototypes.join('\n') : '/* No non-static function definitions were detected automatically. */';
+  return `#ifndef ${guard}\n#define ${guard}\n\n#ifdef __cplusplus\nextern "C" {\n#endif\n\n${body}\n\n#ifdef __cplusplus\n}\n#endif\n\n#endif /* ${guard} */\n`;
 }

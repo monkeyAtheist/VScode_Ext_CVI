@@ -1,5 +1,12 @@
 export type CviBuildMode = 'debug' | 'release' | 'debug64' | 'release64';
 
+export interface CviRunOptions {
+  arguments: string;
+  workingDirectory: string;
+  environmentOptions: string;
+  externalProcessPath: string;
+}
+
 export interface CviWorkspaceProjectRef {
   index: number;
   relativePath: string;

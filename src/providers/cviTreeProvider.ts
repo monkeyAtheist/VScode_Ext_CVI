@@ -16,10 +16,7 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
   private readonly changeEmitter = new vscode.EventEmitter<CviTreeNode | undefined | null | void>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
 
-  constructor(
-    private readonly workspaces: CviWorkspaceService,
-    private readonly extensionUri: vscode.Uri
-  ) {
+  constructor(private readonly workspaces: CviWorkspaceService) {
     this.workspaces.onDidChange(() => this.refresh());
   }
 
@@ -134,7 +131,7 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
   }
 
   private fileItem(node: FileNode): vscode.TreeItem {
-    const item = new vscode.TreeItem(path.basename(node.file.absolutePath), vscode.TreeItemCollapsibleState.None);
+    const item = new vscode.TreeItem(`└─ ${path.basename(node.file.absolutePath)}`, vscode.TreeItemCollapsibleState.None);
     item.description = statusDescription(node.file);
     item.tooltip = [
       node.file.type,
@@ -143,20 +140,12 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
       node.file.type === 'CSource' ? `.Obj option: ${node.file.compileIntoObjectFile ? 'enabled' : 'disabled'}` : undefined
     ].filter(Boolean).join('\n');
     item.contextValue = contextValueForFile(node.file);
-    item.iconPath = this.branchIconForFile(node.file);
+    item.iconPath = new vscode.ThemeIcon(iconForFile(node.file));
     item.resourceUri = vscode.Uri.file(node.file.absolutePath);
     item.command = isPanel(node.file)
       ? { command: 'labwindowsCvi.openPanelInCvi', title: 'Open Panel in CVI UI Editor', arguments: [node] }
       : { command: 'labwindowsCvi.openFile', title: 'Open File', arguments: [node] };
     return item;
-  }
-
-  private branchIconForFile(file: CviProjectFile): { light: vscode.Uri; dark: vscode.Uri } {
-    const kind = iconKindForFile(file);
-    return {
-      light: vscode.Uri.joinPath(this.extensionUri, 'media', 'tree', `${kind}-light.svg`),
-      dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'tree', `${kind}-dark.svg`)
-    };
   }
 
   private placeholderItem(node: PlaceholderNode): vscode.TreeItem {
@@ -199,16 +188,16 @@ function statusDescription(file: CviProjectFile): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
-function iconKindForFile(file: CviProjectFile): string {
+function iconForFile(file: CviProjectFile): string {
   if (!fs.existsSync(file.absolutePath)) {
     return 'warning';
   }
   switch (path.extname(file.absolutePath).toLowerCase()) {
-    case '.c': return 'source';
-    case '.h': return 'header';
-    case '.uir': return 'panel';
+    case '.c': return 'file-code';
+    case '.h': return 'symbol-interface';
+    case '.uir': return 'preview';
     case '.lib': return 'library';
-    case '.fp': return 'function';
+    case '.fp': return 'symbol-method';
     default: return 'file';
   }
 }

@@ -2,19 +2,20 @@
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.5.1` repairs CVI header resolution in Microsoft C/C++ IntelliSense. It retains the file-creation wizard, blank `.uir` generation, reusable user templates, insertable CVI snippets and the JC Lib `0.7.96` CVI catalog introduced in `0.5.0`.
+Version `0.6.4` improves the native project build-settings editor with file-browser buttons, per-configuration editing scopes and target-aware drop-down lists. It retains guarded native `.prj` / `.cws` writes, automatic backups, the file-creation wizard, blank `.uir` generation, reusable user templates, insertable CVI snippets and the embedded JC Lib `0.7.96` CVI catalog.
 
 ## Main views
 
-The **LabWindows/CVI** activity-bar container exposes two vertically stacked native VS Code views:
+The **LabWindows/CVI** activity-bar container exposes a compact persistent action strip followed by two vertically stacked native VS Code views:
 
 ```text
 LabWindows/CVI
+├── CVI Actions
 ├── CVI Workspace
 └── CVI Libraries
 ```
 
-The divider between these views is resizable. The first view manages `.cws` and `.prj` content. The second view embeds the CVI API explorer derived from JC Lib.
+The **CVI Workspace** title bar keeps the most common commands visible without requiring mouse hover. The separate **CVI Actions** view is a collapsible dashboard summarizing the active target type, build mode, launch settings, native build steps, dependencies and missing files. The dividers between the views remain resizable. **CVI Workspace** manages `.cws` and `.prj` content. **CVI Libraries** embeds the CVI API explorer derived from JC Lib.
 
 ## Workspace and project operations
 
@@ -31,6 +32,49 @@ The extension can:
 - build, rebuild, compile an individual `.c` file and execute the active target;
 - open workspaces, projects and `.uir` panels in the native CVI IDE;
 - discover common CVI installations and store a manually selected installation.
+
+
+## CVI-native build settings
+
+The project build-settings editor synchronizes the verified CVI-native fields instead of keeping a parallel copy whenever the native format is known.
+
+The following `.prj` sections are read and written for the active configuration:
+
+```text
+[Debug Pre-build Actions]
+[Debug Custom Build Actions]
+[Debug Post-build Actions]
+```
+
+The following `.cws` section is read and written per project and per build mode:
+
+```text
+[Default Build Config 0001 Debug]
+Command Line Args = "..."
+Working Directory = "..."
+Environment Options = "..."
+External Process Path = "..."
+```
+
+Native CVI build steps are not executed twice: when these `.prj` sections are present, `compile.exe` is allowed to run them. The extension-side dependency graph remains stored under `.vscode/labwindows-cvi-build.json` until an example workspace containing a non-empty CVI-native dependency graph is available for exact compatibility validation.
+
+## Build-settings editor ergonomics
+
+The **Project Build Settings...** page exposes a configuration selector before saving changes:
+
+```text
+Debug
+Release
+Debug64
+Release64
+All Configurations
+```
+
+`All Configurations` applies the entered values to the four CVI build configurations while keeping the guarded native backup mechanism.
+
+Path fields provide a folder button for native VS Code browsing. This covers the target output file, application icon, manifest, DLL copy directory, function-panel file, NI type-information header, working directory and DLL-debugging host executable.
+
+The most common CVI enumerations are displayed as target-aware lists rather than free-form text, including run-time support, run-time binding, generated source documentation, DLL copy destination and DLL export mode. Existing project values that are not yet part of the verified catalog remain selectable and are preserved.
 
 ## Create New File or Starter
 
@@ -230,7 +274,7 @@ compile.exe <file.c> <project.prj> -debug
 
 1. Open **Extensions** in VS Code.
 2. Select `...` then **Install from VSIX...**.
-3. Choose `labwindows-cvi-project-manager-0.5.1.vsix`.
+3. Choose `labwindows-cvi-project-manager-0.5.9.vsix`.
 4. Execute **Developer: Reload Window**.
 
 ## Source build
@@ -240,3 +284,74 @@ npm install
 npm run compile
 npm run package
 ```
+## Home page layout and UIR editing
+
+The CVI home page is organized vertically so full workspace and project paths remain readable. When no project is loaded, the page exposes primary actions to open or create a workspace and select a CVI installation.
+
+`.uir` files open directly in the LabWindows/CVI User Interface Editor. The editor is part of the native CVI IDE; NI does not provide a standalone UIR editor executable.
+
+
+## Advanced build workflow
+
+The project explorer toolbar exposes a compact **Build / Rebuild / Clean** picker. Build and rebuild invoke the selected CVI installation `compile.exe` directly and stream the compiler log into the **LabWindows/CVI** output channel. Timestamped log files are retained under:
+
+```text
+.vscode/cvi-build-logs
+```
+
+The current target type can be selected from the Home page or the project context menu:
+
+```text
+Executable
+Dynamic Link Library
+Static Library
+```
+
+**Project Build Settings...** edits the current target workflow. Native CVI build-step sections are written directly into the `.prj`, while executable command-line settings are written into the `.cws`. Project-dependency metadata is temporarily mirrored in:
+
+```text
+.vscode/labwindows-cvi-build.json
+```
+
+The settings cover:
+
+- dependency projects and dependency build order;
+- pre-build shell actions;
+- custom build shell actions executed before the native CVI compilation;
+- post-build shell actions executed after a successful native build;
+- executable command-line arguments;
+- working directory;
+- environment options;
+- external host executable for DLL runs.
+
+When a `.cws` workspace is loaded, executable command-line settings are also mirrored into the corresponding CVI workspace sections. Target type is written into the native `.prj` metadata.
+
+The **Clean Generated Target** action deliberately removes only generated target artifacts for the active configuration. It does not delete source files or referenced third-party libraries.
+
+## Prototype header generation
+
+A C source file context menu exposes:
+
+```text
+Generate Prototypes Header...
+```
+
+This creates an editable `<source-name>.h` baseline containing detected non-static function declarations, adds it to the CVI project and opens it in VS Code. The built-in generator is conservative and should be reviewed before use in a public API. For an exact CVI-native result, compile the source and use the native **Generate Prototypes** command in LabWindows/CVI.
+
+## CVI runtime paths, completions and file symbols
+
+Version 0.5.8 normalizes CVI/MSYS-style DLL host paths such as `/c/PROG_CVI/EXE/Test.exe` before launching them on Windows while preserving the native `.cws` value. Version 0.5.9 moves the persistent toolbar to the **CVI Workspace** title bar so collapsing the **CVI Actions** dashboard no longer hides the main commands. The toolbar exposes direct **Build + Run**, advanced run options, the compact build-mode labels `D32`, `R32`, `D64`, `R64`, and the compact target labels `EXE`, `DLL`, `LIB`.
+
+The extension also contributes supplemental C/C++ completions from the active project and the embedded CVI API pack. A dedicated `CVI File Symbols` view lists functions found in the selected `.c` or `.h` file and navigates to them on click.
+
+## Persistent actions and C/C++ completion repair
+
+VS Code exposes toolbar actions for individual views through `view/title`, but it does not expose a public toolbar contribution point for the outer `LABWINDOWS/CVI` view-container header. The extension therefore keeps the `CVI Workspace` toolbar and also exposes a compact persistent status-bar strip. The strip remains usable when the sidebar views are collapsed and can be disabled with `labwindowsCvi.showPersistentStatusBarActions`.
+
+Version 0.6.0 permanently disables the historical dynamic Microsoft C/C++ configuration-provider integration. The provider could remain selected globally by cpptools and interfere with unrelated C/C++ folders. CVI include directories are now supplied only through the managed `.vscode/c_cpp_properties.json` entry. On activation, stale LabWindows/CVI provider references are removed automatically. After upgrading from an older version, reload VS Code and run `C/C++: Reset IntelliSense Database` once if native completion such as `printf` is still missing.
+
+## Native workspace safety
+
+Version 0.6.1 writes command-line and DLL-debugging settings only into the CVI per-configuration sections of the `.cws` file. Windows runtime paths are converted back to CVI `/c/...` notation before persistence and are converted to Windows form only in memory when launching a target.
+
+Before overwriting a native `.cws` or `.prj` file, the extension creates a timestamped backup under `.vscode/cvi-native-backups`. Workspaces affected by earlier releases can be repaired with `LabWindows/CVI: Repair Native Workspace Compatibility`.

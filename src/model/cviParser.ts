@@ -1,15 +1,136 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { IniDocument, IniSection } from './iniDocument';
-import { CviBuildMode, CviProject, CviProjectFile, CviWorkspace, CviWorkspaceProjectRef } from './types';
-import { fromCviPath, normalizeRelativePath, quote, splitCviLongValue, toCviPath, unquote } from '../utils/pathUtils';
+import { CviBuildMode, CviProject, CviProjectFile, CviRunOptions, CviWorkspace, CviWorkspaceProjectRef } from './types';
+import { fromCviPath, normalizeRelativePath, quote, splitCviLongValue, toCviPath, toCviRuntimeStoragePath, unquote } from '../utils/pathUtils';
+
+
+export interface CviVersionInfoSettings {
+  numericFileVersion: string;
+  numericProductVersion: string;
+  comments: string;
+  companyName: string;
+  fileDescription: string;
+  fileVersion: string;
+  internalName: string;
+  legalCopyright: string;
+  legalTrademarks: string;
+  originalFilename: string;
+  privateBuild: string;
+  productName: string;
+  productVersion: string;
+  specialBuild: string;
+}
+
+export interface CviSigningSettings {
+  enabled: boolean;
+  store: string;
+  certificate: string;
+  timestampUrl: string;
+  descriptionUrl: string;
+  signDebugBuild: boolean;
+}
+
+export interface CviNativeTargetSettings {
+  targetType: string;
+  outputPath: string;
+  applicationTitle: string;
+  iconFile: string;
+  runtimeSupport: string;
+  runtimeBinding: string;
+  generateSourceDocumentation: string;
+  manifestEmbed: boolean;
+  manifestPath: string;
+  embedProjectUirs: boolean;
+  generateMapFile: boolean;
+  createConsoleApplication: boolean;
+  embedTimestamp: boolean;
+  usingLoadExternalModule: boolean;
+  forcedModules: string[];
+  useDefaultImportLibBaseName: boolean;
+  importLibBaseName: string;
+  whereToCopyDll: string;
+  customDirectoryToCopyDll: string;
+  useIviSubdirectoriesForImportLibraries: boolean;
+  useVxiPnpSubdirectoriesForImportLibraries: boolean;
+  dllExports: string;
+  exportFiles: string[];
+  addTypeLibToDll: boolean;
+  includeTypeLibHelpLinks: boolean;
+  tlbHelpStyle: string;
+  typeLibFpFile: string;
+  addNiTypeInfoToDll: boolean;
+  useSingleHeaderForNiTypeInfo: boolean;
+  singleHeaderNiTypeInfoFile: string;
+  versionInfo: CviVersionInfoSettings;
+  signing: CviSigningSettings;
+}
 
 function readText(filePath: string): string {
   return fs.readFileSync(filePath, 'utf8');
 }
 
 function writeText(filePath: string, content: string): void {
-  fs.writeFileSync(filePath, content, 'utf8');
+  const current = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : undefined;
+  if (current === content) {
+    return;
+  }
+  validateNativeDocument(filePath, content);
+  if (current !== undefined && isNativeCviDocument(filePath)) {
+    createNativeBackup(filePath, current);
+  }
+  const temporaryPath = `${filePath}.vscode-cvi-${process.pid}-${Date.now()}.tmp`;
+  fs.writeFileSync(temporaryPath, content, 'utf8');
+  try {
+    fs.copyFileSync(temporaryPath, filePath);
+  } finally {
+    try { fs.rmSync(temporaryPath, { force: true }); } catch { /* ignored */ }
+  }
+}
+
+function isNativeCviDocument(filePath: string): boolean {
+  const extension = path.extname(filePath).toLowerCase();
+  return extension === '.cws' || extension === '.prj';
+}
+
+function validateNativeDocument(filePath: string, content: string): void {
+  if (!isNativeCviDocument(filePath)) {
+    return;
+  }
+  const document = IniDocument.parse(content);
+  const requiredSection = path.extname(filePath).toLowerCase() === '.cws' ? 'Workspace Header' : 'Project Header';
+  if (!document.getSection(requiredSection)) {
+    throw new Error(`Refusing to overwrite ${path.basename(filePath)}: generated content is missing [${requiredSection}].`);
+  }
+}
+
+function createNativeBackup(filePath: string, content: string): string {
+  const backupDirectory = path.join(path.dirname(filePath), '.vscode', 'cvi-native-backups');
+  fs.mkdirSync(backupDirectory, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDirectory, `${path.basename(filePath)}.${stamp}.bak`);
+  fs.writeFileSync(backupPath, content, 'utf8');
+  const prefix = `${path.basename(filePath)}.`;
+  const backups = fs.readdirSync(backupDirectory)
+    .filter((name) => name.startsWith(prefix) && name.endsWith('.bak'))
+    .sort();
+  while (backups.length > 20) {
+    const oldest = backups.shift();
+    if (oldest) {
+      try { fs.rmSync(path.join(backupDirectory, oldest), { force: true }); } catch { /* ignored */ }
+    }
+  }
+  return backupPath;
+}
+
+function deletePossiblyLongValue(section: IniSection, key: string): void {
+  section.delete(key);
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  section.deleteMatching(new RegExp(`^\\s*${escapedKey} Line\\d{4}\\s*=`, 'i'));
+}
+
+function setPossiblyLongRuntimePathValue(section: IniSection, key: string, value: string): void {
+  setPossiblyLongStringValue(section, key, toCviRuntimeStoragePath(value));
 }
 
 function reconstructValue(section: IniSection, key: string): string | undefined {
@@ -43,6 +164,121 @@ function setPossiblyLongValue(section: IniSection, key: string, value: string): 
     return;
   }
   chunks.forEach((chunk, index) => section.set(`${key} Line${String(index + 1).padStart(4, '0')}`, quote(chunk)));
+}
+
+function setPossiblyLongStringValue(section: IniSection, key: string, value: string): void {
+  section.delete(key);
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  section.deleteMatching(new RegExp(`^\\s*${escapedKey} Line\\d{4}\\s*=`, 'i'));
+  const chunks = splitCviLongValue(value);
+  if (chunks.length === 1) {
+    section.set(key, quote(chunks[0]));
+    return;
+  }
+  chunks.forEach((chunk, index) => section.set(`${key} Line${String(index + 1).padStart(4, '0')}`, quote(chunk)));
+}
+
+function getProjectModeSection(document: IniDocument, mode: CviBuildMode): IniSection {
+  const sectionName = `Default Build Config ${modeSuffix(mode)}`;
+  const section = document.getSection(sectionName);
+  if (!section) {
+    throw new Error(`Invalid CVI project: missing [${sectionName}].`);
+  }
+  return section;
+}
+
+function setBoolean(section: IniSection, key: string, value: boolean): void {
+  section.set(key, value ? 'True' : 'False');
+}
+
+function parseStringList(section: IniSection | undefined, keyPattern: RegExp): string[] {
+  if (!section) {
+    return [];
+  }
+  return section.entries()
+    .filter(({ key }) => keyPattern.test(key))
+    .sort((left, right) => numericSuffix(left.key) - numericSuffix(right.key))
+    .map(({ value }) => unquote(value) ?? '')
+    .filter(Boolean);
+}
+
+function writeStringList(section: IniSection, prefix: string, values: string[], withRelativeFlag = false): void {
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  section.deleteMatching(new RegExp(`^\\s*${escapedPrefix} \\d{4}(?: Is Rel)?\\s*=`, 'i'));
+  values.map((value) => value.trim()).filter(Boolean).forEach((value, index) => {
+    const suffix = String(index + 1).padStart(4, '0');
+    if (withRelativeFlag) {
+      section.set(`${prefix} ${suffix} Is Rel`, 'False');
+    }
+    section.set(`${prefix} ${suffix}`, quote(value));
+  });
+}
+
+function resolveStoredPath(section: IniSection, key: string): string {
+  const value = reconstructValue(section, key) ?? '';
+  return value ? fromCviPath(value) : '';
+}
+
+function setProjectReferencedPath(section: IniSection, key: string, projectPath: string, value: string): void {
+  const trimmed = value.trim();
+  deletePossiblyLongValue(section, `${key} Rel Path`);
+  section.delete(`${key} Rel To`);
+  if (!trimmed) {
+    section.set(`${key} Is Rel`, 'False');
+    setPossiblyLongStringValue(section, key, '');
+    return;
+  }
+  const projectDirectory = path.dirname(projectPath);
+  const absolutePath = path.isAbsolute(trimmed) ? trimmed : path.resolve(projectDirectory, trimmed);
+  const relativePath = normalizeRelativePath(projectDirectory, absolutePath);
+  section.set(`${key} Is Rel`, 'True');
+  section.set(`${key} Rel To`, quote('Project'));
+  setPossiblyLongStringValue(section, `${key} Rel Path`, relativePath);
+  setPossiblyLongValue(section, key, absolutePath);
+}
+
+function setOutputPath(section: IniSection, mode: CviBuildMode, projectPath: string, value: string): void {
+  const suffix = modeSuffix(mode);
+  const key = `Executable File_${suffix}`;
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('The target output path cannot be empty.');
+  }
+  const projectDirectory = path.dirname(projectPath);
+  const absolutePath = path.isAbsolute(trimmed) ? trimmed : path.resolve(projectDirectory, trimmed);
+  section.set(`${key} Is Rel`, 'True');
+  section.set(`${key} Rel To`, quote('Project'));
+  setPossiblyLongStringValue(section, `${key} Rel Path`, normalizeRelativePath(projectDirectory, absolutePath));
+  setPossiblyLongValue(section, key, absolutePath);
+}
+
+
+function collectConfiguredRunValues(document: IniDocument): Map<string, Map<string, Set<string>>> {
+  const result = new Map<string, Map<string, Set<string>>>();
+  for (const section of document.sections) {
+    const match = section.name.match(/^Default Build Config (\d{4}) (?:Debug|Release|Debug64|Release64)$/i);
+    if (!match) {
+      continue;
+    }
+    let valuesByKey = result.get(match[1]);
+    if (!valuesByKey) {
+      valuesByKey = new Map<string, Set<string>>();
+      result.set(match[1], valuesByKey);
+    }
+    for (const key of ['Command Line Args', 'Working Directory', 'Environment Options', 'External Process Path']) {
+      const value = reconstructValue(section, key) ?? '';
+      if (!value) {
+        continue;
+      }
+      let values = valuesByKey.get(key);
+      if (!values) {
+        values = new Set<string>();
+        valuesByKey.set(key, values);
+      }
+      values.add(value);
+    }
+  }
+  return result;
 }
 
 function parseBoolean(value: string | undefined, fallback = false): boolean {
@@ -107,6 +343,11 @@ function modeSuffix(mode: CviBuildMode): string {
 }
 
 
+
+function replaceExtension(filePath: string, extension: string): string {
+  return path.join(path.dirname(filePath), `${path.basename(filePath, path.extname(filePath))}${extension}`);
+}
+
 function normalizeLogicalFolder(value: string): string {
   return value.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/\/{2,}/g, '/').trim();
 }
@@ -120,6 +361,12 @@ function isSameOrDescendantFolder(candidate: string, parent: string): boolean {
 function replaceFolderPrefix(candidate: string, oldPrefix: string, newPrefix: string): string {
   const suffix = normalizeLogicalFolder(candidate).slice(normalizeLogicalFolder(oldPrefix).length).replace(/^\/+/, '');
   return [normalizeLogicalFolder(newPrefix), suffix].filter(Boolean).join('/');
+}
+
+
+function numericSuffix(value: string): number {
+  const match = value.match(/(\d+)$/);
+  return match ? Number(match[1]) : 0;
 }
 
 export class CviParser {
@@ -219,6 +466,148 @@ export class CviParser {
     };
   }
 
+
+  getNativeTargetSettings(projectPath: string, mode: CviBuildMode): CviNativeTargetSettings {
+    const document = IniDocument.parse(readText(projectPath));
+    const header = document.getSection('Project Header');
+    if (!header) {
+      throw new Error('Invalid CVI project: missing [Project Header].');
+    }
+    const config = getProjectModeSection(document, mode);
+    const createExecutable = document.getSection('Create Executable') ?? new IniSection('Create Executable', []);
+    const modules = document.getSection('Modules Forced Into Executable');
+    const signing = document.getSection('Signing Info') ?? new IniSection('Signing Info', []);
+    const versionValue = (key: string): string => unquote(config.get(`${key} Ex`)) ?? unquote(config.get(key)) ?? '';
+    const outputKey = `Executable File_${modeSuffix(mode)}`;
+    return {
+      targetType: unquote(header.get('Target Type')) ?? 'Executable',
+      outputPath: resolveStoredPath(createExecutable, outputKey),
+      applicationTitle: unquote(config.get('Application Title')) ?? '',
+      iconFile: resolveStoredPath(config, 'Icon File'),
+      runtimeSupport: unquote(config.get('Runtime Support')) ?? 'Full Runtime Support',
+      runtimeBinding: unquote(config.get('Runtime Binding')) ?? 'Shared',
+      generateSourceDocumentation: unquote(config.get('Generate Source Documentation')) ?? 'None',
+      manifestEmbed: parseBoolean(config.get('Manifest Embed')),
+      manifestPath: resolveStoredPath(config, 'Manifest Path'),
+      embedProjectUirs: parseBoolean(config.get('Embed Project .UIRs')),
+      generateMapFile: parseBoolean(config.get('Generate Map File')),
+      createConsoleApplication: parseBoolean(config.get('Create Console Application')),
+      embedTimestamp: parseBoolean(config.get('Embed Timestamp'), true),
+      usingLoadExternalModule: parseBoolean(config.get('Using LoadExternalModule')),
+      forcedModules: parseStringList(modules, /^Module \d{4}$/i),
+      useDefaultImportLibBaseName: parseBoolean(config.get('Use Dflt Import Lib Base Name'), true),
+      importLibBaseName: unquote(config.get('Import Lib Base Name')) ?? '',
+      whereToCopyDll: unquote(config.get('Where to Copy DLL')) ?? 'Do not copy',
+      customDirectoryToCopyDll: resolveStoredPath(config, 'Custom Directory to Copy DLL'),
+      useIviSubdirectoriesForImportLibraries: parseBoolean(config.get('Use IVI Subdirectories for Import Libraries')),
+      useVxiPnpSubdirectoriesForImportLibraries: parseBoolean(config.get('Use VXIPNP Subdirectories for Import Libraries')),
+      dllExports: unquote(config.get('DLL Exports')) ?? 'Include File Symbols',
+      exportFiles: parseStringList(config, /^Export File\d+$/i),
+      addTypeLibToDll: parseBoolean(config.get('Add Type Lib To DLL')),
+      includeTypeLibHelpLinks: parseBoolean(config.get('Include Type Lib Help Links')),
+      tlbHelpStyle: unquote(config.get('TLB Help Style')) ?? 'HLP',
+      typeLibFpFile: resolveStoredPath(config, 'Type Lib FP File'),
+      addNiTypeInfoToDll: parseBoolean(config.get('Add NI Type Info To DLL')),
+      useSingleHeaderForNiTypeInfo: parseBoolean(config.get('Use Single Header for NI Type Info')),
+      singleHeaderNiTypeInfoFile: resolveStoredPath(config, 'Single Header NI Type Info File'),
+      versionInfo: {
+        numericFileVersion: unquote(config.get('Numeric File Version')) ?? '1,0,0,0',
+        numericProductVersion: unquote(config.get('Numeric Prod Version')) ?? '1,0,0,0',
+        comments: versionValue('Comments'),
+        companyName: versionValue('Company Name'),
+        fileDescription: versionValue('File Description'),
+        fileVersion: versionValue('File Version'),
+        internalName: versionValue('Internal Name'),
+        legalCopyright: versionValue('Legal Copyright'),
+        legalTrademarks: versionValue('Legal Trademarks'),
+        originalFilename: versionValue('Original Filename'),
+        privateBuild: versionValue('Private Build'),
+        productName: versionValue('Product Name'),
+        productVersion: versionValue('Product Version'),
+        specialBuild: versionValue('Special Build')
+      },
+      signing: {
+        enabled: parseBoolean(config.get('Sign')),
+        store: unquote(config.get('Sign Store')) ?? '',
+        certificate: unquote(config.get('Sign Certificate')) ?? '',
+        timestampUrl: unquote(config.get('Sign Timestamp URL')) ?? '',
+        descriptionUrl: unquote(config.get('Sign URL')) ?? '',
+        signDebugBuild: parseBoolean(signing.get('Sign Debug Build'))
+      }
+    };
+  }
+
+  setNativeTargetSettings(projectPath: string, mode: CviBuildMode, settings: CviNativeTargetSettings): void {
+    const document = IniDocument.parse(readText(projectPath));
+    const header = document.getSection('Project Header');
+    if (!header) {
+      throw new Error('Invalid CVI project: missing [Project Header].');
+    }
+    const config = getProjectModeSection(document, mode);
+    const createExecutable = document.ensureSection('Create Executable');
+    const signing = document.ensureSection('Signing Info');
+    setOutputPath(createExecutable, mode, projectPath, settings.outputPath);
+    config.set('Application Title', quote(settings.applicationTitle));
+    setProjectReferencedPath(config, 'Icon File', projectPath, settings.iconFile);
+    config.set('Runtime Support', quote(settings.runtimeSupport));
+    config.set('Runtime Binding', quote(settings.runtimeBinding));
+    config.set('Generate Source Documentation', quote(settings.generateSourceDocumentation));
+    setBoolean(config, 'Manifest Embed', settings.manifestEmbed);
+    setProjectReferencedPath(config, 'Manifest Path', projectPath, settings.manifestPath);
+    setBoolean(config, 'Embed Project .UIRs', settings.embedProjectUirs);
+    setBoolean(config, 'Generate Map File', settings.generateMapFile);
+    setBoolean(config, 'Create Console Application', settings.createConsoleApplication);
+    setBoolean(config, 'Embed Timestamp', settings.embedTimestamp);
+    setBoolean(config, 'Using LoadExternalModule', settings.usingLoadExternalModule);
+    const modules = document.ensureSection('Modules Forced Into Executable', 'ActiveX Server Options');
+    writeStringList(modules, 'Module', settings.forcedModules, true);
+    if (settings.forcedModules.filter((value) => value.trim()).length === 0) {
+      document.removeSection('Modules Forced Into Executable');
+    }
+    setBoolean(config, 'Use Dflt Import Lib Base Name', settings.useDefaultImportLibBaseName);
+    config.set('Import Lib Base Name', quote(settings.importLibBaseName));
+    config.set('Where to Copy DLL', quote(settings.whereToCopyDll));
+    setProjectReferencedPath(config, 'Custom Directory to Copy DLL', projectPath, settings.customDirectoryToCopyDll);
+    setBoolean(config, 'Use IVI Subdirectories for Import Libraries', settings.useIviSubdirectoriesForImportLibraries);
+    setBoolean(config, 'Use VXIPNP Subdirectories for Import Libraries', settings.useVxiPnpSubdirectoriesForImportLibraries);
+    config.set('DLL Exports', quote(settings.dllExports));
+    writeStringList(config, 'Export File', settings.exportFiles);
+    setBoolean(config, 'Add Type Lib To DLL', settings.addTypeLibToDll);
+    setBoolean(config, 'Include Type Lib Help Links', settings.includeTypeLibHelpLinks);
+    config.set('TLB Help Style', quote(settings.tlbHelpStyle));
+    setProjectReferencedPath(config, 'Type Lib FP File', projectPath, settings.typeLibFpFile);
+    setBoolean(config, 'Add NI Type Info To DLL', settings.addNiTypeInfoToDll);
+    setBoolean(config, 'Use Single Header for NI Type Info', settings.useSingleHeaderForNiTypeInfo);
+    setProjectReferencedPath(config, 'Single Header NI Type Info File', projectPath, settings.singleHeaderNiTypeInfoFile);
+    const versionPairs: Array<[string, string]> = [
+      ['Comments', settings.versionInfo.comments],
+      ['Company Name', settings.versionInfo.companyName],
+      ['File Description', settings.versionInfo.fileDescription],
+      ['File Version', settings.versionInfo.fileVersion],
+      ['Internal Name', settings.versionInfo.internalName],
+      ['Legal Copyright', settings.versionInfo.legalCopyright],
+      ['Legal Trademarks', settings.versionInfo.legalTrademarks],
+      ['Original Filename', settings.versionInfo.originalFilename],
+      ['Private Build', settings.versionInfo.privateBuild],
+      ['Product Name', settings.versionInfo.productName],
+      ['Product Version', settings.versionInfo.productVersion],
+      ['Special Build', settings.versionInfo.specialBuild]
+    ];
+    config.set('Numeric File Version', quote(settings.versionInfo.numericFileVersion));
+    config.set('Numeric Prod Version', quote(settings.versionInfo.numericProductVersion));
+    versionPairs.forEach(([key, value]) => {
+      config.set(key, quote(value));
+      config.set(`${key} Ex`, quote(value));
+    });
+    setBoolean(config, 'Sign', settings.signing.enabled);
+    config.set('Sign Store', quote(settings.signing.store));
+    config.set('Sign Certificate', quote(settings.signing.certificate));
+    config.set('Sign Timestamp URL', quote(settings.signing.timestampUrl));
+    config.set('Sign URL', quote(settings.signing.descriptionUrl));
+    setBoolean(signing, 'Sign Debug Build', settings.signing.signDebugBuild);
+    writeText(projectPath, document.toString());
+  }
+
   getTargetPath(projectPath: string, mode: CviBuildMode): string | undefined {
     const document = IniDocument.parse(readText(projectPath));
     const section = document.getSection('Create Executable');
@@ -234,6 +623,227 @@ export class CviParser {
 
     const absolute = reconstructValue(section, `Executable File_${suffix}`);
     return absolute ? fromCviPath(absolute) : undefined;
+  }
+
+
+  getWorkspaceRunOptions(workspacePath: string, projectIndex: number, mode: CviBuildMode = 'debug'): CviRunOptions {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws') {
+      return { arguments: '', workingDirectory: '', environmentOptions: '', externalProcessPath: '' };
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const suffix = String(projectIndex).padStart(4, '0');
+    const modeSection = document.getSection(`Default Build Config ${suffix} ${modeSuffix(mode)}`);
+    const section = document.getSection(`Command Line Args ${suffix}`);
+    const dllSection = document.getSection(`DLL Debugging Support ${suffix}`);
+    const value = (key: string): string => reconstructValue(modeSection ?? new IniSection('', []), key)
+      ?? reconstructValue(section ?? new IniSection('', []), key)
+      ?? '';
+    return {
+      arguments: value('Command Line Args'),
+      workingDirectory: value('Working Directory'),
+      environmentOptions: value('Environment Options'),
+      externalProcessPath: value('External Process Path') || reconstructValue(dllSection ?? new IniSection('', []), 'External Process Path') || ''
+    };
+  }
+
+  setWorkspaceRunOptions(workspacePath: string, projectIndex: number, mode: CviBuildMode, options: CviRunOptions): void {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws') {
+      return;
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const suffix = String(projectIndex).padStart(4, '0');
+    const sectionName = `Default Build Config ${suffix} ${modeSuffix(mode)}`;
+    const config = document.getSection(sectionName);
+    if (!config) {
+      throw new Error(`Refusing to update CVI run settings: [${sectionName}] is missing. Open and save the workspace once in CVI, then retry.`);
+    }
+    // CVI persists run options per build configuration in [Default Build Config ....].
+    // Do not mirror values into the legacy [Command Line Args ....] or
+    // [DLL Debugging Support ....] sections: rewriting those compatibility
+    // sections caused some CVI workspaces to become unreadable.
+    setPossiblyLongStringValue(config, 'Command Line Args', options.arguments);
+    setPossiblyLongRuntimePathValue(config, 'Working Directory', options.workingDirectory);
+    setPossiblyLongStringValue(config, 'Environment Options', options.environmentOptions);
+    setPossiblyLongRuntimePathValue(config, 'External Process Path', options.externalProcessPath);
+    writeText(workspacePath, document.toString());
+  }
+
+  inspectWorkspaceCompatibility(workspacePath: string): string[] {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws' || !fs.existsSync(workspacePath)) {
+      return [];
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const issues: string[] = [];
+    const configuredValues = collectConfiguredRunValues(document);
+    for (const section of document.sections) {
+      if (/^Default Build Config \d{4} (?:Debug|Release|Debug64|Release64)$/i.test(section.name) || /^DLL Debugging Support \d{4}$/i.test(section.name)) {
+        for (const key of ['Working Directory', 'External Process Path']) {
+          const value = reconstructValue(section, key);
+          if (value && toCviRuntimeStoragePath(value) !== value) {
+            issues.push(`[${section.name}] ${key} uses a non-CVI path representation: ${value}`);
+          }
+        }
+      }
+      const legacyCommandMatch = section.name.match(/^Command Line Args (\d{4})$/i);
+      if (legacyCommandMatch) {
+        if (reconstructValue(section, 'External Process Path') !== undefined) {
+          issues.push(`[${section.name}] contains an unexpected External Process Path compatibility key.`);
+        }
+        for (const key of ['Command Line Args', 'Working Directory', 'Environment Options']) {
+          const value = reconstructValue(section, key) ?? '';
+          if (value && configuredValues.get(legacyCommandMatch[1])?.get(key)?.has(value)) {
+            issues.push(`[${section.name}] duplicates per-configuration ${key}.`);
+          }
+        }
+      }
+      const legacyDllMatch = section.name.match(/^DLL Debugging Support (\d{4})$/i);
+      if (legacyDllMatch) {
+        const value = reconstructValue(section, 'External Process Path') ?? '';
+        if (value && configuredValues.get(legacyDllMatch[1])?.get('External Process Path')?.has(value)) {
+          issues.push(`[${section.name}] duplicates a per-configuration External Process Path.`);
+        }
+      }
+    }
+    return issues;
+  }
+
+  repairWorkspaceCompatibility(workspacePath: string): { changed: boolean; changes: string[] } {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws') {
+      throw new Error('Native workspace compatibility repair requires a .cws workspace.');
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const changes: string[] = [];
+    const normalizePathKey = (section: IniSection, key: string): void => {
+      const current = reconstructValue(section, key);
+      if (current === undefined) {
+        return;
+      }
+      const normalized = toCviRuntimeStoragePath(current);
+      if (normalized !== current) {
+        setPossiblyLongStringValue(section, key, normalized);
+        changes.push(`[${section.name}] ${key}: ${current} -> ${normalized}`);
+      }
+    };
+    for (const section of document.sections) {
+      if (/^Default Build Config \d{4} (?:Debug|Release|Debug64|Release64)$/i.test(section.name)) {
+        normalizePathKey(section, 'Working Directory');
+        normalizePathKey(section, 'External Process Path');
+      }
+    }
+    const configuredValues = collectConfiguredRunValues(document);
+    for (const section of document.sections) {
+      const legacyCommandMatch = section.name.match(/^Command Line Args (\d{4})$/i);
+      if (legacyCommandMatch) {
+        normalizePathKey(section, 'Working Directory');
+        if (reconstructValue(section, 'External Process Path') !== undefined) {
+          deletePossiblyLongValue(section, 'External Process Path');
+          changes.push(`[${section.name}] removed unexpected External Process Path compatibility key.`);
+        }
+        for (const key of ['Command Line Args', 'Working Directory', 'Environment Options']) {
+          const current = reconstructValue(section, key) ?? '';
+          if (current && configuredValues.get(legacyCommandMatch[1])?.get(key)?.has(current)) {
+            setPossiblyLongStringValue(section, key, '');
+            changes.push(`[${section.name}] cleared duplicated legacy ${key}.`);
+          }
+        }
+      }
+      const legacyDllMatch = section.name.match(/^DLL Debugging Support (\d{4})$/i);
+      if (legacyDllMatch) {
+        normalizePathKey(section, 'External Process Path');
+        const current = reconstructValue(section, 'External Process Path') ?? '';
+        if (current && configuredValues.get(legacyDllMatch[1])?.get('External Process Path')?.has(current)) {
+          setPossiblyLongStringValue(section, 'External Process Path', '');
+          changes.push(`[${section.name}] cleared duplicated legacy External Process Path.`);
+        }
+      }
+    }
+    if (changes.length > 0) {
+      writeText(workspacePath, document.toString());
+    }
+    return { changed: changes.length > 0, changes };
+  }
+
+
+  getProjectBuildActions(projectPath: string, mode: CviBuildMode): { preBuildActions: string[]; customBuildActions: string[]; postBuildActions: string[]; nativeSectionsPresent: boolean } {
+    const document = IniDocument.parse(readText(projectPath));
+    const modeName = modeSuffix(mode);
+    const readActions = (kind: string): { actions: string[]; present: boolean } => {
+      const section = document.getSection(`${modeName} ${kind}`);
+      if (!section) {
+        return { actions: [], present: false };
+      }
+      const actions = section.entries()
+        .filter(({ key }) => /^Build Action\d+$/i.test(key))
+        .sort((left, right) => numericSuffix(left.key) - numericSuffix(right.key))
+        .map(({ value }) => unquote(value) ?? '')
+        .filter(Boolean);
+      return { actions, present: true };
+    };
+    const pre = readActions('Pre-build Actions');
+    const custom = readActions('Custom Build Actions');
+    const post = readActions('Post-build Actions');
+    return {
+      preBuildActions: pre.actions,
+      customBuildActions: custom.actions,
+      postBuildActions: post.actions,
+      nativeSectionsPresent: pre.present || custom.present || post.present
+    };
+  }
+
+  setProjectBuildActions(projectPath: string, mode: CviBuildMode, actions: { preBuildActions: string[]; customBuildActions: string[]; postBuildActions: string[] }): void {
+    const document = IniDocument.parse(readText(projectPath));
+    const modeName = modeSuffix(mode);
+    const writeActions = (kind: string, values: string[]): void => {
+      const sectionName = `${modeName} ${kind}`;
+      const normalized = values.map((value) => String(value).trim()).filter(Boolean);
+      if (!normalized.length) {
+        document.removeSection(sectionName);
+        return;
+      }
+      const section = document.ensureSection(sectionName, 'Signing Info');
+      section.deleteMatching(/^\s*Build Action\d+\s*=/i);
+      normalized.forEach((value, index) => section.set(`Build Action${index + 1}`, quote(value)));
+      if (!section.lines.some((line) => line.trim() === '')) {
+        section.lines.push('');
+      }
+    };
+    writeActions('Custom Build Actions', actions.customBuildActions);
+    writeActions('Pre-build Actions', actions.preBuildActions);
+    writeActions('Post-build Actions', actions.postBuildActions);
+    writeText(projectPath, document.toString());
+  }
+
+  setTargetType(projectPath: string, targetType: string): void {
+    if (!['Executable', 'Dynamic Link Library', 'Static Library'].includes(targetType)) {
+      throw new Error(`Unsupported CVI target type: ${targetType}`);
+    }
+    const document = IniDocument.parse(readText(projectPath));
+    const header = document.getSection('Project Header');
+    if (!header) {
+      throw new Error('Invalid CVI project: missing [Project Header].');
+    }
+    header.set('Target Type', quote(targetType));
+    const target = document.ensureSection('Create Executable');
+    const extension = targetType === 'Dynamic Link Library' ? '.dll' : targetType === 'Static Library' ? '.lib' : '.exe';
+    for (const mode of ['Debug', 'Release', 'Debug64', 'Release64']) {
+      const relKey = `Executable File_${mode} Rel Path`;
+      const absoluteKey = `Executable File_${mode}`;
+      const currentRelative = unquote(target.get(relKey));
+      const currentAbsolute = reconstructValue(target, absoluteKey);
+      if (currentRelative) {
+        target.set(relKey, quote(replaceExtension(currentRelative, extension)));
+      } else {
+        target.set(`Executable File_${mode} Is Rel`, 'True');
+        target.set(`Executable File_${mode} Rel To`, quote('Project'));
+        target.set(relKey, quote(`${path.basename(projectPath, path.extname(projectPath))}${extension}`));
+      }
+      if (currentAbsolute) {
+        setPossiblyLongValue(target, absoluteKey, replaceExtension(currentAbsolute, extension));
+      } else {
+        setPossiblyLongValue(target, absoluteKey, path.join(path.dirname(projectPath), `${path.basename(projectPath, path.extname(projectPath))}${extension}`));
+      }
+    }
+    writeText(projectPath, document.toString());
   }
 
   setWorkspaceActiveProject(workspacePath: string, projectIndex: number): void {
