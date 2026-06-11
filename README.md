@@ -355,3 +355,7 @@ Version 0.6.0 permanently disables the historical dynamic Microsoft C/C++ config
 Version 0.6.1 writes command-line and DLL-debugging settings only into the CVI per-configuration sections of the `.cws` file. Windows runtime paths are converted back to CVI `/c/...` notation before persistence and are converted to Windows form only in memory when launching a target.
 
 Before overwriting a native `.cws` or `.prj` file, the extension creates a timestamped backup under `.vscode/cvi-native-backups`. Workspaces affected by earlier releases can be repaired with `LabWindows/CVI: Repair Native Workspace Compatibility`.
+
+### Copying file paths
+
+Files in the CVI workspace explorer expose `Copy Path` and `Copy Relative Path` from the context menu. Relative paths follow the active VS Code workspace root when available, with CVI workspace and project folders used as fallbacks.

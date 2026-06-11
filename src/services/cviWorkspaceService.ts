@@ -452,6 +452,28 @@ export class CviWorkspaceService implements vscode.Disposable {
     await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(fileOrDirectoryPath));
   }
 
+  async copyFilePath(filePath: string): Promise<void> {
+    await vscode.env.clipboard.writeText(path.normalize(filePath));
+  }
+
+  async copyRelativeFilePath(projectRef: CviWorkspaceProjectRef, filePath: string): Promise<void> {
+    const absolutePath = path.resolve(filePath);
+    const uri = vscode.Uri.file(absolutePath);
+    const vscodeFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (vscodeFolder) {
+      await vscode.env.clipboard.writeText(relativeOrBasename(vscodeFolder.uri.fsPath, absolutePath));
+      return;
+    }
+
+    const workspaceRoot = this.workspace ? path.dirname(this.workspace.path) : undefined;
+    if (workspaceRoot && isPathInside(workspaceRoot, absolutePath)) {
+      await vscode.env.clipboard.writeText(relativeOrBasename(workspaceRoot, absolutePath));
+      return;
+    }
+
+    await vscode.env.clipboard.writeText(relativeOrBasename(path.dirname(projectRef.absolutePath), absolutePath));
+  }
+
   async findInDirectory(directoryPath: string): Promise<void> {
     const uri = vscode.Uri.file(directoryPath);
     const folder = vscode.workspace.getWorkspaceFolder(uri);
@@ -608,6 +630,15 @@ function commonAncestor(paths: string[]): string | undefined {
   return length > 0 ? first.slice(0, length).join(path.sep) || path.parse(paths[0]).root : undefined;
 }
 
+
+function isPathInside(rootPath: string, candidatePath: string): boolean {
+  const relative = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function relativeOrBasename(rootPath: string, filePath: string): string {
+  return path.relative(path.resolve(rootPath), path.resolve(filePath)) || path.basename(filePath);
+}
 
 export function generatePrototypeHeader(source: string, headerName: string): string {
   const stripped = source

@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -57,7 +57,9 @@
     "onCommand:labwindowsCvi.selectTargetTypeEXE",
     "onCommand:labwindowsCvi.selectTargetTypeDLL",
     "onCommand:labwindowsCvi.selectTargetTypeLIB",
-    "onCommand:labwindowsCvi.prepareDllImportLibraryGeneration"
+    "onCommand:labwindowsCvi.prepareDllImportLibraryGeneration",
+    "onCommand:labwindowsCvi.copyFilePath",
+    "onCommand:labwindowsCvi.copyRelativeFilePath"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -284,6 +286,14 @@
       {
         "command": "labwindowsCvi.revealFile",
         "title": "Browse File..."
+      },
+      {
+        "command": "labwindowsCvi.copyFilePath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "labwindowsCvi.copyRelativeFilePath",
+        "title": "Copy Relative Path"
       },
       {
         "command": "labwindowsCvi.exploreProjectDirectory",
@@ -856,6 +866,16 @@
           "group": "build@3"
         },
         {
+          "command": "labwindowsCvi.copyFilePath",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "clipboard@1"
+        },
+        {
+          "command": "labwindowsCvi.copyRelativeFilePath",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "clipboard@2"
+        },
+        {
           "command": "labwindowsCvi.revealFile",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
           "group": "navigation@1"
@@ -1086,6 +1106,14 @@
         },
         {
           "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.copyFilePath",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.copyRelativeFilePath",
           "when": "false"
         }
       ],
