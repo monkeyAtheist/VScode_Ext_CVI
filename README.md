@@ -2,7 +2,7 @@
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.6.4` improves the native project build-settings editor with file-browser buttons, per-configuration editing scopes and target-aware drop-down lists. It retains guarded native `.prj` / `.cws` writes, automatic backups, the file-creation wizard, blank `.uir` generation, reusable user templates, insertable CVI snippets and the embedded JC Lib `0.7.96` CVI catalog.
+Version `0.6.13` initializes the native `.cws` blocks required by projects created or added directly from VS Code and retains the native project build-settings editor with file-browser buttons, per-configuration editing scopes and target-aware drop-down lists. It retains guarded native `.prj` / `.cws` writes, automatic backups, the file-creation wizard, blank `.uir` generation, reusable user templates, insertable CVI snippets and the embedded JC Lib `0.7.96` CVI catalog.
 
 ## Main views
 
@@ -23,9 +23,10 @@ The extension can:
 
 - open an existing `.cws` workspace or standalone `.prj` project;
 - create a minimal CVI-compatible workspace and project;
+- create an additional EXE, DLL or static-library project directly inside the loaded `.cws` workspace;
 - display the hierarchy `workspace -> project -> logical CVI folder -> file`;
 - select the active project stored by a workspace;
-- add or remove project references without deleting files from disk;
+- add existing project references or create new projects in the current workspace without deleting files from disk;
 - create, rename and safely remove logical CVI folders;
 - add, replace, include, exclude or remove project files;
 - toggle the CVI `.Obj` option on C sources;
@@ -354,8 +355,183 @@ Version 0.6.0 permanently disables the historical dynamic Microsoft C/C++ config
 
 Version 0.6.1 writes command-line and DLL-debugging settings only into the CVI per-configuration sections of the `.cws` file. Windows runtime paths are converted back to CVI `/c/...` notation before persistence and are converted to Windows form only in memory when launching a target.
 
-Before overwriting a native `.cws` or `.prj` file, the extension creates a timestamped backup under `.vscode/cvi-native-backups`. Workspaces affected by earlier releases can be repaired with `LabWindows/CVI: Repair Native Workspace Compatibility`.
+Before overwriting a native `.cws` or `.prj` file, the extension creates a timestamped backup under `.vscode/cvi-native-backups`. Projects created or added from VS Code receive their native workspace project blocks immediately. Workspaces affected by earlier releases, including workspaces created with version `0.6.12`, can be migrated with `LabWindows/CVI: Repair Native Workspace Compatibility`. Missing native project blocks are also initialized automatically when run settings are saved.
 
 ### Copying file paths
 
 Files in the CVI workspace explorer expose `Copy Path` and `Copy Relative Path` from the context menu. Relative paths follow the active VS Code workspace root when available, with CVI workspace and project folders used as fallbacks.
+
+## Project Build Settings improvements in 0.6.6
+
+The build-settings page now uses collapsible sections. The `LoadExternalModule` compatibility block mirrors the CVI workflow more closely: enable the option, add `.lib` or `.obj` modules, inspect the preview and remove individual entries before saving.
+
+The editor context menu also exposes `Convert selected integer to` for decimal, hexadecimal and binary literals.
+
+## Project Build Settings improvements in 0.6.7
+
+The **Target** and **Project dependencies and build order** blocks are displayed vertically. Their collapse controls now behave consistently even when the workspace contains many projects.
+
+When **Run-time support** is set to `Instrument Driver Support Only`, the **LoadExternalModule options** section is dimmed and its controls are disabled, matching the native CVI Target Settings dialog. Existing module entries remain stored and reappear when full run-time support is selected again.
+
+## Project Build Settings improvements in 0.6.9
+
+DLL settings now follow the native CVI dependency rules more closely. The exported-header list is dimmed when **Symbols marked for export** is selected, the import-library base name is disabled while the default name is active, the custom copy directory is only editable for **Custom directory**, and the manifest path is only editable when **Embed manifest** is checked. IVI and VXIplug&play import-library choices are exposed through a dedicated **Import library choices…** dialog instead of permanent inline checkboxes.
+
+
+## Project Build Settings improvements in 0.6.10
+
+The **DLL options** grid now places **Custom copy directory** directly opposite **Where to copy DLL**. **Import library base name** has moved to the second row opposite **Export mode**. This is a visual-only refinement: the existing conditional enablement rules and native CVI persistence remain unchanged.
+
+## Project Build Settings and function panels in 0.6.11
+
+The **Signing information** fields are disabled until **Sign target** is enabled. The **External executable for DLL debugging** field remains visible but disabled for executable targets, and the complete **Executable command line** section is hidden for static-library targets.
+
+Function-panel files (`.fp`) can now be opened directly from the CVI workspace explorer. The extension reads the embedded function reference data and displays a native VS Code selector containing the available functions and prototypes. Selecting an entry opens the embedded JC Lib prototype card when the symbol already exists in the CVI pack. When no packaged card exists, the extension opens a generated fallback card containing the prototype, parameters, header and purpose extracted from the `.fp` file.
+
+## Native CVI breakpoint bridge
+
+Version 0.6.14 can synchronize standard enabled VS Code source breakpoints from the selected CVI project into the loaded native `.cws` workspace. The bridge is intentionally conservative: it preserves breakpoints created manually in LabWindows/CVI, tracks only entries injected by the extension, and skips disabled, conditional, hit-count and log breakpoints until their native serialization has been validated.
+
+Use `LabWindows/CVI: Synchronize VS Code Breakpoints to Native Workspace` for an explicit synchronization. `LabWindows/CVI: Build Debug and Open Native Debugger` performs the synchronization automatically before opening CVI when `labwindowsCvi.synchronizeBreakpointsBeforeNativeDebug` is enabled. Native CVI remains responsible for step commands, watch expressions and variable inspection in this first integration stage.
+
+
+## Native CVI command bridge — DDE-first deterministic transport
+
+Version 0.6.20 uses the native CVI DDE command server as the default transport because this path has been validated against CVI 2020 with a loaded workspace. The server contract remains:
+
+```text
+service = cvi
+topic   = system
+item    = status
+```
+
+The extension now opens the requested `.cws` or `.prj` file explicitly and polls the DDE server directly. It no longer creates a `CVI.Application` COM instance during normal startup, avoiding a second empty CVI workspace.
+
+The ActiveX bridge remains packaged as an experimental compatibility path. Configure the transport through:
+
+```text
+labwindowsCvi.nativeCommandTransport
+  dde      recommended default
+  auto     DDE first, ActiveX fallback
+  activex  ActiveX first, DDE fallback
+
+labwindowsCvi.allowActiveXAutoStart
+  false    recommended default
+  true     allow experimental COM activation when no running object exists
+```
+
+The DDE helper cache remains available under:
+
+```text
+%LOCALAPPDATA%\LabWindowsCviProjectManager\NativeBridge\CviDdeBridge.0.6.18.dll
+```
+
+Version 0.6.21 keeps a persistent DDE conversation open before `Run Project`. CVI 2020 can stop accepting new DDE conversations while the debugged program is executing, so `Pause`, `Continue`, and `Stop` are now sent through the existing session without a blocking `Get CVI State` probe. The extension tracks a cached execution state for diagnostics while the program is active and closes the session when the extension is disposed or the workspace changes.
+
+The persistent-session startup timeout is configurable through:
+
+```text
+labwindowsCvi.nativeDdeSessionStartupTimeoutMs
+  15000   default
+```
+
+Build and initial Run validation continue to use the ordinary DDE state query while CVI is idle. ActiveX HRESULT-style values in the `0x800400xx` range are normalized back to readable CVI command errors when the optional ActiveX path is used.
+
+
+## Native CVI debug dashboard — 0.6.22
+
+The LabWindows/CVI activity-bar container now includes a resizable native **CVI Debug** view. It does not use a webview and therefore does not start a Chromium service worker. The view remains available next to the workspace tree, the active-project summary, file symbols and JC Lib explorer.
+
+The dashboard displays:
+
+```text
+Native bridge        Available / Unavailable / Unknown
+Persistent session   Connected / Disconnected
+Execution            idle / running / suspended / unknown
+Project              active .prj name
+Linked               Yes / No / Unknown
+Transport            DDE / AUTO / ACTIVEX
+State source          native / cached / unknown
+Last command          last command sent to CVI
+Last result           accepted / rejected / failed / skipped
+```
+
+The action rows expose:
+
+```text
+Build native project
+Run in native debugger
+Pause native execution
+Continue native execution
+Stop native execution
+Refresh native state
+Diagnose native bridge
+```
+
+The compact status-bar action is now dynamic:
+
+```text
+CVI:off    no reachable native bridge is known
+CVI:idle   CVI is reachable and the project is inactive
+CVI:run    a persistent DDE debug session is running
+CVI:pause  the native execution is suspended
+```
+
+During a debug run, CVI 2020 may stop accepting new DDE conversations. The dashboard therefore uses the cached state maintained by the persistent DDE session introduced in version `0.6.21`. Manual refresh avoids a blocking state probe while execution is active.
+
+## Native CVI debug-session finishing pass — 0.6.23
+
+Version `0.6.23` keeps the validated persistent DDE session from `0.6.21` and refines its behavior during IDE startup and debug-control transitions.
+
+When CVI is launched automatically, the DDE server can temporarily answer with `DMLERR_BUSY` while the workspace is still loading. These transient responses are now polled silently until a stable state is available. The output channel reports the accepted connection rather than expected startup noise.
+
+The persistent-session initialization log is explicit:
+
+```text
+[CVI] Persistent DDE session handshake accepted (ansi).
+[CVI] Persistent DDE debug session connected for ...
+```
+
+For action commands, the historical `cmdsrvr.h` contract is enforced strictly: only status `0` means that the command server accepted the command. A negative status remains a native CVI error. An unexpected positive status is also treated as a rejection and displayed with the closest matching CVI error-table description when available. The cached execution state is not advanced after a rejected command.
+
+The **CVI Debug** view keeps unavailable controls visible but visually disabled. `Build` and `Run` are disabled while an execution is active. `Pause` is available while the cached execution is running. `Continue` and `Stop` remain available throughout an active persistent session because a native breakpoint can suspend CVI asynchronously while the local dashboard still reports a cached running state.
+
+
+## VS Code Run and Debug integration — 0.6.24
+
+Version `0.6.24` adds an inline VS Code Debug Adapter Protocol (DAP) bridge for the validated CVI native backend. The CVI IDE is still required as the debugger engine, but VS Code now owns the visible debug session and toolbar. The backend CVI window is launched minimized by default.
+
+Start the VS Code-owned session from the **CVI Debug** view or the command palette:
+
+```text
+LabWindows/CVI: Start Debugging in VS Code
+```
+
+The first integration supports:
+
+```text
+source breakpoint synchronization before launch
+Run
+Pause
+Continue
+Stop
+VS Code debug toolbar and Debug Console output
+optional breakpoint-suspension detection through persistent-session polling
+```
+
+The direct command remains available as a compatibility fallback:
+
+```text
+LabWindows/CVI: Run Project in Native CVI Debugger
+```
+
+The DAP adapter intentionally does not fabricate unavailable native data. CVI call-stack frames, local variables, watch evaluation, and step-over / step-in / step-out are not yet exposed in VS Code. Those features require additional stable CVI automation primitives or a dedicated native adapter layer.
+
+Background behavior can be configured with:
+
+```text
+labwindowsCvi.nativeDebuggerIdeWindowMode
+labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug
+labwindowsCvi.nativeDapPollIntervalMs
+labwindowsCvi.nativeDapPollTimeoutMs
+```

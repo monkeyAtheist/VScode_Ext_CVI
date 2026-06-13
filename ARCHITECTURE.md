@@ -8,6 +8,7 @@
 - `src/services/cviInstallationService.ts`: CVI installation discovery and selected-root persistence.
 - `src/services/cviCppToolsService.ts`: managed Microsoft C/C++ configuration file, dynamic custom configuration provider, compiler-path discovery integration and IntelliSense diagnostics.
 - `src/services/cviBuildService.ts`: `compile.exe`, executable launch, native CVI opening, `.uir` opening and native-debugger handoff.
+- `src/services/cviNativeCommandService.ts`: DDE-first native CVI command transport, persistent debug-session lifecycle, optional ActiveX compatibility fallback and diagnostic reporting.
 - `src/services/cviTemplateService.ts`: starter generation, blank UIR resources, user templates and snippets.
 - `src/services/cviLibraryPackService.ts`: seeding and versioned migration of the editable embedded CVI pack.
 - `src/providers/cviTreeProvider.ts`: native VS Code project tree and composite CVI-style icons.
@@ -94,13 +95,18 @@ data/metadata/cvi_callback_event_catalog.json
 
 ```text
 VS Code command
-  -> enforce debug/debug64 build mode
-  -> compile.exe build
-  -> open workspace in cvi.exe
-  -> native CVI debugger handles execution control and inspection
+  -> synchronize supported source breakpoints into the native .cws
+  -> invoke historical CVI DDE server cvi/system/status by default
+       -> use one-shot Get CVI State / Build Project while CVI is idle
+       -> establish one persistent DDE conversation before Run Project
+       -> keep the conversation alive for Suspend Execution / Continue Execution / Terminate Execution
+  -> launch cvi.exe with the requested .cws path when needed
+  -> poll DDE directly until the requested workspace instance is ready
+  -> keep CVI.Application ActiveX as an explicit experimental fallback
+  -> native CVI debugger handles stepping, watches, call stack and variables
 ```
 
-A VS Code-native debugger remains a separate future Debug Adapter Protocol project.
+The DDE bridge is isolated in `native/cvi-dde-command.ps1`, caches its managed helper locally and supports a JSON-line persistent-session mode over stdin/stdout. The optional ActiveX bridge remains available in `native/cvi-activex-command.ps1`, but automatic COM activation is disabled by default so the extension does not open an empty second CVI instance. A VS Code-native debugger with inline variables and stack frames remains a separate future Debug Adapter Protocol project.
 
 
 ## IntelliSense architecture — 0.5.1
@@ -132,3 +138,46 @@ The diagnostic command reports the active installation, `toolbox.h` presence, pr
 `CviCppToolsService.ensureConfigurationRootInWorkspace()` adds the directory containing the loaded `.cws` or standalone `.prj` file to the standard VS Code Explorer when `labwindowsCvi.autoAddCviFolderToWorkspace` is enabled. The normal workspace context then activates the generated `.vscode/c_cpp_properties.json` file. The dynamic Microsoft C/C++ provider remains enabled as a fallback for CVI files opened outside the active folder set.
 
 The IntelliSense path resolver enumerates the CVI ANSI directories and scans Windows Kits 10, Windows Kits 8.1 and the historical Windows v7.1A SDK. Versioned SDK folders and the `um`, `shared`, `ucrt`, `winrt` and `cppwinrt` segments are exposed explicitly.
+
+
+## Native CVI debug dashboard — 0.6.22
+
+```text
+CviNativeCommandService
+  -> publishes onDidChange after native state transitions
+  -> exposes getDebugSnapshot()
+       -> bridge availability
+       -> persistent DDE-session connectivity
+       -> cached execution state
+       -> link state
+       -> last command and result
+  -> CviDebugView renders one native VS Code tree
+  -> extension.ts updates the compact status-bar indicator
+       -> CVI:off / CVI:idle / CVI:run / CVI:pause
+```
+
+The dashboard is deliberately implemented with `TreeDataProvider` rather than `WebviewView`. This keeps debugger controls available without reintroducing Chromium service-worker failure modes. While a CVI user program executes, the view presents the cached state maintained by the persistent DDE session instead of creating a new synchronous `Get CVI State` conversation.
+
+
+## VS Code DAP facade — 0.6.24
+
+```text
+VS Code Run and Debug UI
+  -> labwindows-cvi-native inline DebugAdapter
+       -> launch/configurationDone
+            -> conservative breakpoint synchronization into .cws
+            -> minimized cvi.exe backend startup when required
+            -> persistent DDE handshake
+            -> Run Project
+       -> pause / continue / terminate
+            -> reuse the established DDE conversation
+       -> optional persistent-session Get CVI State polling
+            -> detect running / suspended / idle transitions when CVI responds
+            -> keep failures non-destructive so controls remain available
+```
+
+The DAP adapter is implemented in `src/debug/cviNativeDebugAdapter.ts` and is registered as an inline implementation through `DebugAdapterInlineImplementation`. This keeps the first adapter inside the extension host and avoids an additional Node.js child process.
+
+The backend IDE launcher is isolated in `native/cvi-start-background.ps1`. For VS Code-owned sessions it starts `cvi.exe` minimized by default. `native/cvi-window-control.ps1` re-minimizes CVI after control transitions when `labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug` is enabled.
+
+The adapter advertises only capabilities backed by the validated bridge. It does not fabricate stack frames, scopes, variables, expression evaluation, or step-by-step commands.

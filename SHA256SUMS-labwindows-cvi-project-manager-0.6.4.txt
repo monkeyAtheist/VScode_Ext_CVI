@@ -1,0 +1,1 @@
+aa318decc9f13ee30159dea91cb27af10dfc44e5194b5cc459d091fa9a9a0164  labwindows-cvi-project-manager-0.6.4.vsix

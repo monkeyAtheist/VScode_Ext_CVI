@@ -31,6 +31,23 @@ export interface CviSigningSettings {
   signDebugBuild: boolean;
 }
 
+export interface CviWorkspaceBreakpoint {
+  filePath: string;
+  line: number;
+}
+
+export interface CviWorkspaceBreakpointSyncResult {
+  changed: boolean;
+  requestedCount: number;
+  appliedCount: number;
+  preservedNativeCount: number;
+  removedTrackedCount: number;
+  removedNativeCount: number;
+  createdWorkspaceFileSections: string[];
+  ignoredBreakpoints: CviWorkspaceBreakpoint[];
+  trackedBreakpoints: CviWorkspaceBreakpoint[];
+}
+
 export interface CviNativeTargetSettings {
   targetType: string;
   outputPath: string;
@@ -369,6 +386,271 @@ function numericSuffix(value: string): number {
   return match ? Number(match[1]) : 0;
 }
 
+
+const WORKSPACE_BUILD_MODES = ['Debug', 'Release', 'Debug64', 'Release64'] as const;
+
+function workspaceProjectSuffix(projectIndex: number): string {
+  return String(projectIndex).padStart(4, '0');
+}
+
+function addWorkspaceSectionIfMissing(document: IniDocument, section: IniSection, changes: string[], beforePattern?: RegExp): void {
+  if (document.getSection(section.name)) {
+    return;
+  }
+  if (beforePattern) {
+    const insertionIndex = document.sections.findIndex((candidate) => beforePattern.test(candidate.name));
+    if (insertionIndex >= 0) {
+      document.sections.splice(insertionIndex, 0, section);
+    } else {
+      document.addSection(section);
+    }
+  } else {
+    document.addSection(section);
+  }
+  changes.push(`[${section.name}] added.`);
+}
+
+function createWorkspaceProjectHeader(projectIndex: number, version: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Project Header ${suffix}`, []);
+  section.set('Version', String(version));
+  section.set("Don't Update DistKit", 'False');
+  section.set('Platform Code', '4');
+  section.set('Build Configuration', quote('Debug'));
+  section.set('Warn User If Debugging Release', '1');
+  section.set('Batch Build Release', 'False');
+  section.set('Batch Build Debug', 'False');
+  section.set('Force Rebuild', 'False');
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceDefaultBuildConfig(projectIndex: number, mode: typeof WORKSPACE_BUILD_MODES[number]): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Default Build Config ${suffix} ${mode}`, []);
+  section.set('Generate Browse Info', 'True');
+  section.set('Enable Uninitialized Locals Runtime Warning', 'True');
+  section.set('Batch Build', 'False');
+  section.set('Profile', quote('Disabled'));
+  section.set('Debugging Level', quote('Standard'));
+  section.set('Execution Trace', quote('Disabled'));
+  section.set('Command Line Args', quote(''));
+  section.set('Working Directory', quote(''));
+  section.set('Environment Options', quote(''));
+  section.set('External Process Path', quote(''));
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceBuildDependencies(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Build Dependencies ${suffix}`, []);
+  section.set('Number of Dependencies', '0');
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceBuildOptions(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Build Options ${suffix}`, []);
+  section.set('Generate Browse Info', 'True');
+  section.set('Enable Uninitialized Locals Runtime Warning', 'True');
+  section.set('Execution Trace', quote('Disabled'));
+  section.set('Profile', quote('Disabled'));
+  section.set('Debugging Level', quote('Standard'));
+  section.set('Break On Library Errors', 'True');
+  section.set('Break On First Chance Exceptions', 'False');
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceExecutionTarget(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Execution Target ${suffix}`, []);
+  section.set('Execution Target Address', quote('Local desktop computer'));
+  section.set('Execution Target Port', '0');
+  section.set('Execution Target Type', '0');
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceSccOptions(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`SCC Options ${suffix}`, []);
+  section.set('Use global settings', 'True');
+  section.set('SCC Provider', quote(''));
+  section.set('SCC Project', quote(''));
+  section.set('Local Path', quote(''));
+  section.set('Auxiliary Path', quote(''));
+  section.set('Perform Same Action For .h File As For .uir File', quote('Ask'));
+  section.set('Perform Same Action For .cds File As For .prj File', quote('Ask'));
+  section.set('Username', quote(''));
+  section.set('Comment', quote(''));
+  section.set('Use Default Username', 'False');
+  section.set('Use Default Comment', 'False');
+  section.set('Suppress CVI Error Messages', 'False');
+  section.set('Always show confirmation dialog', 'True');
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceDllDebuggingSupport(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`DLL Debugging Support ${suffix}`, []);
+  section.set('External Process Path', quote(''));
+  section.lines.push('');
+  return section;
+}
+
+function createWorkspaceCommandLineArgs(projectIndex: number): IniSection {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  const section = new IniSection(`Command Line Args ${suffix}`, []);
+  section.set('Command Line Args', quote(''));
+  section.set('Working Directory', quote(''));
+  section.set('Environment Options', quote(''));
+  section.lines.push('');
+  return section;
+}
+
+function workspaceUsesBuildDependencies(document: IniDocument, version: number): boolean {
+  return version >= 2000 || document.sections.some((section) => /^Build Dependencies \d{4}$/i.test(section.name));
+}
+
+function requiredWorkspaceProjectSectionNames(document: IniDocument, projectIndex: number, version: number): string[] {
+  const suffix = workspaceProjectSuffix(projectIndex);
+  return [
+    `Project Header ${suffix}`,
+    ...WORKSPACE_BUILD_MODES.map((mode) => `Default Build Config ${suffix} ${mode}`),
+    ...(workspaceUsesBuildDependencies(document, version) ? [`Build Dependencies ${suffix}`] : []),
+    `Build Options ${suffix}`,
+    `Execution Target ${suffix}`,
+    `SCC Options ${suffix}`,
+    `DLL Debugging Support ${suffix}`,
+    `Command Line Args ${suffix}`
+  ];
+}
+
+function ensureWorkspaceProjectSections(document: IniDocument, projectIndex: number, version: number): string[] {
+  const changes: string[] = [];
+  addWorkspaceSectionIfMissing(document, createWorkspaceProjectHeader(projectIndex, version), changes, /^(?:File \d{4}|Default Build Config \d{4} )/i);
+  for (const mode of WORKSPACE_BUILD_MODES) {
+    addWorkspaceSectionIfMissing(document, createWorkspaceDefaultBuildConfig(projectIndex, mode), changes);
+  }
+  if (workspaceUsesBuildDependencies(document, version)) {
+    addWorkspaceSectionIfMissing(document, createWorkspaceBuildDependencies(projectIndex), changes);
+  }
+  addWorkspaceSectionIfMissing(document, createWorkspaceBuildOptions(projectIndex), changes);
+  addWorkspaceSectionIfMissing(document, createWorkspaceExecutionTarget(projectIndex), changes);
+  addWorkspaceSectionIfMissing(document, createWorkspaceSccOptions(projectIndex), changes);
+  addWorkspaceSectionIfMissing(document, createWorkspaceDllDebuggingSupport(projectIndex), changes);
+  addWorkspaceSectionIfMissing(document, createWorkspaceCommandLineArgs(projectIndex), changes);
+  return changes;
+}
+
+
+function normalizeComparablePath(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const normalized = /^[A-Za-z]:[\\/]/.test(trimmed)
+    ? path.win32.normalize(trimmed)
+    : path.resolve(trimmed);
+  return normalized.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+function cviWorkspaceFileType(projectFileType: string, filePath: string): string {
+  if (projectFileType === 'CSource' || /\.(?:c|cc|cpp|cxx)$/i.test(filePath)) {
+    return 'CSource';
+  }
+  if (projectFileType === 'Include' || /\.(?:h|hh|hpp|hxx)$/i.test(filePath)) {
+    return 'Include';
+  }
+  return projectFileType || 'Other';
+}
+
+function isBreakpointCompatibleProjectFile(file: CviProjectFile): boolean {
+  return file.type === 'CSource' || file.type === 'Include' || /\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx)$/i.test(file.absolutePath);
+}
+
+function readWorkspaceFilePath(section: IniSection): string | undefined {
+  const value = reconstructValue(section, 'Path');
+  return value ? fromCviPath(value) : undefined;
+}
+
+function parseWorkspaceBreakpointLine(value: string | undefined): number | undefined {
+  const rendered = unquote(value);
+  const first = rendered?.split(',')[0]?.trim();
+  if (!first || !/^\d+$/.test(first)) {
+    return undefined;
+  }
+  const line = Number(first);
+  return line > 0 ? line : undefined;
+}
+
+function readWorkspaceBreakpoints(section: IniSection): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const line of section.lines) {
+    const match = line.match(/^\s*Breakpoint\s+\d{4}\s*=\s*(.*)$/i);
+    const sourceLine = parseWorkspaceBreakpointLine(match?.[1]);
+    if (match && sourceLine !== undefined && !result.has(sourceLine)) {
+      result.set(sourceLine, match[1].trim());
+    }
+  }
+  return result;
+}
+
+function replaceWorkspaceBreakpoints(section: IniSection, values: Map<number, string>): void {
+  section.deleteMatching(/^\s*Breakpoint\s+\d{4}\s*=/i);
+  const entries = [...values.entries()].sort(([left], [right]) => left - right);
+  if (entries.length === 0) {
+    return;
+  }
+  let insertionIndex = section.lines.findIndex((line) => /^\s*(?:Tracepoint\s+\d{4}|Window\s+)/i.test(line));
+  if (insertionIndex < 0) {
+    insertionIndex = section.lines.length;
+    while (insertionIndex > 0 && section.lines[insertionIndex - 1].trim() === '') {
+      insertionIndex -= 1;
+    }
+  }
+  const rendered = entries.map(([, value], index) => `Breakpoint ${String(index + 1).padStart(4, '0')} = ${value}`);
+  section.lines.splice(insertionIndex, 0, ...rendered);
+}
+
+function nextWorkspaceFileIndex(document: IniDocument): number {
+  return document.sections
+    .filter((section) => /^File \d{4}$/i.test(section.name))
+    .map((section) => numericSuffix(section.name))
+    .reduce((maximum, value) => Math.max(maximum, value), 0) + 1;
+}
+
+function ensureWorkspaceFileSection(
+  document: IniDocument,
+  header: IniSection,
+  projectIndex: number,
+  projectFile: CviProjectFile
+): { section: IniSection; created: boolean } {
+  const comparable = normalizeComparablePath(projectFile.absolutePath);
+  const existing = document.sections.find((section) => /^File \d{4}$/i.test(section.name)
+    && normalizeComparablePath(readWorkspaceFilePath(section) ?? '') === comparable);
+  if (existing) {
+    return { section: existing, created: false };
+  }
+
+  const index = nextWorkspaceFileIndex(document);
+  const section = new IniSection(`File ${String(index).padStart(4, '0')}`, []);
+  section.set('Path', quote(toCviPath(projectFile.absolutePath)));
+  section.set('File Type', quote(cviWorkspaceFileType(projectFile.type, projectFile.absolutePath)));
+  section.set('In Projects', quote(`${projectIndex},`));
+  section.lines.push('');
+  const tabOrderIndex = document.sections.findIndex((candidate) => candidate.name.toLowerCase() === 'tab order');
+  const buildConfigIndex = document.sections.findIndex((candidate) => /^Default Build Config \d{4} /i.test(candidate.name));
+  const insertionIndex = tabOrderIndex >= 0 ? tabOrderIndex : buildConfigIndex >= 0 ? buildConfigIndex : document.sections.length;
+  document.sections.splice(insertionIndex, 0, section);
+  header.set('Number of Opened Files', String(document.sections.filter((candidate) => /^File \d{4}$/i.test(candidate.name)).length));
+  return { section, created: true };
+}
+
 export class CviParser {
   parseWorkspace(workspacePath: string): CviWorkspace {
     const document = IniDocument.parse(readText(workspacePath));
@@ -651,11 +933,21 @@ export class CviParser {
       return;
     }
     const document = IniDocument.parse(readText(workspacePath));
-    const suffix = String(projectIndex).padStart(4, '0');
+    const header = document.getSection('Workspace Header');
+    if (!header) {
+      throw new Error('Invalid CVI workspace: missing [Workspace Header].');
+    }
+    const projectCount = Number(header.get('Number of Projects') ?? '0');
+    if (projectIndex < 1 || projectIndex > projectCount || !header.has(`Project ${workspaceProjectSuffix(projectIndex)}`)) {
+      throw new Error(`Refusing to update CVI run settings: project ${projectIndex} is not declared in the workspace.`);
+    }
+    const version = Number(header.get('Version') ?? '1200');
+    ensureWorkspaceProjectSections(document, projectIndex, version);
+    const suffix = workspaceProjectSuffix(projectIndex);
     const sectionName = `Default Build Config ${suffix} ${modeSuffix(mode)}`;
     const config = document.getSection(sectionName);
     if (!config) {
-      throw new Error(`Refusing to update CVI run settings: [${sectionName}] is missing. Open and save the workspace once in CVI, then retry.`);
+      throw new Error(`Unable to initialize CVI run settings: [${sectionName}] is missing.`);
     }
     // CVI persists run options per build configuration in [Default Build Config ....].
     // Do not mirror values into the legacy [Command Line Args ....] or
@@ -674,6 +966,16 @@ export class CviParser {
     }
     const document = IniDocument.parse(readText(workspacePath));
     const issues: string[] = [];
+    const header = document.getSection('Workspace Header');
+    const version = Number(header?.get('Version') ?? '1200');
+    const projectCount = Number(header?.get('Number of Projects') ?? '0');
+    for (let projectIndex = 1; projectIndex <= projectCount; projectIndex += 1) {
+      for (const sectionName of requiredWorkspaceProjectSectionNames(document, projectIndex, version)) {
+        if (!document.getSection(sectionName)) {
+          issues.push(`[${sectionName}] is missing for workspace project ${workspaceProjectSuffix(projectIndex)}.`);
+        }
+      }
+    }
     const configuredValues = collectConfiguredRunValues(document);
     for (const section of document.sections) {
       if (/^Default Build Config \d{4} (?:Debug|Release|Debug64|Release64)$/i.test(section.name) || /^DLL Debugging Support \d{4}$/i.test(section.name)) {
@@ -756,6 +1058,12 @@ export class CviParser {
           changes.push(`[${section.name}] cleared duplicated legacy External Process Path.`);
         }
       }
+    }
+    const header = document.getSection('Workspace Header');
+    const version = Number(header?.get('Version') ?? '1200');
+    const projectCount = Number(header?.get('Number of Projects') ?? '0');
+    for (let projectIndex = 1; projectIndex <= projectCount; projectIndex += 1) {
+      changes.push(...ensureWorkspaceProjectSections(document, projectIndex, version));
     }
     if (changes.length > 0) {
       writeText(workspacePath, document.toString());
@@ -863,7 +1171,7 @@ export class CviParser {
     writeText(workspacePath, document.toString());
   }
 
-  addProjectToWorkspace(workspacePath: string, projectPath: string): void {
+  addProjectToWorkspace(workspacePath: string, projectPath: string): number {
     if (path.extname(workspacePath).toLowerCase() !== '.cws') {
       throw new Error('A standalone .prj cannot contain multiple projects. Open or create a .cws workspace first.');
     }
@@ -875,18 +1183,21 @@ export class CviParser {
 
     const workspaceDirectory = path.dirname(workspacePath);
     const relativePath = normalizeRelativePath(workspaceDirectory, projectPath);
-    const existing = header.entries().some(({ key, value }) => /^Project \d{4}$/i.test(key) && (unquote(value) ?? '').toLowerCase() === relativePath.toLowerCase());
+    const existing = header.entries().find(({ key, value }) => /^Project \d{4}$/i.test(key) && (unquote(value) ?? '').toLowerCase() === relativePath.toLowerCase());
     if (existing) {
-      return;
+      return Number(existing.key.match(/\d{4}/)?.[0] ?? '1');
     }
 
     const nextIndex = Number(header.get('Number of Projects') ?? '0') + 1;
     header.set('Number of Projects', String(nextIndex));
-    header.set(`Project ${String(nextIndex).padStart(4, '0')}`, quote(relativePath));
+    header.set(`Project ${workspaceProjectSuffix(nextIndex)}`, quote(relativePath));
     if (!header.has('Active Project')) {
       header.set('Active Project', '1');
     }
+    const version = Number(header.get('Version') ?? '1200');
+    ensureWorkspaceProjectSections(document, nextIndex, version);
     writeText(workspacePath, document.toString());
+    return nextIndex;
   }
 
   removeProjectFromWorkspace(workspacePath: string, projectIndex: number): void {
@@ -1094,6 +1405,139 @@ export class CviParser {
     writeText(projectPath, document.toString());
   }
 
+  synchronizeWorkspaceBreakpoints(
+    workspacePath: string,
+    projectIndex: number,
+    projectPath: string,
+    requestedBreakpoints: CviWorkspaceBreakpoint[],
+    previouslyTrackedBreakpoints: CviWorkspaceBreakpoint[] = [],
+    preserveNativeBreakpoints = false
+  ): CviWorkspaceBreakpointSyncResult {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws') {
+      throw new Error('Native CVI breakpoint synchronization requires an opened .cws workspace.');
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const header = document.getSection('Workspace Header');
+    if (!header) {
+      throw new Error('Invalid CVI workspace: missing [Workspace Header].');
+    }
+    const projectCount = Number(header.get('Number of Projects') ?? '0');
+    if (projectIndex < 1 || projectIndex > projectCount || !header.has(`Project ${workspaceProjectSuffix(projectIndex)}`)) {
+      throw new Error(`Refusing to synchronize CVI breakpoints: project ${projectIndex} is not declared in the workspace.`);
+    }
+
+    const project = this.parseProject(projectPath);
+    const projectFiles = new Map(project.files
+      .filter(isBreakpointCompatibleProjectFile)
+      .map((file) => [normalizeComparablePath(file.absolutePath), file]));
+    const previousByFile = new Map<string, Set<number>>();
+    for (const breakpoint of previouslyTrackedBreakpoints) {
+      const key = normalizeComparablePath(breakpoint.filePath);
+      if (!key || !projectFiles.has(key) || !Number.isInteger(breakpoint.line) || breakpoint.line < 1) {
+        continue;
+      }
+      const lines = previousByFile.get(key) ?? new Set<number>();
+      lines.add(breakpoint.line);
+      previousByFile.set(key, lines);
+    }
+
+    const requestedByFile = new Map<string, Set<number>>();
+    const ignoredBreakpoints: CviWorkspaceBreakpoint[] = [];
+    for (const breakpoint of requestedBreakpoints) {
+      const key = normalizeComparablePath(breakpoint.filePath);
+      if (!key || !projectFiles.has(key) || !Number.isInteger(breakpoint.line) || breakpoint.line < 1) {
+        ignoredBreakpoints.push(breakpoint);
+        continue;
+      }
+      const lines = requestedByFile.get(key) ?? new Set<number>();
+      lines.add(breakpoint.line);
+      requestedByFile.set(key, lines);
+    }
+
+    const sectionsByPath = new Map<string, IniSection>();
+    for (const section of document.sections.filter((candidate) => /^File \d{4}$/i.test(candidate.name))) {
+      const sectionPath = readWorkspaceFilePath(section);
+      if (sectionPath) {
+        sectionsByPath.set(normalizeComparablePath(sectionPath), section);
+      }
+    }
+
+    const changedSections = new Set<string>();
+    const createdWorkspaceFileSections: string[] = [];
+    const trackedBreakpoints: CviWorkspaceBreakpoint[] = [];
+    let appliedCount = 0;
+    let preservedNativeCount = 0;
+    let removedTrackedCount = 0;
+    let removedNativeCount = 0;
+
+    for (const [fileKey, projectFile] of projectFiles) {
+      const requestedLines = requestedByFile.get(fileKey) ?? new Set<number>();
+      const previousLines = previousByFile.get(fileKey) ?? new Set<number>();
+      let section = sectionsByPath.get(fileKey);
+      if (!section && requestedLines.size === 0) {
+        continue;
+      }
+      if (!section) {
+        const ensured = ensureWorkspaceFileSection(document, header, projectIndex, projectFile);
+        section = ensured.section;
+        sectionsByPath.set(fileKey, section);
+        if (ensured.created) {
+          createdWorkspaceFileSections.push(section.name);
+        }
+      }
+
+      const existing = readWorkspaceBreakpoints(section);
+      const target = new Map<number, string>();
+      if (preserveNativeBreakpoints) {
+        for (const [line, value] of existing) {
+          if (!previousLines.has(line)) {
+            target.set(line, value);
+            preservedNativeCount += 1;
+          } else if (!requestedLines.has(line)) {
+            removedTrackedCount += 1;
+          }
+        }
+      } else {
+        // Mirror mode is intentionally exact: native breakpoints for files in
+        // the active project are replaced by the enabled standard VS Code
+        // breakpoints. Tracepoints are stored separately and remain intact.
+        for (const line of existing.keys()) {
+          if (!requestedLines.has(line)) removedNativeCount += 1;
+        }
+        for (const line of previousLines) {
+          if (!requestedLines.has(line)) removedTrackedCount += 1;
+        }
+      }
+
+      for (const line of requestedLines) {
+        appliedCount += 1;
+        target.set(line, quote(`${line},0,enabled,`));
+        trackedBreakpoints.push({ filePath: projectFile.absolutePath, line });
+      }
+
+      const before = section.lines.join('\n');
+      replaceWorkspaceBreakpoints(section, target);
+      if (section.lines.join('\n') !== before) {
+        changedSections.add(section.name);
+      }
+    }
+
+    if (createdWorkspaceFileSections.length > 0 || changedSections.size > 0) {
+      writeText(workspacePath, document.toString());
+    }
+    return {
+      changed: createdWorkspaceFileSections.length > 0 || changedSections.size > 0,
+      requestedCount: requestedBreakpoints.length,
+      appliedCount,
+      preservedNativeCount,
+      removedTrackedCount,
+      removedNativeCount,
+      createdWorkspaceFileSections,
+      ignoredBreakpoints,
+      trackedBreakpoints
+    };
+  }
+
   createWorkspaceAndProject(rootDirectory: string, workspaceName: string, projectName: string, targetType: string, cviDir: string | undefined, formatVersion: number): { workspacePath: string; projectPath: string } {
     fs.mkdirSync(rootDirectory, { recursive: true });
     const projectPath = path.join(rootDirectory, `${projectName}.prj`);
@@ -1105,6 +1549,16 @@ export class CviParser {
     writeText(projectPath, this.createMinimalProjectText(projectPath, projectName, targetType, cviDir, formatVersion));
     writeText(workspacePath, this.createMinimalWorkspaceText(workspacePath, path.basename(projectPath), cviDir, formatVersion));
     return { workspacePath, projectPath };
+  }
+
+  createProject(projectDirectory: string, projectName: string, targetType: string, cviDir: string | undefined, formatVersion: number): string {
+    fs.mkdirSync(projectDirectory, { recursive: true });
+    const projectPath = path.join(projectDirectory, `${projectName}.prj`);
+    if (fs.existsSync(projectPath)) {
+      throw new Error(`The CVI project already exists: ${projectPath}`);
+    }
+    writeText(projectPath, this.createMinimalProjectText(projectPath, projectName, targetType, cviDir, formatVersion));
+    return projectPath;
   }
 
   private ensureProjectFolder(document: IniDocument, folder: string): void {
@@ -1156,17 +1610,7 @@ export class CviParser {
     header.lines.push('');
     document.addSection(header);
 
-    const projectHeader = new IniSection('Project Header 0001', []);
-    projectHeader.set('Version', String(version));
-    projectHeader.set("Don't Update DistKit", 'False');
-    projectHeader.set('Platform Code', '4');
-    projectHeader.set('Build Configuration', quote('Debug'));
-    projectHeader.set('Warn User If Debugging Release', '1');
-    projectHeader.set('Batch Build Release', 'False');
-    projectHeader.set('Batch Build Debug', 'False');
-    projectHeader.set('Force Rebuild', 'False');
-    projectHeader.lines.push('');
-    document.addSection(projectHeader);
+    ensureWorkspaceProjectSections(document, 1, version);
     return document.toString();
   }
 

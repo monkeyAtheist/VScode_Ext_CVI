@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.5",
+  "version": "0.6.31",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -23,6 +23,7 @@
     "onView:labwindowsCvi.quickActions",
     "onView:labwindowsCvi.workspaceExplorer",
     "onCommand:labwindowsCvi.openHome",
+    "onCommand:labwindowsCvi.createProjectInWorkspace",
     "onView:labwindowsCvi.libraryExplorer",
     "onCommand:labwindowsCvi.debugInCvi",
     "onCommand:labwindowsCvi.library.findFunction",
@@ -59,7 +60,24 @@
     "onCommand:labwindowsCvi.selectTargetTypeLIB",
     "onCommand:labwindowsCvi.prepareDllImportLibraryGeneration",
     "onCommand:labwindowsCvi.copyFilePath",
-    "onCommand:labwindowsCvi.copyRelativeFilePath"
+    "onCommand:labwindowsCvi.copyRelativeFilePath",
+    "onCommand:labwindowsCvi.convertSelectedIntegerToDecimal",
+    "onCommand:labwindowsCvi.convertSelectedIntegerToHexadecimal",
+    "onCommand:labwindowsCvi.convertSelectedIntegerToBinary",
+    "onCommand:labwindowsCvi.openFunctionPanel",
+    "onCommand:labwindowsCvi.synchronizeBreakpoints",
+    "onCommand:labwindowsCvi.clearSynchronizedBreakpoints",
+    "onCommand:labwindowsCvi.diagnoseBreakpointBridge",
+    "onCommand:labwindowsCvi.chooseNativeDebugAction",
+    "onCommand:labwindowsCvi.nativeBuild",
+    "onCommand:labwindowsCvi.nativeRun",
+    "onCommand:labwindowsCvi.nativePause",
+    "onCommand:labwindowsCvi.nativeContinue",
+    "onCommand:labwindowsCvi.nativeStop",
+    "onCommand:labwindowsCvi.nativeState",
+    "onCommand:labwindowsCvi.diagnoseNativeCommandBridge",
+    "onView:labwindowsCvi.debugControls",
+    "onCommand:labwindowsCvi.refreshNativeDebugView"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -91,6 +109,12 @@
           "name": "CVI Actions",
           "contextualTitle": "CVI Actions",
           "visibility": "visible",
+          "showCollapseAll": false
+        },
+        {
+          "id": "labwindowsCvi.debugControls",
+          "name": "CVI Debug",
+          "contextualTitle": "CVI Debug",
           "showCollapseAll": false
         },
         {
@@ -212,6 +236,10 @@
         "title": "Browse Project File..."
       },
       {
+        "command": "labwindowsCvi.createProjectInWorkspace",
+        "title": "Create New Project in Workspace..."
+      },
+      {
         "command": "labwindowsCvi.addExistingProject",
         "title": "Add Existing Project to Workspace"
       },
@@ -280,6 +308,10 @@
         "title": "Open Panel in CVI UI Editor"
       },
       {
+        "command": "labwindowsCvi.openFunctionPanel",
+        "title": "Open CVI Function Panel"
+      },
+      {
         "command": "labwindowsCvi.revealProjectFile",
         "title": "Reveal Project File in Explorer"
       },
@@ -329,13 +361,13 @@
       },
       {
         "command": "labwindowsCvi.debugInCvi",
-        "title": "LabWindows/CVI: Build Debug and Open Native Debugger",
+        "title": "LabWindows/CVI: Build & Run Debug",
         "category": "LabWindows/CVI",
         "icon": "$(debug-alt)"
       },
       {
         "command": "labwindowsCvi.debugProjectInCvi",
-        "title": "Build Debug and Open Native Debugger",
+        "title": "Build & Run Debug",
         "category": "LabWindows/CVI"
       },
       {
@@ -569,6 +601,93 @@
         "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
         "title": "Prepare DLL Import Library Generation in CVI...",
         "icon": "$(library)"
+      },
+      {
+        "command": "labwindowsCvi.convertSelectedIntegerToDecimal",
+        "title": "Convert Selected Integer to Decimal",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.convertSelectedIntegerToHexadecimal",
+        "title": "Convert Selected Integer to Hexadecimal",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.convertSelectedIntegerToBinary",
+        "title": "Convert Selected Integer to Binary",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.synchronizeBreakpoints",
+        "title": "LabWindows/CVI: Synchronize VS Code Breakpoints to Native Workspace",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-breakpoint)"
+      },
+      {
+        "command": "labwindowsCvi.clearSynchronizedBreakpoints",
+        "title": "LabWindows/CVI: Remove Synchronized Breakpoints from Native Workspace",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-breakpoint-unverified)"
+      },
+      {
+        "command": "labwindowsCvi.diagnoseBreakpointBridge",
+        "title": "LabWindows/CVI: Diagnose Native Breakpoint Bridge",
+        "category": "LabWindows/CVI",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "labwindowsCvi.chooseNativeDebugAction",
+        "title": "LabWindows/CVI: Native Debug Controls...",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-alt-small)"
+      },
+      {
+        "command": "labwindowsCvi.nativeBuild",
+        "title": "LabWindows/CVI: Build",
+        "category": "LabWindows/CVI",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.nativeRun",
+        "title": "LabWindows/CVI: Build & Run Debug",
+        "category": "LabWindows/CVI",
+        "icon": "$(play)"
+      },
+      {
+        "command": "labwindowsCvi.nativePause",
+        "title": "LabWindows/CVI: Pause",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "labwindowsCvi.nativeContinue",
+        "title": "LabWindows/CVI: Continue",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "labwindowsCvi.nativeStop",
+        "title": "LabWindows/CVI: Stop",
+        "category": "LabWindows/CVI",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "labwindowsCvi.nativeState",
+        "title": "LabWindows/CVI: Read Native CVI State",
+        "category": "LabWindows/CVI",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "labwindowsCvi.refreshNativeDebugView",
+        "title": "LabWindows/CVI: Refresh Native Debug Status",
+        "category": "LabWindows/CVI",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+        "title": "LabWindows/CVI: Diagnose Native Command Bridge",
+        "category": "LabWindows/CVI",
+        "icon": "$(tools)"
       }
     ],
     "menus": {
@@ -672,6 +791,16 @@
           "command": "labwindowsCvi.refresh",
           "when": "view == labwindowsCvi.workspaceExplorer",
           "group": "navigation@9"
+        },
+        {
+          "command": "labwindowsCvi.refreshNativeDebugView",
+          "when": "view == labwindowsCvi.debugControls",
+          "group": "navigation@1"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+          "when": "view == labwindowsCvi.debugControls",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -681,14 +810,19 @@
           "group": "inline@1"
         },
         {
-          "command": "labwindowsCvi.addExistingProject",
+          "command": "labwindowsCvi.createProjectInWorkspace",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
           "group": "modification@1"
         },
         {
-          "command": "labwindowsCvi.repairNativeWorkspaceCompatibility",
+          "command": "labwindowsCvi.addExistingProject",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
           "group": "modification@2"
+        },
+        {
+          "command": "labwindowsCvi.repairNativeWorkspaceCompatibility",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "modification@3"
         },
         {
           "command": "labwindowsCvi.saveAll",
@@ -831,6 +965,11 @@
           "group": "inline@1"
         },
         {
+          "command": "labwindowsCvi.openFunctionPanel",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.functionPanel\\./",
+          "group": "inline@1"
+        },
+        {
           "command": "labwindowsCvi.saveFile",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.(source|header|library|other)\\./",
           "group": "file@2"
@@ -949,6 +1088,116 @@
           "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
           "group": "build@5"
+        },
+        {
+          "command": "labwindowsCvi.synchronizeBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@1"
+        },
+        {
+          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@2"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseBreakpointBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@3"
+        },
+        {
+          "command": "labwindowsCvi.synchronizeBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@1"
+        },
+        {
+          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@2"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseBreakpointBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@3"
+        },
+        {
+          "command": "labwindowsCvi.chooseNativeDebugAction",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@4"
+        },
+        {
+          "command": "labwindowsCvi.nativeBuild",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@5"
+        },
+        {
+          "command": "labwindowsCvi.nativeRun",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@6"
+        },
+        {
+          "command": "labwindowsCvi.nativePause",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@7"
+        },
+        {
+          "command": "labwindowsCvi.nativeContinue",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@8"
+        },
+        {
+          "command": "labwindowsCvi.nativeStop",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@9"
+        },
+        {
+          "command": "labwindowsCvi.nativeState",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@10"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@11"
+        },
+        {
+          "command": "labwindowsCvi.chooseNativeDebugAction",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@4"
+        },
+        {
+          "command": "labwindowsCvi.nativeBuild",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@5"
+        },
+        {
+          "command": "labwindowsCvi.nativeRun",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@6"
+        },
+        {
+          "command": "labwindowsCvi.nativePause",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@7"
+        },
+        {
+          "command": "labwindowsCvi.nativeContinue",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@8"
+        },
+        {
+          "command": "labwindowsCvi.nativeStop",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@9"
+        },
+        {
+          "command": "labwindowsCvi.nativeState",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@10"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@11"
         }
       ],
       "commandPalette": [
@@ -1115,6 +1364,10 @@
         {
           "command": "labwindowsCvi.copyRelativeFilePath",
           "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.openFunctionPanel",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -1127,6 +1380,28 @@
           "command": "labwindowsCvi.saveSelectionAsSnippet",
           "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
           "group": "modification@2"
+        },
+        {
+          "submenu": "labwindowsCvi.convertSelectedInteger",
+          "when": "editorHasSelection",
+          "group": "modification@3"
+        }
+      ],
+      "labwindowsCvi.convertSelectedInteger": [
+        {
+          "command": "labwindowsCvi.convertSelectedIntegerToDecimal",
+          "when": "editorHasSelection",
+          "group": "1_convert@1"
+        },
+        {
+          "command": "labwindowsCvi.convertSelectedIntegerToHexadecimal",
+          "when": "editorHasSelection",
+          "group": "1_convert@2"
+        },
+        {
+          "command": "labwindowsCvi.convertSelectedIntegerToBinary",
+          "when": "editorHasSelection",
+          "group": "1_convert@3"
         }
       ]
     },
@@ -1237,6 +1512,115 @@
           "type": "boolean",
           "default": true,
           "description": "Show compact LabWindows/CVI actions in the VS Code status bar. These actions remain available when the CVI Workspace view is collapsed."
+        },
+        "labwindowsCvi.synchronizeBreakpointsBeforeNativeDebug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Synchronize standard enabled VS Code source breakpoints from the selected CVI project into the native .cws workspace before opening the LabWindows/CVI debugger."
+        },
+        "labwindowsCvi.synchronizeBreakpointsBeforeNativeRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "Synchronize standard enabled VS Code source breakpoints into the native .cws workspace immediately before sending Run Project to the LabWindows/CVI native command server."
+        },
+        "labwindowsCvi.nativeCommandTimeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 500,
+          "description": "Timeout in milliseconds used for one native LabWindows/CVI command. The extension uses the historical DDE command server by default because it can target the workspace instance opened explicitly by the extension."
+        },
+        "labwindowsCvi.nativeCommandStartupTimeoutMs": {
+          "type": "number",
+          "default": 25000,
+          "minimum": 1000,
+          "description": "Maximum time in milliseconds to wait for the native LabWindows/CVI command bridge after the IDE is opened automatically."
+        },
+        "labwindowsCvi.nativePostIdeStartDelayMs": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 0,
+          "description": "Delay in milliseconds inserted after automatically opening the LabWindows/CVI IDE and detecting its DDE command server, before sending build/debug session commands."
+        },
+        "labwindowsCvi.nativeDdeSessionStartupTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "description": "Maximum time in milliseconds to establish the persistent DDE debug session before sending Run Project. The session stays open so Pause, Continue and Stop can be sent while the CVI user program is executing."
+        },
+        "labwindowsCvi.nativeActiveXProcessTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 5000,
+          "description": "Maximum host-process time in milliseconds allowed for the optional experimental PowerShell ActiveX compatibility bridge based on CVI.Application."
+        },
+        "labwindowsCvi.nativeBridgeProcessTimeoutMs": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 30000,
+          "description": "Maximum host-process time in milliseconds allowed for the historical PowerShell DDE fallback bridge. The first DDE fallback invocation can compile and cache its managed helper locally."
+        },
+        "labwindowsCvi.activeXDiscoveryTimeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 3000,
+          "description": "Maximum time in milliseconds allowed for the targeted LabWindows/CVI ActiveX registry diagnostic."
+        },
+        "labwindowsCvi.powershellExecutable": {
+          "type": "string",
+          "default": "powershell.exe",
+          "description": "Windows PowerShell executable used to run the embedded LabWindows/CVI compatibility bridge and diagnostic scripts."
+        },
+        "labwindowsCvi.nativeCommandTransport": {
+          "type": "string",
+          "enum": [
+            "dde",
+            "auto",
+            "activex"
+          ],
+          "default": "dde",
+          "description": "Native CVI command transport. dde is the recommended default and avoids opening a second empty CVI instance. auto tries DDE first and ActiveX only as a fallback. activex is an experimental ActiveX-first compatibility mode."
+        },
+        "labwindowsCvi.allowActiveXAutoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental compatibility option. Allow the ActiveX bridge to create a CVI.Application COM instance when no running automation object is available. Keep disabled to avoid opening a second empty CVI workspace."
+        },
+        "labwindowsCvi.nativeDebuggerIdeWindowMode": {
+          "type": "string",
+          "enum": [
+            "minimized",
+            "normal"
+          ],
+          "default": "minimized",
+          "description": "Window mode used for the native CVI IDE backend when a VS Code debug session is launched. minimized keeps CVI in the background while VS Code owns the debug UI."
+        },
+        "labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep the native CVI IDE minimized while VS Code controls the debug session through the inline DAP adapter."
+        },
+        "labwindowsCvi.nativeDapPollIntervalMs": {
+          "type": "number",
+          "default": 750,
+          "minimum": 300,
+          "description": "Polling interval used by the VS Code debug adapter to detect native CVI execution-state transitions such as breakpoint suspension."
+        },
+        "labwindowsCvi.nativeDapPollTimeoutMs": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 500,
+          "description": "Timeout for one non-destructive execution-state polling request sent through the persistent DDE session. Poll failures do not close the session."
+        },
+        "labwindowsCvi.buildBeforeNativeDebug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Build and link the active CVI project locally with compile.exe before opening the native CVI debugger. When the local build fails, the native CVI IDE is not opened."
+        },
+        "labwindowsCvi.nativeExecutionMonitorIntervalMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 500,
+          "description": "Polling interval used after a native debug launch to detect natural program completion without altering the persistent DDE control session."
         }
       }
     },
@@ -1251,6 +1635,20 @@
         "key": "ctrl+alt+i",
         "mac": "cmd+alt+i",
         "when": "editorTextFocus"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "labwindowsCvi.convertSelectedInteger",
+        "label": "Convert selected integer to"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "c"
+      },
+      {
+        "language": "cpp"
       }
     ]
   },

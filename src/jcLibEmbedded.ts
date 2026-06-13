@@ -20354,6 +20354,17 @@ export function activate(context: vscode.ExtensionContext): void {
     await showFunctionDetailsPanel(item.functionData);
   }));
 
+  context.subscriptions.push(vscode.commands.registerCommand('labwindowsCvi.library.showFunctionDetailsByName', async (name?: string, fallback?: CviFunction) => {
+    const wanted = String(name ?? '').trim().toLowerCase();
+    const matched = wanted ? searchEntries.find((entry) => entry.fn.name.toLowerCase() === wanted)?.fn : undefined;
+    const resolved = matched ?? fallback;
+    if (!resolved) {
+      void vscode.window.showInformationMessage(`No CVI library card was found for ${name ?? 'the selected function'}.`);
+      return;
+    }
+    await showFunctionDetailsPanel(resolved);
+  }));
+
   updateViewMessage(treeView, treeProvider);
 }
 

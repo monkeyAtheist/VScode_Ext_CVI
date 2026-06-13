@@ -14,7 +14,11 @@ import { CviTemplateService } from './services/cviTemplateService';
 import { CviProjectSettingsService } from './services/cviProjectSettingsService';
 import { BuildSettingsPanel } from './views/buildSettingsPanel';
 import { QuickActionsView } from './views/quickActionsView';
+import { CviDebugView } from './views/cviDebugView';
 import { CviCompletionProvider, CviSourceSymbol, CviSymbolService, isSourceOrHeader } from './services/cviSymbolService';
+import { CviFunctionPanelService } from './services/cviFunctionPanelService';
+import { CviBreakpointSyncService } from './services/cviBreakpointSyncService';
+import { CviNativeCommandService } from './services/cviNativeCommandService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
@@ -24,7 +28,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const templates = new CviTemplateService(context, installations, output);
   const workspaces = new CviWorkspaceService(context, parser, installations, templates, output);
   const projectSettings = new CviProjectSettingsService(workspaces, parser, output);
-  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, output);
+  const breakpointSync = new CviBreakpointSyncService(context, parser, workspaces, output);
+  const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
+  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output);
   const treeProvider = new CviTreeProvider(workspaces);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
   const symbols = new CviSymbolService(context.extensionPath, workspaces);
@@ -32,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const fileSymbolsView = vscode.window.createTreeView('labwindowsCvi.fileSymbols', { treeDataProvider: fileSymbolsProvider });
   fileSymbolsProvider.attachView(fileSymbolsView);
   const completionProvider = new CviCompletionProvider(symbols);
+  const functionPanels = new CviFunctionPanelService();
   const completionRegistration = vscode.languages.registerCompletionItemProvider(
     [{ language: 'c', scheme: 'file' }, { language: 'cpp', scheme: 'file' }],
     completionProvider
@@ -40,6 +47,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const buildSettings = new BuildSettingsPanel(workspaces, parser, projectSettings);
   const quickActions = new QuickActionsView(workspaces, builds, projectSettings);
   const quickActionsRegistration = vscode.window.registerTreeDataProvider('labwindowsCvi.quickActions', quickActions);
+  const debugView = new CviDebugView(nativeCommands, workspaces);
+  const debugViewRegistration = vscode.window.registerTreeDataProvider('labwindowsCvi.debugControls', debugView);
 
   const statusBarItems = [
     createStatusBarAction('$(home)', 'LabWindows/CVI home', 'labwindowsCvi.openHome', 99),
@@ -47,6 +56,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     createStatusBarAction('$(tools)', 'Build / rebuild / clean the active CVI project', 'labwindowsCvi.chooseBuildAction', 97),
     createStatusBarAction('$(play)', 'Build and run the active CVI target', 'labwindowsCvi.run', 96),
     createStatusBarAction('$(list-selection)', 'Advanced CVI run options', 'labwindowsCvi.chooseRunAction', 95),
+    createStatusBarAction('$(debug-alt-small)', 'Native CVI debug controls', 'labwindowsCvi.chooseNativeDebugAction', 94.5),
     createStatusBarAction('D32', 'Select the LabWindows/CVI build mode', 'labwindowsCvi.selectBuildMode', 94),
     createStatusBarAction('EXE', 'Select the LabWindows/CVI target type', 'labwindowsCvi.selectTargetType', 93)
   ];
@@ -55,18 +65,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const activeRef = workspaces.activeProjectRef;
     const targetType = activeRef?.exists ? workspaces.getProject(activeRef)?.targetType : undefined;
     const targetKey = targetType === 'Dynamic Link Library' ? 'dll' : targetType === 'Static Library' ? 'lib' : targetType === 'Executable' ? 'exe' : 'none';
+    const nativeSnapshot = nativeCommands.getDebugSnapshot();
     void vscode.commands.executeCommand('setContext', 'labwindowsCvi.buildMode', builds.buildMode);
     void vscode.commands.executeCommand('setContext', 'labwindowsCvi.targetType', targetKey);
+    void vscode.commands.executeCommand('setContext', 'labwindowsCvi.nativeExecution', nativeSnapshot.execution);
+    void vscode.commands.executeCommand('setContext', 'labwindowsCvi.nativeSessionConnected', nativeSnapshot.sessionConnected);
   };
 
   const updateStatusBar = (): void => {
     const targetType = workspaces.activeProject?.targetType;
+    const nativeSnapshot = nativeCommands.getDebugSnapshot();
     const modeText = builds.buildMode === 'debug64' ? 'D64' : builds.buildMode === 'release64' ? 'R64' : builds.buildMode === 'release' ? 'R32' : 'D32';
     const targetText = targetType === 'Dynamic Link Library' ? 'DLL' : targetType === 'Static Library' ? 'LIB' : targetType === 'Executable' ? 'EXE' : '---';
-    statusBarItems[5].text = modeText;
-    statusBarItems[5].tooltip = `LabWindows/CVI build mode: ${modeText}. Click to change.`;
-    statusBarItems[6].text = targetText;
-    statusBarItems[6].tooltip = `LabWindows/CVI target type: ${targetText}. Click to change.`;
+    const nativeBridgeAvailable = nativeSnapshot.sessionConnected || nativeSnapshot.serverAvailable === true;
+    const nativeStateText = nativeBridgeAvailable
+      ? nativeSnapshot.execution === 'running' ? 'run' : nativeSnapshot.execution === 'suspended' ? 'pause' : nativeSnapshot.execution === 'idle' ? 'idle' : '?'
+      : 'off';
+    const nativeStateIcon = nativeBridgeAvailable
+      ? nativeSnapshot.execution === 'running' ? 'debug-start' : nativeSnapshot.execution === 'suspended' ? 'debug-pause' : 'debug-stop'
+      : 'debug-disconnect';
+    statusBarItems[5].text = `$(${nativeStateIcon}) CVI:${nativeStateText}`;
+    statusBarItems[5].tooltip = `Native CVI debugger: ${nativeBridgeAvailable ? 'bridge available' : 'bridge unavailable'} · persistent session ${nativeSnapshot.sessionConnected ? 'connected' : 'disconnected'} · execution ${nativeSnapshot.execution} · last command ${nativeSnapshot.lastCommand}. Click for controls.`;
+    statusBarItems[6].text = modeText;
+    statusBarItems[6].tooltip = `LabWindows/CVI build mode: ${modeText}. Click to change.`;
+    statusBarItems[7].text = targetText;
+    statusBarItems[7].tooltip = `LabWindows/CVI target type: ${targetText}. Click to change.`;
     const show = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('showPersistentStatusBarActions', true);
     for (const item of statusBarItems) {
       if (show) item.show(); else item.hide();
@@ -90,13 +113,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await vscode.commands.executeCommand(command);
   };
 
+  const runNativeDebug = async (): Promise<boolean> => {
+    const shouldBuild = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('buildBeforeNativeDebug', true);
+    if (shouldBuild) {
+      output.appendLine('[CVI] Running local compile.exe preflight build before native debugging.');
+      const built = await builds.build(false);
+      if (!built) {
+        output.appendLine('[CVI] Native debugger launch cancelled: local compile.exe preflight build failed.');
+        vscode.window.showErrorMessage('Native CVI debugger was not opened because the local compile.exe build failed.');
+        return false;
+      }
+      output.appendLine('[CVI] Local compile.exe preflight build succeeded. Opening the native CVI debugger.');
+    }
+    return await nativeCommands.run();
+  };
+
   context.subscriptions.push(
     output,
+    nativeCommands,
     workspaces,
     home,
     buildSettings,
     quickActions,
     quickActionsRegistration,
+    debugView,
+    debugViewRegistration,
     cppTools,
     treeView,
     fileSymbolsView,
@@ -121,6 +162,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         cppTools.requestSync(workspaces.currentWorkspace);
       });
     }),
+    nativeCommands.onDidChange(() => updateStatusBar()),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('labwindowsCvi')) {
         updateStatusBar();
@@ -148,6 +190,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.diagnoseCppTools', () => cppTools.diagnose(workspaces.currentWorkspace)),
     register('labwindowsCvi.repairCppToolsProvider', () => cppTools.repairCppToolsProviderSelection(workspaces.currentWorkspace)),
     register('labwindowsCvi.repairNativeWorkspaceCompatibility', () => workspaces.repairNativeWorkspaceCompatibility()),
+    register('labwindowsCvi.synchronizeBreakpoints', (node?: ProjectNode) => breakpointSync.synchronize(node?.ref)),
+    register('labwindowsCvi.clearSynchronizedBreakpoints', (node?: ProjectNode) => breakpointSync.clear(node?.ref)),
+    register('labwindowsCvi.diagnoseBreakpointBridge', (node?: ProjectNode) => breakpointSync.diagnose(node?.ref)),
+    register('labwindowsCvi.chooseNativeDebugAction', () => nativeCommands.chooseAction()),
+    register('labwindowsCvi.nativeBuild', () => builds.build(false)),
+    register('labwindowsCvi.nativeRun', async () => runNativeDebug()),
+    register('labwindowsCvi.nativePause', () => nativeCommands.pause()),
+    register('labwindowsCvi.nativeContinue', () => nativeCommands.continueExecution()),
+    register('labwindowsCvi.nativeStop', () => nativeCommands.stop()),
+    register('labwindowsCvi.nativeState', () => nativeCommands.showState()),
+    register('labwindowsCvi.refreshNativeDebugView', () => nativeCommands.refreshDebugSnapshot()),
+    register('labwindowsCvi.diagnoseNativeCommandBridge', () => nativeCommands.diagnose()),
     register('labwindowsCvi.addWorkspaceFolderForIntelliSense', () => cppTools.addConfigurationRootToWorkspace(workspaces.currentWorkspace)),
     register('labwindowsCvi.selectBuildMode', () => builds.selectBuildMode()),
     register('labwindowsCvi.selectBuildModeD32', () => builds.selectBuildMode()),
@@ -161,7 +215,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.run', () => builds.buildAndRun()),
     register('labwindowsCvi.chooseRunAction', () => builds.chooseRunAction()),
     register('labwindowsCvi.runWithoutBuild', () => builds.runWithoutBuild()),
-    register('labwindowsCvi.debugInCvi', () => builds.debugInCvi()),
+    register('labwindowsCvi.debugInCvi', () => runNativeDebug()),
     register('labwindowsCvi.openWorkspaceInCvi', () => builds.openWorkspaceInCvi()),
     register('labwindowsCvi.setActiveProject', (node?: ProjectNode) => workspaces.setActiveProject(node?.ref)),
     register('labwindowsCvi.buildProject', (node?: ProjectNode) => node ? builds.build(false, node.ref) : undefined),
@@ -174,9 +228,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.editBuildSettings', (node?: ProjectNode) => buildSettings.show(node?.ref)),
     register('labwindowsCvi.editBuildSettingsSafeMode', (node?: ProjectNode) => buildSettings.showSafeMode(node?.ref)),
     register('labwindowsCvi.executeProject', (node?: ProjectNode) => node ? builds.buildAndRun(node.ref) : undefined),
-    register('labwindowsCvi.debugProjectInCvi', (node?: ProjectNode) => builds.debugInCvi(node?.ref)),
+    register('labwindowsCvi.debugProjectInCvi', async (node?: ProjectNode) => { if (node?.ref) await workspaces.setActiveProject(node.ref); return await runNativeDebug(); }),
     register('labwindowsCvi.editProjectInCvi', (node?: ProjectNode) => node ? builds.openProjectInCvi(node.ref.absolutePath) : undefined),
     register('labwindowsCvi.openProjectFile', (node?: ProjectNode) => node ? workspaces.openPath(node.ref.absolutePath) : undefined),
+    register('labwindowsCvi.createProjectInWorkspace', () => workspaces.createProjectInWorkspace()),
     register('labwindowsCvi.addExistingProject', () => workspaces.addExistingProject()),
     register('labwindowsCvi.removeProject', (node?: ProjectNode) => node ? workspaces.removeProject(node.ref) : undefined),
     register('labwindowsCvi.addFiles', (node?: ProjectNode | FolderNode) => {
@@ -212,6 +267,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.saveFile', (node?: FileNode) => node ? workspaces.saveFile(node.file.absolutePath) : undefined),
     register('labwindowsCvi.openPanelInCvi', (node?: FileNode) => node ? builds.openPanelInCvi(node.file.absolutePath) : undefined),
     register('labwindowsCvi.openPanelPathInCvi', (filePath?: string) => filePath ? builds.openPanelInCvi(filePath) : undefined),
+    register('labwindowsCvi.openFunctionPanel', (node?: FileNode) => node ? functionPanels.open(node.file.absolutePath) : undefined),
     register('labwindowsCvi.insertSnippet', () => templates.insertSnippet()),
     register('labwindowsCvi.saveSelectionAsSnippet', () => templates.saveSelectionAsSnippet()),
     register('labwindowsCvi.manageSnippets', () => templates.manageSnippets()),
@@ -223,6 +279,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.revealFile', (node?: FileNode) => node ? workspaces.revealInExplorer(node.file.absolutePath) : undefined),
     register('labwindowsCvi.copyFilePath', (node?: FileNode) => node ? workspaces.copyFilePath(node.file.absolutePath) : undefined),
     register('labwindowsCvi.copyRelativeFilePath', (node?: FileNode) => node ? workspaces.copyRelativeFilePath(node.ref, node.file.absolutePath) : undefined),
+    register('labwindowsCvi.convertSelectedIntegerToDecimal', () => convertSelectedIntegerLiteral('decimal')),
+    register('labwindowsCvi.convertSelectedIntegerToHexadecimal', () => convertSelectedIntegerLiteral('hexadecimal')),
+    register('labwindowsCvi.convertSelectedIntegerToBinary', () => convertSelectedIntegerLiteral('binary')),
     register('labwindowsCvi.exploreProjectDirectory', (node?: ProjectNode) => node ? workspaces.revealInExplorer(path.dirname(node.ref.absolutePath)) : undefined),
     register('labwindowsCvi.exploreFolderDirectory', (node?: FolderNode) => node ? workspaces.revealInExplorer(workspaces.directoryForLogicalFolder(node.ref, node.folderPath)) : undefined),
     register('labwindowsCvi.exploreFileDirectory', (node?: FileNode) => node ? workspaces.revealInExplorer(path.dirname(node.file.absolutePath)) : undefined),
@@ -260,6 +319,48 @@ function createStatusBarAction(text: string, tooltip: string, command: string, p
   item.tooltip = tooltip;
   item.command = command;
   return item;
+}
+
+type IntegerLiteralTarget = 'decimal' | 'hexadecimal' | 'binary';
+
+async function convertSelectedIntegerLiteral(target: IntegerLiteralTarget): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.selection.isEmpty) {
+    vscode.window.showInformationMessage('Select an integer literal before converting it.');
+    return;
+  }
+  const selectedText = editor.document.getText(editor.selection);
+  const leadingWhitespace = selectedText.match(/^\s*/)?.[0] ?? '';
+  const trailingWhitespace = selectedText.match(/\s*$/)?.[0] ?? '';
+  const literal = selectedText.trim();
+  const converted = formatIntegerLiteral(literal, target);
+  if (!converted) {
+    vscode.window.showErrorMessage('The selected text is not a supported decimal, hexadecimal (0x...) or binary (0b...) integer literal.');
+    return;
+  }
+  await editor.edit((builder) => builder.replace(editor.selection, `${leadingWhitespace}${converted}${trailingWhitespace}`));
+}
+
+function formatIntegerLiteral(literal: string, target: IntegerLiteralTarget): string | undefined {
+  const match = literal.match(/^([+-]?)(0[xX][0-9a-fA-F]+|0[bB][01]+|[0-9]+)([uUlL]*)$/);
+  if (!match) {
+    return undefined;
+  }
+  const [, sign, digits, suffix] = match;
+  const unsignedDigits = digits.replace(/^0[xX]/, '').replace(/^0[bB]/, '');
+  const base = /^0[xX]/.test(digits) ? 16 : /^0[bB]/.test(digits) ? 2 : 10;
+  let value: bigint;
+  try {
+    value = BigInt(base === 16 ? `0x${unsignedDigits}` : base === 2 ? `0b${unsignedDigits}` : unsignedDigits);
+  } catch {
+    return undefined;
+  }
+  const body = target === 'hexadecimal'
+    ? `0x${value.toString(16).toUpperCase()}`
+    : target === 'binary'
+      ? `0b${value.toString(2)}`
+      : value.toString(10);
+  return `${sign}${body}${suffix}`;
 }
 
 export function deactivate(): void {

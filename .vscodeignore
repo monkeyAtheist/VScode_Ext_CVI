@@ -6,3 +6,6 @@ src/**
 .gitignore
 
 scripts/**
+
+test-mocks/**
+*.bak

@@ -8,6 +8,7 @@ import { CviInstallation, CviWorkspace } from '../model/types';
 import { CviInstallationService } from './cviInstallationService';
 import { CviProjectSettingsService } from './cviProjectSettingsService';
 import { CviWorkspaceService } from './cviWorkspaceService';
+import { CviBreakpointSyncService } from './cviBreakpointSyncService';
 import { normalizeRuntimePath } from '../utils/pathUtils';
 
 export class CviBuildService {
@@ -16,6 +17,7 @@ export class CviBuildService {
     private readonly workspaces: CviWorkspaceService,
     private readonly installations: CviInstallationService,
     private readonly projectSettings: CviProjectSettingsService,
+    private readonly breakpoints: CviBreakpointSyncService,
     private readonly output: vscode.OutputChannel
   ) {}
 
@@ -43,7 +45,7 @@ export class CviBuildService {
     const selected = await vscode.window.showQuickPick([
       { label: '$(play) Build and run', value: 'buildRun', description: 'Build the active target and launch the resulting executable' },
       { label: '$(run) Run without build', value: 'runOnly', description: 'Launch the existing target without invoking compile.exe' },
-      { label: '$(debug-alt) Build debug and open the native CVI debugger', value: 'debug', description: 'Build a debug configuration and open the workspace in LabWindows/CVI' }
+      { label: '$(debug-alt) Build and run debug', value: 'debug', description: 'Build locally, synchronize breakpoints and run the native CVI debugger' }
     ], { title: 'LabWindows/CVI run action' });
     if (!selected) {
       return;
@@ -51,7 +53,7 @@ export class CviBuildService {
     if (selected.value === 'runOnly') {
       await this.runWithoutBuild(projectRef);
     } else if (selected.value === 'debug') {
-      await this.debugInCvi(projectRef);
+      await vscode.commands.executeCommand('labwindowsCvi.nativeRun');
     } else {
       await this.buildAndRun(projectRef);
     }
@@ -263,8 +265,15 @@ export class CviBuildService {
       return;
     }
     const workspace = this.workspaces.currentWorkspace;
+    const synchronizeBreakpoints = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('synchronizeBreakpointsBeforeNativeDebug', true);
+    let synchronized = false;
+    if (synchronizeBreakpoints && workspace && path.extname(workspace.path).toLowerCase() === '.cws') {
+      synchronized = Boolean(await this.breakpoints.synchronize(ref, false));
+    }
     await this.openInCvi(workspace?.path ?? ref.absolutePath, workspace);
-    vscode.window.showInformationMessage('Debug build opened in CVI. Use the CVI Run menu for breakpoints, step commands, watch expressions and variable inspection.');
+    vscode.window.showInformationMessage(synchronized
+      ? 'Debug build opened in CVI. Standard enabled VS Code breakpoints from the selected project were synchronized to the native CVI workspace. Use CVI for step commands, watch expressions and variable inspection.'
+      : 'Debug build opened in CVI. Use CVI for breakpoints, step commands, watch expressions and variable inspection.');
   }
 
   async openWorkspaceInCvi(): Promise<void> {

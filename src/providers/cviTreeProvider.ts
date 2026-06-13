@@ -144,7 +144,9 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
     item.resourceUri = vscode.Uri.file(node.file.absolutePath);
     item.command = isPanel(node.file)
       ? { command: 'labwindowsCvi.openPanelInCvi', title: 'Open Panel in CVI UI Editor', arguments: [node] }
-      : { command: 'labwindowsCvi.openFile', title: 'Open File', arguments: [node] };
+      : isFunctionPanel(node.file)
+        ? { command: 'labwindowsCvi.openFunctionPanel', title: 'Open CVI Function Panel', arguments: [node] }
+        : { command: 'labwindowsCvi.openFile', title: 'Open File', arguments: [node] };
     return item;
   }
 
@@ -163,10 +165,15 @@ function isPanel(file: CviProjectFile): boolean {
   return file.type === 'User Interface Resource' || path.extname(file.absolutePath).toLowerCase() === '.uir';
 }
 
+function isFunctionPanel(file: CviProjectFile): boolean {
+  return file.type === 'Function Panel' || path.extname(file.absolutePath).toLowerCase() === '.fp';
+}
+
 function contextValueForFile(file: CviProjectFile): string {
   const kind = file.type === 'CSource' ? 'source'
     : isPanel(file) ? 'panel'
-      : file.type === 'Include' ? 'header'
+      : isFunctionPanel(file) ? 'functionPanel'
+        : file.type === 'Include' ? 'header'
         : file.type === 'Library' ? 'library'
           : 'other';
   const build = file.excluded ? 'excluded' : 'included';

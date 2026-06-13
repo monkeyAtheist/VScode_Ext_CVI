@@ -1,0 +1,16 @@
+const assert = require('assert');
+const path = require('path');
+const root = path.resolve(__dirname, '..');
+const { parseFunctionPanel } = require(path.join(root, 'out/services/cviFunctionPanelService.js'));
+const items = parseFunctionPanel('/mnt/data/asynctmr.fp');
+assert.equal(items.length, 8);
+const names = items.map((entry) => entry.name);
+for (const name of ['NewAsyncTimer','NewAsyncTimerWithPriority','DiscardAsyncTimer','SuspendAsyncTimerCallbacks','ResumeAsyncTimerCallbacks','SetAsyncTimerAttribute','GetAsyncTimerAttribute','GetAsyncTimerResolution']) assert(names.includes(name));
+const create = items.find((entry) => entry.name === 'NewAsyncTimer');
+assert.equal(create.returnType, 'int');
+assert.equal(create.header, 'toolbox\\asynctmr.h');
+assert.equal(create.parameters.length, 5);
+assert(create.insertText.startsWith('NewAsyncTimer('));
+const variadic = items.find((entry) => entry.name === 'SetAsyncTimerAttribute');
+assert(variadic.parameters.some((entry) => entry.type === '...'));
+console.log('0.6.11 CVI .fp parsing validation OK');

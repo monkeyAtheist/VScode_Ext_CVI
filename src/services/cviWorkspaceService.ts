@@ -260,6 +260,56 @@ export class CviWorkspaceService implements vscode.Disposable {
     this.refresh();
   }
 
+  async createProjectInWorkspace(): Promise<void> {
+    const workspace = this.workspace;
+    if (!workspace || path.extname(workspace.path).toLowerCase() !== '.cws') {
+      vscode.window.showErrorMessage('Open a .cws LabWindows/CVI workspace before creating an additional project.');
+      return;
+    }
+
+    const workspaceDirectory = path.dirname(workspace.path);
+    const folders = await vscode.window.showOpenDialog({
+      title: 'Select the directory for the new CVI project',
+      defaultUri: vscode.Uri.file(workspaceDirectory),
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false
+    });
+    if (!folders?.[0]) {
+      return;
+    }
+
+    const projectName = await vscode.window.showInputBox({
+      title: 'Create a CVI project in the current workspace',
+      prompt: 'Project file name without the .prj extension',
+      value: 'CVI_Project',
+      validateInput: validateBaseName
+    });
+    if (!projectName) {
+      return;
+    }
+
+    const target = await vscode.window.showQuickPick([
+      { label: 'Executable', value: 'Executable', description: 'Generate an .exe target' },
+      { label: 'Dynamic Link Library', value: 'Dynamic Link Library', description: 'Generate a .dll target' },
+      { label: 'Static Library', value: 'Static Library', description: 'Generate a .lib target' }
+    ], { title: 'Select the CVI target type' });
+    if (!target) {
+      return;
+    }
+
+    let installation = this.installations.getActiveInstallation();
+    if (!installation && !workspace.cviDir) {
+      installation = await this.installations.selectInstallation();
+    }
+    const formatVersion = vscode.workspace.getConfiguration('labwindowsCvi').get<number>('projectFormatVersion', 1200);
+    const projectPath = this.parser.createProject(folders[0].fsPath, projectName, target.value, installation?.root ?? workspace.cviDir, formatVersion);
+    const projectIndex = this.parser.addProjectToWorkspace(workspace.path, projectPath);
+    this.parser.setWorkspaceActiveProject(workspace.path, projectIndex);
+    this.refresh();
+    vscode.window.showInformationMessage(`Created ${path.basename(projectPath)} and added it to ${path.basename(workspace.path)} as the active project.`);
+  }
+
   async removeProject(projectRef: CviWorkspaceProjectRef): Promise<void> {
     if (!this.workspace) {
       return;
