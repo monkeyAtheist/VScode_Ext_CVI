@@ -1,1 +1,0 @@
-efd54a65e6e27e6104e59440b14f05fae37ff50e8a7b92185bff35a5e6e7c61f  /mnt/data/labwindows-cvi-project-manager-0.6.8.vsix
