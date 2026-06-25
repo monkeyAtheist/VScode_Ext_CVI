@@ -35,20 +35,20 @@ function createBackupPath(target: string, previousVersion: string | undefined): 
  * replaced so that newly shipped CVI metadata becomes visible immediately.
  * User modifications remain recoverable from the timestamped backup.
  */
-function seedOrUpgradeBundledPack(context: vscode.ExtensionContext, output: vscode.OutputChannel, fileName: string, label: string): void {
-  const source = vscode.Uri.joinPath(context.extensionUri, 'data', fileName).fsPath;
+export function ensureBundledCviLibraryPack(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const source = vscode.Uri.joinPath(context.extensionUri, 'data', 'cvi_pack.json').fsPath;
   const targetDirectory = path.join(context.globalStorageUri.fsPath, 'packs');
-  const target = path.join(targetDirectory, fileName);
+  const target = path.join(targetDirectory, 'cvi_pack.json');
 
   if (!fs.existsSync(source)) {
-    output.appendLine(`[CVI Libraries] Bundled ${label} not found: ${source}`);
+    output.appendLine(`[CVI Libraries] Bundled pack not found: ${source}`);
     return;
   }
 
   fs.mkdirSync(targetDirectory, { recursive: true });
   if (!fs.existsSync(target)) {
     fs.copyFileSync(source, target);
-    output.appendLine(`[CVI Libraries] Seeded ${label}: ${target}`);
+    output.appendLine(`[CVI Libraries] Seeded CVI library pack: ${target}`);
     return;
   }
 
@@ -62,7 +62,7 @@ function seedOrUpgradeBundledPack(context: vscode.ExtensionContext, output: vsco
     const backup = createBackupPath(target, installedVersion);
     fs.copyFileSync(target, backup);
     fs.copyFileSync(source, target);
-    output.appendLine(`[CVI Libraries] Upgraded ${label} ${installedVersion || 'unknown'} -> ${bundledVersion}.`);
+    output.appendLine(`[CVI Libraries] Upgraded CVI library pack ${installedVersion || 'unknown'} -> ${bundledVersion}.`);
     output.appendLine(`[CVI Libraries] Previous writable pack backed up to: ${backup}`);
     return;
   }
@@ -70,31 +70,4 @@ function seedOrUpgradeBundledPack(context: vscode.ExtensionContext, output: vsco
   if (!samePack) {
     output.appendLine(`[CVI Libraries] Existing writable pack has a different id; kept unchanged: ${target}`);
   }
-}
-
-
-function backupAndRemoveObsoleteBundledPack(context: vscode.ExtensionContext, output: vscode.OutputChannel, fileName: string, expectedId: string, label: string): void {
-  const targetDirectory = path.join(context.globalStorageUri.fsPath, 'packs');
-  const target = path.join(targetDirectory, fileName);
-
-  if (!fs.existsSync(target)) {
-    return;
-  }
-
-  const installed = readPackIdentity(target);
-  if (installed?.id && installed.id !== expectedId) {
-    output.appendLine(`[CVI Libraries] Obsolete ${label} was not removed because the installed pack id differs: ${target}`);
-    return;
-  }
-
-  const backup = createBackupPath(target, installed?.version || 'obsolete');
-  fs.copyFileSync(target, backup);
-  fs.rmSync(target, { force: true });
-  output.appendLine(`[CVI Libraries] Removed obsolete bundled ${label}; backup written to: ${backup}`);
-}
-
-export function ensureBundledCviLibraryPack(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
-  seedOrUpgradeBundledPack(context, output, 'cvi_pack.json', 'CVI library pack');
-  seedOrUpgradeBundledPack(context, output, 'c_language_pack.json', 'C language and C DLL library pack');
-  backupAndRemoveObsoleteBundledPack(context, output, 'my_util_c_pack.json', 'my-util-c-pack', 'MY Util C library pack');
 }

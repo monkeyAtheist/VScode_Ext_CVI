@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.33",
+  "version": "0.7.0",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -469,18 +469,18 @@
       },
       {
         "command": "labwindowsCvi.insertSnippet",
-        "title": "CVI: Insert snippet",
+        "title": "LabWindows/CVI: Insert CVI Snippet...",
         "category": "LabWindows/CVI",
         "icon": "$(symbol-snippet)"
       },
       {
         "command": "labwindowsCvi.saveSelectionAsSnippet",
-        "title": "CVI: Save selection as snippet...",
+        "title": "LabWindows/CVI: Save Selection as CVI Snippet...",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.manageSnippets",
-        "title": "CVI: Manage snippets...",
+        "title": "LabWindows/CVI: Manage CVI Snippets...",
         "category": "LabWindows/CVI"
       },
       {
@@ -530,7 +530,7 @@
       },
       {
         "command": "labwindowsCvi.editBuildSettingsSafeMode",
-        "title": "Project Build Settings (Safe Mode)\u2026",
+        "title": "Project Build Settings (Safe Mode)…",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
@@ -1088,6 +1088,116 @@
           "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
           "group": "build@5"
+        },
+        {
+          "command": "labwindowsCvi.synchronizeBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@1"
+        },
+        {
+          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@2"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseBreakpointBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@3"
+        },
+        {
+          "command": "labwindowsCvi.synchronizeBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@1"
+        },
+        {
+          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@2"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseBreakpointBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@3"
+        },
+        {
+          "command": "labwindowsCvi.chooseNativeDebugAction",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@4"
+        },
+        {
+          "command": "labwindowsCvi.nativeBuild",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@5"
+        },
+        {
+          "command": "labwindowsCvi.nativeRun",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@6"
+        },
+        {
+          "command": "labwindowsCvi.nativePause",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@7"
+        },
+        {
+          "command": "labwindowsCvi.nativeContinue",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@8"
+        },
+        {
+          "command": "labwindowsCvi.nativeStop",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@9"
+        },
+        {
+          "command": "labwindowsCvi.nativeState",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@10"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "debug@11"
+        },
+        {
+          "command": "labwindowsCvi.chooseNativeDebugAction",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@4"
+        },
+        {
+          "command": "labwindowsCvi.nativeBuild",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@5"
+        },
+        {
+          "command": "labwindowsCvi.nativeRun",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@6"
+        },
+        {
+          "command": "labwindowsCvi.nativePause",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@7"
+        },
+        {
+          "command": "labwindowsCvi.nativeContinue",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@8"
+        },
+        {
+          "command": "labwindowsCvi.nativeStop",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@9"
+        },
+        {
+          "command": "labwindowsCvi.nativeState",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@10"
+        },
+        {
+          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "debug@11"
         }
       ],
       "commandPalette": [

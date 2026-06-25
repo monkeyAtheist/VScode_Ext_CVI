@@ -229,20 +229,16 @@ const DLL_SOURCE_TEMPLATE = `#include <windows.h>
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
+    (void)lpvReserved;
+
     switch (fdwReason)
     {
-        case DLL_PROCESS_ATTACH:    // Code to run when the DLL is loaded
+        case DLL_PROCESS_ATTACH:
             if (InitCVIRTE (hinstDLL, 0, 0) == 0)
                 return FALSE;    /* out of memory */
             break;
 
-        case DLL_THREAD_ATTACH:     // Code to run when a thread is created
-            break;
-
-        case DLL_THREAD_DETACH:     // Code to run when a thread ends
-            break;
-
-        case DLL_PROCESS_DETACH:    // Code to run when the DLL is unloaded
+        case DLL_PROCESS_DETACH:
             if (!CVIRTEHasBeenDetached ())
                 CloseCVIRTE ();
             break;
