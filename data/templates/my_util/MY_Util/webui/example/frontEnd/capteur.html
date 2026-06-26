@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CATJ Boat - Vue capteurs</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body class="page-sensors">
+    <header class="topbar">
+        <div>
+            <h1>IBM Project : Team CATJ - Remote view</h1>
+            <p>Vue capteurs dédiée : LiDAR agrandi, cap magnétique, rose des caps, gyroscope et télémétrie plus lisibles.</p>
+            <div class="navLinks">
+                <a href="index.html">Dashboard</a>
+                <a href="camera.html">Caméra</a>
+                <a class="active" href="capteur.html">Capteurs</a>
+                <a href="gpio.html">GPIO</a>
+                <a href="bus.html">Bus I²C/SPI</a>
+                <a href="listen.html">Comms Listen</a>
+                <a href="send.html">Comms Send</a>
+            </div>
+        </div>
+        <div class="topBadges">
+            <span id="wsBadge" class="badge badge-off">WS disconnected</span>
+            <span id="modeBadge" class="badge">MODE --</span>
+            <span id="missionBadge" class="badge">MISSION --</span>
+            <span id="overlayBadge" class="badge">Overlay --</span>
+            <span id="lidarBadge" class="badge">LIDAR --</span>
+        </div>
+    </header>
+
+    <main class="dashboard sensorsDashboard">
+        <section class="panel sensorSummaryPanel">
+            <div class="panelHead">
+                <h2>Résumé temps réel</h2>
+                <div class="miniActions">
+                    <button id="btnManualMode">Manual</button>
+                    <button id="btnAutoMode">Auto</button>
+                    <button id="btnOverlayOn">Overlay ON</button>
+                    <button id="btnOverlayOff" class="secondary">Overlay OFF</button>
+                </div>
+            </div>
+
+            <div class="telemetryGrid telemetryGrid4 sensorTopGrid">
+                <div class="telemetryCard telemetryCardLarge"><span>Heading</span><strong id="headingVal">--</strong></div>
+                <div class="telemetryCard telemetryCardLarge"><span>Mag North</span><strong id="northVal">--</strong></div>
+                <div class="telemetryCard telemetryCardLarge"><span>Roll</span><strong id="rollVal">--</strong></div>
+                <div class="telemetryCard telemetryCardLarge"><span>Pitch</span><strong id="pitchVal">--</strong></div>
+                <div class="telemetryCard"><span>Yaw rate</span><strong id="yawVal">--</strong></div>
+                <div class="telemetryCard"><span>Gyro XYZ</span><strong id="gyroVecVal">--</strong></div>
+                <div class="telemetryCard"><span>LiDAR status</span><strong id="lidarStatusVal">--</strong></div>
+                <div class="telemetryCard"><span>Battery</span><strong id="batteryVal">Battery: --</strong></div>
+            </div>
+        </section>
+
+        <section class="panel sensorCompassPanel">
+            <div class="panelHead"><h2>Rose des caps</h2></div>
+            <canvas id="compassCanvas" width="420" height="420"></canvas>
+        </section>
+
+        <section class="panel sensorGyroPanel">
+            <div class="panelHead"><h2>Horizon / gyroscope</h2></div>
+            <canvas id="gyroCanvas" width="420" height="420"></canvas>
+        </section>
+
+        <section class="panel sensorLidarPanel">
+            <div class="panelHead"><h2>Vue LiDAR</h2></div>
+            <div class="telemetryGrid telemetryGrid3 sectorGrid sensorSectorGrid">
+                <div class="telemetryCard"><span>Front</span><strong id="lidarFrontVal">--</strong></div>
+                <div class="telemetryCard"><span>Front right</span><strong id="lidarFrontRightVal">--</strong></div>
+                <div class="telemetryCard"><span>Right</span><strong id="lidarRightVal">--</strong></div>
+                <div class="telemetryCard"><span>Rear</span><strong id="lidarRearVal">--</strong></div>
+                <div class="telemetryCard"><span>Left</span><strong id="lidarLeftVal">--</strong></div>
+                <div class="telemetryCard"><span>Front left</span><strong id="lidarFrontLeftVal">--</strong></div>
+                <div class="telemetryCard"><span>Scan rate</span><strong id="lidarHzVal">--</strong></div>
+                <div class="telemetryCard"><span>Samples</span><strong id="lidarSamplesVal">--</strong></div>
+                <div class="telemetryCard"><span>Mode mock</span><strong id="profileLidarMock">--</strong></div>
+            </div>
+            <canvas id="lidarCanvas" width="560" height="560"></canvas>
+        </section>
+
+        <section class="panel sensorConfigPanel">
+            <div class="panelHead"><h2>Configuration capteurs</h2></div>
+            <div class="telemetryGrid telemetryGrid2 compactGrid">
+                <div class="telemetryCard"><span>Mode de base</span><strong id="profileBaseMode">--</strong></div>
+                <div class="telemetryCard"><span>Télémétrie</span><strong id="profileTelemetryPeriod">--</strong></div>
+                <div class="telemetryCard"><span>LiDAR activé</span><strong id="profileLidarEnabled">--</strong></div>
+                <div class="telemetryCard"><span>Port LiDAR</span><strong id="profileLidarPort">--</strong></div>
+                <div class="telemetryCard"><span>Baudrate</span><strong id="profileLidarBaud">--</strong></div>
+                <div class="telemetryCard"><span>Distance max web</span><strong id="profileLidarMaxDistance">--</strong></div>
+                <div class="telemetryCard"><span>Distance d'évitement</span><strong id="profileLidarAvoidDistance">--</strong></div>
+                <div class="telemetryCard"><span>Points affichés web</span><strong id="profileLidarWebPoints">--</strong></div>
+            </div>
+            <div class="statusList">
+                <div class="statusChip"><span>Mission</span><strong id="statusText">status: --</strong></div>
+                <div class="statusChip"><span>Auto state</span><strong id="autoState">auto state: --</strong></div>
+                <div class="statusChip"><span>Target</span><strong id="targetVal">Target: --</strong></div>
+                <div class="statusChip"><span>FPS vision</span><strong id="fpsVal">FPS: --</strong></div>
+            </div>
+        </section>
+
+        <section class="panel logPanel logPanelWide">
+            <div class="panelHead"><h2>Journal</h2></div>
+            <div id="logBox" class="logBox"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="dev"><h6>Developed by : Jerry CROZET</h6></div>
+    </footer>
+    <script src="app.js?v=ws_stop_fix_20260517"></script>
+</body>
+</html>

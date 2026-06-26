@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.0",
+  "version": "0.6.34",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -469,18 +469,18 @@
       },
       {
         "command": "labwindowsCvi.insertSnippet",
-        "title": "LabWindows/CVI: Insert CVI Snippet...",
+        "title": "CVI: Insert snippet",
         "category": "LabWindows/CVI",
         "icon": "$(symbol-snippet)"
       },
       {
         "command": "labwindowsCvi.saveSelectionAsSnippet",
-        "title": "LabWindows/CVI: Save Selection as CVI Snippet...",
+        "title": "CVI: Save selection as snippet...",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.manageSnippets",
-        "title": "LabWindows/CVI: Manage CVI Snippets...",
+        "title": "CVI: Manage snippets...",
         "category": "LabWindows/CVI"
       },
       {
@@ -688,6 +688,31 @@
         "title": "LabWindows/CVI: Diagnose Native Command Bridge",
         "category": "LabWindows/CVI",
         "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.context.insertSnippet",
+        "title": "Insert snippet",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.saveSelectionAsSnippet",
+        "title": "Save selection as snippet...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.manageSnippets",
+        "title": "Manage snippets...",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.insertFileHeader",
+        "title": "Insert file header",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.insertCommentSection",
+        "title": "Insert comment section",
+        "category": "LabWindows/CVI"
       }
     ],
     "menus": {
@@ -1088,116 +1113,6 @@
           "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
           "group": "build@5"
-        },
-        {
-          "command": "labwindowsCvi.synchronizeBreakpoints",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@1"
-        },
-        {
-          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@2"
-        },
-        {
-          "command": "labwindowsCvi.diagnoseBreakpointBridge",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@3"
-        },
-        {
-          "command": "labwindowsCvi.synchronizeBreakpoints",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@1"
-        },
-        {
-          "command": "labwindowsCvi.clearSynchronizedBreakpoints",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@2"
-        },
-        {
-          "command": "labwindowsCvi.diagnoseBreakpointBridge",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@3"
-        },
-        {
-          "command": "labwindowsCvi.chooseNativeDebugAction",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@4"
-        },
-        {
-          "command": "labwindowsCvi.nativeBuild",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@5"
-        },
-        {
-          "command": "labwindowsCvi.nativeRun",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@6"
-        },
-        {
-          "command": "labwindowsCvi.nativePause",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@7"
-        },
-        {
-          "command": "labwindowsCvi.nativeContinue",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@8"
-        },
-        {
-          "command": "labwindowsCvi.nativeStop",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@9"
-        },
-        {
-          "command": "labwindowsCvi.nativeState",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@10"
-        },
-        {
-          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
-          "group": "debug@11"
-        },
-        {
-          "command": "labwindowsCvi.chooseNativeDebugAction",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@4"
-        },
-        {
-          "command": "labwindowsCvi.nativeBuild",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@5"
-        },
-        {
-          "command": "labwindowsCvi.nativeRun",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@6"
-        },
-        {
-          "command": "labwindowsCvi.nativePause",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@7"
-        },
-        {
-          "command": "labwindowsCvi.nativeContinue",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@8"
-        },
-        {
-          "command": "labwindowsCvi.nativeStop",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@9"
-        },
-        {
-          "command": "labwindowsCvi.nativeState",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@10"
-        },
-        {
-          "command": "labwindowsCvi.diagnoseNativeCommandBridge",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
-          "group": "debug@11"
         }
       ],
       "commandPalette": [
@@ -1368,23 +1283,33 @@
         {
           "command": "labwindowsCvi.openFunctionPanel",
           "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.insertSnippet",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.saveSelectionAsSnippet",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.manageSnippets",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.insertFileHeader",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.insertCommentSection",
+          "when": "false"
         }
       ],
       "editor/context": [
         {
-          "command": "labwindowsCvi.insertSnippet",
+          "submenu": "labwindowsCvi.contextRoot",
           "when": "editorLangId == c || editorLangId == cpp",
           "group": "modification@1"
-        },
-        {
-          "command": "labwindowsCvi.saveSelectionAsSnippet",
-          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
-          "group": "modification@2"
-        },
-        {
-          "submenu": "labwindowsCvi.convertSelectedInteger",
-          "when": "editorHasSelection",
-          "group": "modification@3"
         }
       ],
       "labwindowsCvi.convertSelectedInteger": [
@@ -1402,6 +1327,52 @@
           "command": "labwindowsCvi.convertSelectedIntegerToBinary",
           "when": "editorHasSelection",
           "group": "1_convert@3"
+        }
+      ],
+      "labwindowsCvi.contextRoot": [
+        {
+          "submenu": "labwindowsCvi.contextSnippets",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_snippets@1"
+        },
+        {
+          "submenu": "labwindowsCvi.contextComments",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "2_comments@1"
+        },
+        {
+          "submenu": "labwindowsCvi.convertSelectedInteger",
+          "when": "editorHasSelection",
+          "group": "3_tools@1"
+        }
+      ],
+      "labwindowsCvi.contextSnippets": [
+        {
+          "command": "labwindowsCvi.context.insertSnippet",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_snippets@1"
+        },
+        {
+          "command": "labwindowsCvi.context.saveSelectionAsSnippet",
+          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
+          "group": "1_snippets@2"
+        },
+        {
+          "command": "labwindowsCvi.context.manageSnippets",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_snippets@3"
+        }
+      ],
+      "labwindowsCvi.contextComments": [
+        {
+          "command": "labwindowsCvi.context.insertFileHeader",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_comments@1"
+        },
+        {
+          "command": "labwindowsCvi.context.insertCommentSection",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_comments@2"
         }
       ]
     },
@@ -1641,6 +1612,18 @@
       {
         "id": "labwindowsCvi.convertSelectedInteger",
         "label": "Convert selected integer to"
+      },
+      {
+        "id": "labwindowsCvi.contextRoot",
+        "label": "CVI"
+      },
+      {
+        "id": "labwindowsCvi.contextSnippets",
+        "label": "Snippets"
+      },
+      {
+        "id": "labwindowsCvi.contextComments",
+        "label": "Documentation / comments"
       }
     ],
     "breakpoints": [

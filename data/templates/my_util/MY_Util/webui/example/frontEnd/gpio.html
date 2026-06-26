@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CATJ Boat - GPIO</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>GPIO • Contrôle + sampling + mini analyseur</h1>
+      <p><b>BCMx</b> et <b>GPIOx</b> désignent ici le même GPIO du SoC Broadcom. Le <b>pin physique</b> est la broche 1..40 du connecteur.</p>
+      <div class="navLinks">
+          <a href="index.html">Dashboard</a>
+          <a href="camera.html">Caméra</a>
+          <a href="capteur.html">Capteurs</a>
+          <a class="active" href="gpio.html">GPIO</a>
+          <a href="bus.html">Bus I²C/SPI</a>
+          <a href="listen.html">Comms Listen</a>
+          <a href="send.html">Comms Send</a>
+      </div>
+    </div>
+    <div class="topBadges">
+      <span id="wsBadge" class="badge badge-off">WS disconnected</span>
+      <span id="backendBadge" class="badge">Backend --</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <section class="panel controlsPanel">
+      <div class="panelHead">
+        <h2>Contrôle pin</h2>
+        <div class="miniActions">
+          <button id="btnRefresh" class="secondary">Refresh</button>
+          <button id="btnRead">Read</button>
+        </div>
+      </div>
+
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <h3>Pin / mode</h3>
+          <label>GPIO / BCM / Pin physique
+            <select id="pinSel"></select>
+          </label>
+          <label>Mode
+            <select id="modeSel">
+              <option value="input">input</option>
+              <option value="output">output</option>
+            </select>
+          </label>
+          <div class="row">
+            <button id="btnApplyMode">Apply mode</button>
+            <button id="btnHigh">Set HIGH</button>
+            <button id="btnLow" class="secondary">Set LOW</button>
+          </div>
+          <div class="hint">Sur Raspberry Pi OS récent, le backend peut utiliser <code>pinctrl</code> (plus robuste que l'ancien sysfs). Sur Windows : mode simulation / non supporté.</div>
+        </div>
+
+        <div class="controlBlock">
+          <h3>PWM logiciel</h3>
+          <label>Fréquence (Hz)
+            <input id="pwmFreq" type="number" min="1" max="500" value="50" />
+          </label>
+          <label>Rapport cyclique (%)
+            <input id="pwmDuty" type="number" min="0" max="100" value="50" />
+          </label>
+          <div class="row">
+            <button id="btnPwmStart">Start PWM</button>
+            <button id="btnPwmUpdate" class="secondary">Update PWM</button>
+            <button id="btnPwmStop" class="danger">Stop PWM</button>
+          </div>
+        </div>
+
+        <div class="controlBlock">
+          <h3>Input / sampling</h3>
+          <label>Sampling (Hz)
+            <input id="sampleHz" type="number" min="1" max="200" value="10" />
+          </label>
+          <div class="row">
+            <button id="btnSampleStart">Start sampling</button>
+            <button id="btnSampleStop" class="danger">Stop sampling</button>
+          </div>
+          <div class="hint">Les événements <code>sample</code> sont envoyés en live via websocket.</div>
+        </div>
+      </div>
+
+      <div class="telemetryGrid telemetryGrid3" style="margin-top:14px;">
+        <div class="telemetryCard"><span>Pin</span><strong id="stPin">--</strong></div>
+        <div class="telemetryCard"><span>Value</span><strong id="stValue">--</strong></div>
+        <div class="telemetryCard"><span>Mode</span><strong id="stMode">--</strong></div>
+        <div class="telemetryCard"><span>PWM</span><strong id="stPwm">--</strong></div>
+        <div class="telemetryCard"><span>Sampling</span><strong id="stSampling">--</strong></div>
+        <div class="telemetryCard"><span>Last sample</span><strong id="stLast">--</strong></div>
+      </div>
+      <div class="statusRow muted" style="margin-top:10px;"><span id="stError">error: --</span></div>
+    </section>
+
+    <section class="panel controlsPanel">
+      <div class="panelHead"><h2>Mini analyseur logiciel</h2></div>
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <h3>Canaux surveillés</h3>
+          <div id="anaPins" class="smallRow" style="flex-wrap:wrap;gap:8px;"></div>
+          <div class="row">
+            <button id="btnAnaStart">Start selected sampling</button>
+            <button id="btnAnaStop" class="secondary">Stop selected</button>
+            <button id="btnAnaClear" class="secondary">Clear traces</button>
+          </div>
+          <div class="hint">Analyseur logiciel user-space : adapté à des signaux lents/modérés, pas à un vrai analyseur logique matériel.</div>
+        </div>
+        <div class="controlBlock" style="flex:1.5">
+          <h3>Traces (fenêtre 10 s)</h3>
+          <canvas id="anaCanvas" width="900" height="320" style="width:100%;max-width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#08101f"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controlsPanel">
+      <div class="panelHead"><h2>Pinout Raspberry Pi (40 pins)</h2></div>
+      <img src="pinout_rpi40.png" alt="Pinout Raspberry Pi 40 pins" style="max-width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#fff;padding:8px;" />
+      <div class="hint" style="margin-top:10px;">
+        Exemple : <b>GPIO17</b> = <b>BCM17</b> = <b>pin physique 11</b> sur le header.
+      </div>
+    </section>
+
+    <section class="panel logPanel">
+      <div class="panelHead">
+        <h2>Logs GPIO</h2>
+        <div class="miniActions">
+          <button id="btnClear" class="secondary">Clear</button>
+          <button id="btnScroll" class="secondary">Auto-scroll: ON</button>
+        </div>
+      </div>
+      <div id="logBox" class="logBox"></div>
+    </section>
+  </main>
+
+  <script src="gpio.js"></script>
+</body>
+</html>

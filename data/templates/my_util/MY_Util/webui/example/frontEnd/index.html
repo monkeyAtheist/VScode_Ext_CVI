@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CATJ Boat - Cockpit Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body class="page-dashboard">
+    <header class="topbar">
+        <div>
+            <h1>IBM Project : Team CATJ - Remote Cockpit</h1>
+            <p>Vue pilote type manette de drone avec flux central, commandes directes, télémétrie live et capteurs prioritaires.</p>
+            <div class="navLinks">
+                <a class="active" href="index.html">Dashboard</a>
+                <a href="camera.html">Caméra</a>
+                <a href="capteur.html">Capteurs</a>
+                <a href="gpio.html">GPIO</a>
+                <a href="bus.html">Bus I²C/SPI</a>
+                <a href="listen.html">Comms Listen</a>
+                <a href="send.html">Comms Send</a>
+            </div>
+        </div>
+        <div class="topBadges">
+            <span id="wsBadge" class="badge badge-off">WS disconnected</span>
+            <span id="modeBadge" class="badge">MODE --</span>
+            <span id="missionBadge" class="badge">MISSION --</span>
+            <span id="overlayBadge" class="badge">Overlay --</span>
+            <span id="lidarBadge" class="badge">LIDAR --</span>
+        </div>
+    </header>
+
+    <main class="dashboard cockpitDashboard">
+        <section class="panel pilotPanel">
+            <div class="panelHead cockpitHead">
+                <div>
+                    <h2>Drone cockpit view</h2>
+                    <p class="panelSubtext">Vue prioritaire pour le pilotage manuel, la supervision vidéo et l’accès rapide aux fonctions critiques.</p>
+                </div>
+                <div class="miniActions cockpitGlobalActions">
+                    <button id="btnSTOPprogramme" class="btnPrg">STOP programme</button>
+                    <button id="btnManualMode">Manual</button>
+                    <button id="btnAutoMode">Auto</button>
+                    <button id="btnMissionStart">Start mission</button>
+                    <button id="btnMissionStop" class="danger">Stop mission</button>
+                </div>
+            </div>
+
+            <div id="manualLockBanner" class="lockBanner hidden">
+                Les commandes manuelles sont verrouillées en mode AUTO.
+            </div>
+
+            <div class="cockpitLayout">
+                <aside class="cockpitWing driveWing">
+                    <div class="wingHeader">
+                        <span class="wingEyebrow">Pilotage</span>
+                        <h3>Commande directionnelle</h3>
+                    </div>
+
+                    <div class="telemetryGrid telemetryGrid2 compactGrid cockpitStatsGrid">
+                        <div class="telemetryCard telemetryCardLarge">
+                            <span>Speed vector</span>
+                            <strong id="speedHudVal">0 %</strong>
+                        </div>
+                        <div class="telemetryCard telemetryCardLarge">
+                            <span>Turn bias</span>
+                            <strong id="turnHudVal">0 %</strong>
+                        </div>
+                        <div class="telemetryCard">
+                            <span>Drive state</span>
+                            <strong id="driveStateVal">Idle</strong>
+                        </div>
+                        <div class="telemetryCard">
+                            <span>Heading</span>
+                            <strong id="headingMiniVal">--</strong>
+                        </div>
+                    </div>
+
+                    <div class="directionPadCard">
+                        <div class="directionPadHint">Raccourcis clavier : W/A/S/D ou flèches, barre espace = stop</div>
+                        <div class="directionPad">
+                            <div class="padSpacer"></div>
+                            <button id="btnForward" class="padBtn padForward" data-manual>▲<span>Forward</span></button>
+                            <div class="padSpacer"></div>
+
+                            <button id="btnRotateLeft" class="padBtn padLeft" data-manual>◀<span>Rotate left</span></button>
+                            <button id="btnStopAll" class="padBtn padStop danger" data-manual>■<span>All stop</span></button>
+                            <button id="btnRotateRight" class="padBtn padRight" data-manual>▶<span>Rotate right</span></button>
+
+                            <div class="padSpacer"></div>
+                            <button id="btnBackward" class="padBtn padBackward" data-manual>▼<span>Backward</span></button>
+                            <div class="padSpacer"></div>
+                        </div>
+                    </div>
+
+                    <div class="leftWingFooter">
+                        <div class="statusChip">
+                            <span>Status</span>
+                            <strong id="statusText">status: --</strong>
+                        </div>
+                        <div class="statusChip">
+                            <span>Auto state</span>
+                            <strong id="autoState">auto state: --</strong>
+                        </div>
+                    </div>
+                </aside>
+
+                <div class="cockpitCenter">
+                    <div class="cockpitVideoShell">
+                        <div class="videoHud videoHudTop">
+                            <div class="hudPillGroup">
+                                <div class="hudPill">
+                                    <span>Target</span>
+                                    <strong id="targetVal">Target: --</strong>
+                                </div>
+                                <div class="hudPill">
+                                    <span>IA FPS</span>
+                                    <strong id="fpsVal">FPS: --</strong>
+                                </div>
+                                <div class="hudPill">
+                                    <span>Battery</span>
+                                    <strong id="batteryVal">Battery: --</strong>
+                                </div>
+                            </div>
+                            <div class="hudMiniCol">
+                                <div class="hudMiniItem">
+                                    <span>Mode</span>
+                                    <strong id="videoModeMini">--</strong>
+                                </div>
+                                <div class="hudMiniItem">
+                                    <span>Mission</span>
+                                    <strong id="videoMissionMini">--</strong>
+                                </div>
+                            </div>
+                            <div class="hudMiniItem">
+                                <span id="statusDetection">detection</span>
+                                <strong id="statusDetectionMini">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="videoWrap cockpitVideoWrap">
+                            <img id="videoFeed" src="/stream.mjpg" alt="Flux vidéo live" />
+                            <div class="videoCrosshair"></div>
+                            <div class="videoHeadingRibbon">
+                                <span>HDG</span>
+                                <strong id="videoHeadingVal">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="videoHud videoHudBottom">
+                            <div class="hudMetricStrip">
+                                <div class="hudMetric"><span>Resolution</span><strong id="videoResolutionLive">--</strong></div>
+                                <div class="hudMetric"><span>Primary detection</span><strong id="primaryDetectionVal">--</strong></div>
+                                <div class="hudMetric"><span>Confidence</span><strong id="confidenceVal">--</strong></div>
+                                <div class="hudMetric"><span>Detections</span><strong id="detectionCountVal">--</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cockpitBottomBar">
+                        <div class="miniActions videoActionRow">
+                            <button id="btnOverlayOn">Overlay ON</button>
+                            <button id="btnOverlayOff" class="secondary">Overlay OFF</button>
+                            <button id="btnCamSnapshot">Snapshot</button>
+                            <button id="btnCamRecord">Start recording</button>
+                            <button id="btnCamStopRecord" class="danger">Stop recording</button>
+                            <button id="btnCalib">Calibration</button>
+                        </div>
+                        <div class="cameraPanTiltMini">
+                            <span class="miniLabel">Support caméra</span>
+                            <div class="cameraMiniButtons">
+                                <button data-cam-step data-axis="tilt" data-steps="8" data-manual>Tilt +</button>
+                                <button data-cam-step data-axis="pan" data-steps="-8" data-manual>Pan -</button>
+                                <button id="btnCamCenter" data-manual>Center</button>
+                                <button data-cam-step data-axis="pan" data-steps="8" data-manual>Pan +</button>
+                                <button data-cam-step data-axis="tilt" data-steps="-8" data-manual>Tilt -</button>
+                            </div>
+                            <div class="miniTelemetry">
+                                <span id="camPanVal">Pan --</span>
+                                <span id="camTiltVal">Tilt --</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="cockpitWing powerWing">
+                    <div class="wingHeader">
+                        <span class="wingEyebrow">Motorisation</span>
+                        <h3>Contrôle propulsion & vitesse</h3>
+                    </div>
+
+                    <div class="engineCards">
+                        <div class="controlBlock engineCard">
+                            <div class="engineHead">
+                                <h3>Hélice gauche</h3>
+                                <div class="value" id="leftThrusterValue">0 %</div>
+                            </div>
+                            <div class="powerBar"><span id="leftPowerBar"></span></div>
+                            <input id="leftThruster" type="range" min="-100" max="100" value="0" data-manual />
+                            <div class="engineMeta"><span>Reverse</span><span>Forward</span></div>
+                        </div>
+
+                        <div class="controlBlock engineCard">
+                            <div class="engineHead">
+                                <h3>Hélice droite</h3>
+                                <div class="value" id="rightThrusterValue">0 %</div>
+                            </div>
+                            <div class="powerBar"><span id="rightPowerBar"></span></div>
+                            <input id="rightThruster" type="range" min="-100" max="100" value="0" data-manual />
+                            <div class="engineMeta"><span>Reverse</span><span>Forward</span></div>
+                        </div>
+
+                        <div class="controlBlock engineCard conveyorCard">
+                            <div class="engineHead">
+                                <h3>Tapis roulant</h3>
+                                <div class="value" id="conveyorValue">0 %</div>
+                            </div>
+                            <div class="powerBar"><span id="conveyorPowerBar"></span></div>
+                            <input id="conveyor" type="range" min="-100" max="100" value="0" data-manual />
+                            <div class="engineMeta"><span>Reverse</span><span>Forward</span></div>
+                        </div>
+                    </div>
+
+                    <div class="powerSummaryGrid">
+                        <div class="statusChip">
+                            <span>Average thrust</span>
+                            <strong id="avgThrustVal">0 %</strong>
+                        </div>
+                        <div class="statusChip">
+                            <span>Diff thrust</span>
+                            <strong id="diffThrustVal">0 %</strong>
+                        </div>
+                        <div class="statusChip">
+                            <span>North</span>
+                            <strong id="northVal">--</strong>
+                        </div>
+                        <div class="statusChip">
+                            <span>Yaw rate</span>
+                            <strong id="yawVal">--</strong>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section class="panel telemetryPanel dashboardTelemetryPanel">
+            <div class="panelHead">
+                <h2>Télémétrie dynamique</h2>
+                <div class="miniActions compactInfoRow">
+                    <span class="infoChip">Roll <strong id="rollVal">--</strong></span>
+                    <span class="infoChip">Pitch <strong id="pitchVal">--</strong></span>
+                    <span class="infoChip">Gyro XYZ <strong id="gyroVecVal">--</strong></span>
+                </div>
+            </div>
+
+            <div class="canvasGrid telemetryVisualGrid">
+                <div class="canvasCard">
+                    <h3>Rose des caps</h3>
+                    <canvas id="compassCanvas" width="320" height="320"></canvas>
+                </div>
+                <div class="canvasCard">
+                    <h3>Vue gyroscopes</h3>
+                    <canvas id="gyroCanvas" width="320" height="320"></canvas>
+                </div>
+            </div>
+
+            <div class="telemetryGrid telemetryGrid4 compactGrid sensorSummaryCards">
+                <div class="telemetryCard"><span>Heading</span><strong id="headingVal">--</strong></div>
+                <div class="telemetryCard"><span>Mag North</span><strong id="northValDuplicate">--</strong></div>
+                <div class="telemetryCard"><span>LiDAR status</span><strong id="lidarStatusVal">--</strong></div>
+                <div class="telemetryCard"><span>Scan rate</span><strong id="lidarHzVal">--</strong></div>
+                <div class="telemetryCard"><span>Samples</span><strong id="lidarSamplesVal">--</strong></div>
+                <div class="telemetryCard"><span>Front</span><strong id="lidarFrontVal">--</strong></div>
+                <div class="telemetryCard"><span>Front right</span><strong id="lidarFrontRightVal">--</strong></div>
+                <div class="telemetryCard"><span>Front left</span><strong id="lidarFrontLeftVal">--</strong></div>
+            </div>
+        </section>
+
+        <section class="panel sensorSidePanel">
+            <div class="panelHead">
+                <h2>Capteurs & vision</h2>
+            </div>
+
+            <div class="canvasCard lidarCardLarge">
+                <h3>Vue LiDAR</h3>
+                <canvas id="lidarCanvas" width="420" height="420"></canvas>
+            </div>
+
+            <div class="telemetryGrid telemetryGrid2 compactGrid sectorGridWide">
+                <div class="telemetryCard"><span>Right</span><strong id="lidarRightVal">--</strong></div>
+                <div class="telemetryCard"><span>Left</span><strong id="lidarLeftVal">--</strong></div>
+                <div class="telemetryCard"><span>Rear</span><strong id="lidarRearVal">--</strong></div>
+                <div class="telemetryCard"><span>Tracking</span><strong id="trackingVal">--</strong></div>
+            </div>
+
+            <div class="cameraControls dashboardUtilityGrid">
+                <div class="controlBlock">
+                    <h3>Détections live</h3>
+                    <div id="detectionsBox" class="detectionsBox detectionsBoxLarge"></div>
+                </div>
+                <div class="controlBlock">
+                    <h3>Réglages caméra</h3>
+                    <label>Exposure <input id="expRange" type="range" min="-12" max="12" value="0" /></label>
+                    <label>Brightness <input id="brightRange" type="range" min="0" max="100" value="50" /></label>
+                    <label>Contrast <input id="contrastRange" type="range" min="0" max="100" value="50" /></label>
+
+                    <div class="specList specListAccent">
+                        <div class="specRow"><span>Live resolution</span><strong id="videoResolutionLiveDuplicate">--</strong></div>
+                        <div class="specRow"><span>Mode</span><strong id="modeInfoVal">--</strong></div>
+                        <div class="specRow"><span>Mission</span><strong id="missionInfoVal">--</strong></div>
+                        <div class="specRow"><span>Overlay</span><strong id="overlayInfoVal">--</strong></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel logPanel logPanelWide">
+            <div class="panelHead"><h2>Journal système</h2></div>
+            <div id="logBox" class="logBox"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="dev"><h6>Developed by : Jerry CROZET</h6></div>
+    </footer>
+    <script src="app.js?v=ws_stop_fix_20260517"></script>
+</body>
+</html>

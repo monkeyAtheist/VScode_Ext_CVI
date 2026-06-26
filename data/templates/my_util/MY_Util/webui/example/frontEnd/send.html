@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CATJ Robot - Comms Send</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="commsSendPage">
+  <header class="topbar">
+    <div>
+      <h1>Comms Send</h1>
+      <p>Préparer, charger et envoyer rapidement des trames de test vers la carte mère ou tout autre bus disponible.</p>
+      <nav class="navLinks">
+        <a href="index.html">Dashboard</a>
+        <a href="camera.html">Caméra</a>
+        <a href="capteur.html">Capteurs</a>
+        <a href="gpio.html">GPIO</a>
+        <a href="bus.html">Bus I²C/SPI</a>
+        <a href="listen.html">Comms Listen</a>
+        <a class="active" href="send.html">Comms Send</a>
+      </nav>
+    </div>
+    <div class="topBadges">
+      <span class="badge badge-off" id="wsBadge">WS disconnected</span>
+      <span class="badge" id="cfgBadge">Config: ...</span>
+    </div>
+  </header>
+
+  <main class="dashboard commsSendDashboard">
+    <section class="panel commsHeroPanel">
+      <div class="panelHead">
+        <div>
+          <h2>Station d'envoi</h2>
+          <p class="panelSubtext">Vue retravaillée pour éviter les chevauchements, clarifier le workflow et exposer directement les commandes préenregistrées du fichier <span class="kbd">motherboard_trame.ini</span>.</p>
+        </div>
+        <div class="miniActions">
+          <button class="secondary" id="scanBtn" type="button">Refresh devices</button>
+          <button id="sendBtn" type="button">Envoyer la trame</button>
+        </div>
+      </div>
+
+      <div class="commsHeroGrid">
+        <div class="statusChip">
+          <span>Transport actif</span>
+          <strong id="activeTransportVal">--</strong>
+        </div>
+        <div class="statusChip">
+          <span>Device actif</span>
+          <strong id="activeDeviceVal">--</strong>
+        </div>
+        <div class="statusChip">
+          <span>Presets disponibles</span>
+          <strong id="presetCountVal">0</strong>
+        </div>
+        <div class="statusChip">
+          <span>Encodage</span>
+          <strong id="activeEncodingVal">ASCII</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel sendWorkspacePanel">
+      <div class="panelHead">
+        <div>
+          <h2>Préparation de la trame</h2>
+          <p class="panelSubtext">Choisis le transport, le device, le preset puis ajuste les options d'envoi et de lecture.</p>
+        </div>
+      </div>
+
+      <div class="commsComposerGrid">
+        <div class="commsSubpanel">
+          <h3>Liaison</h3>
+
+          <div class="field">
+            <label for="transport">Transport</label>
+            <select id="transport">
+              <option value="uart">UART</option>
+              <option value="usb">USB serial</option>
+              <option value="bluetooth">Bluetooth</option>
+              <option value="wifi">WiFi</option>
+              <option value="ethernet">RJ45 (Ethernet)</option>
+              <option value="i2c">I²C</option>
+              <option value="spi">SPI</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="device">Device</label>
+            <select id="device"></select>
+          </div>
+
+          <div class="deviceMetaCard">
+            <span>Spécification sélectionnée</span>
+            <strong id="deviceSpecVal">--</strong>
+            <small id="deviceSourceVal">source: --</small>
+          </div>
+        </div>
+
+        <div class="commsSubpanel">
+          <h3>Preset</h3>
+
+          <div class="field">
+            <label for="preset">Preset chargé</label>
+            <select id="preset"></select>
+          </div>
+
+          <div class="field">
+            <label for="presetSearch">Recherche rapide</label>
+            <input id="presetSearch" type="text" placeholder="Ex: Mode, Move, Turn, ACK..." />
+          </div>
+
+          <div class="deviceMetaCard">
+            <span>Valeur du preset</span>
+            <strong id="presetPreviewVal">--</strong>
+            <small id="presetHintVal">Sélectionne un preset ou clique dans la bibliothèque de commandes.</small>
+          </div>
+        </div>
+
+        <div class="commsSubpanel commsPayloadPanel">
+          <h3>Payload</h3>
+
+          <div class="field">
+            <label for="payload">Trame à envoyer</label>
+            <textarea id="payload" placeholder="Ex: MOVE FORWARD ou 4D 4F 56 45 ..."></textarea>
+          </div>
+
+          <div class="commsOptionGrid">
+            <label class="optionChip">
+              <span>Encodage</span>
+              <select id="encoding">
+                <option value="ascii">ASCII</option>
+                <option value="hex">HEX</option>
+              </select>
+            </label>
+
+            <label class="optionChip optionChipCheck">
+              <input type="checkbox" id="appendNl" checked/>
+              <span>Append \n</span>
+            </label>
+
+            <label class="optionChip optionChipCheck">
+              <input type="checkbox" id="expectReply"/>
+              <span>Expect reply</span>
+            </label>
+
+            <label class="optionChip optionChipCheck">
+              <input type="checkbox" id="clearRx" checked/>
+              <span>Clear RX before send</span>
+            </label>
+          </div>
+
+          <div class="commsReplyGrid">
+            <label class="field">
+              <span>Mode reply</span>
+              <select id="replyMode">
+                <option value="line">Line</option>
+                <option value="bytes">Bytes</option>
+                <option value="packet">Packet</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Timeout ms</span>
+              <input id="timeoutMs" type="number" value="250" min="0"/>
+            </label>
+
+            <label class="field">
+              <span>Max bytes</span>
+              <input id="maxBytes" type="number" value="512" min="1"/>
+            </label>
+          </div>
+
+          <div class="miniActions">
+            <button class="secondary" id="clearPayloadBtn" type="button">Vider le payload</button>
+            <button id="sendBtnBottom" type="button">Envoyer maintenant</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel quickPresetPanel">
+      <div class="panelHead">
+        <div>
+          <h2>Bibliothèque de commandes</h2>
+          <p class="panelSubtext">Commandes préenregistrées chargées depuis la configuration. Idéal pour les tests carte mère.</p>
+        </div>
+        <span class="badge" id="presetLibraryBadge">0 preset</span>
+      </div>
+
+      <div id="presetQuickGrid" class="presetQuickGrid"></div>
+    </section>
+
+    <section class="panel replyPanel">
+      <div class="panelHead">
+        <div>
+          <h2>Dernière réponse</h2>
+          <p class="panelSubtext">Affichage ASCII si disponible, avec trace HEX pour faciliter le debug protocolaire.</p>
+        </div>
+        <div class="miniActions">
+          <button class="secondary" id="clearReplyBtn" type="button">Effacer la réponse</button>
+          <button class="secondary" id="reloadHistoryBtn" type="button">Reload history</button>
+        </div>
+      </div>
+
+      <textarea id="replyBox" readonly placeholder="La dernière réponse ACK / reply s'affiche ici."></textarea>
+
+      <div class="hint commsHelpList">
+        <span><span class="kbd">UART</span> <span class="kbd">/dev/ttyUSB0@460800</span> baud optionnel.</span>
+        <span><span class="kbd">Bluetooth</span> <span class="kbd">server#1</span> ou adresse MAC + canal.</span>
+        <span><span class="kbd">NET</span> <span class="kbd">tcp://ip:port</span> ou <span class="kbd">udp://ip:port</span>.</span>
+      </div>
+    </section>
+
+    <section class="panel logPanelWide commsLogPanel">
+      <div class="panelHead">
+        <div>
+          <h2>Journal d'envoi / réception</h2>
+          <p class="panelSubtext">Historique local + événements WebSocket.</p>
+        </div>
+        <div class="miniActions">
+          <button class="secondary" id="clearLogBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="logBox" id="log"></div>
+    </section>
+  </main>
+
+  <script src="send.js"></script>
+</body>
+</html>

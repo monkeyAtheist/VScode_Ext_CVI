@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CATJ Boat - Vue caméra</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body class="page-camera">
+    <header class="topbar">
+        <div>
+            <h1>IBM Project : Team CATJ - Remote view</h1>
+            <p>Vue caméra dédiée : flux vidéo en grand, état IA, réglages optiques et configuration de la chaîne de vision.</p>
+            <div class="navLinks">
+                <a href="index.html">Dashboard</a>
+                <a class="active" href="camera.html">Caméra</a>
+                <a href="capteur.html">Capteurs</a>
+                <a href="gpio.html">GPIO</a>
+                <a href="bus.html">Bus I²C/SPI</a>
+                <a href="listen.html">Comms Listen</a>
+                <a href="send.html">Comms Send</a>
+            </div>
+        </div>
+        <div class="topBadges">
+            <span id="wsBadge" class="badge badge-off">WS disconnected</span>
+            <span id="modeBadge" class="badge">MODE --</span>
+            <span id="missionBadge" class="badge">MISSION --</span>
+            <span id="overlayBadge" class="badge">Overlay --</span>
+            <span id="lidarBadge" class="badge">LIDAR --</span>
+        </div>
+    </header>
+
+    <main class="dashboard cameraDashboard">
+        <section class="panel cameraHeroPanel">
+            <div class="panelHead">
+                <h2>Flux vidéo principal</h2>
+                <div class="miniActions">
+                    <button id="btnSTOPprogramme" class="btnPrg">STOP programme</button>
+                    <button id="btnManualMode">Manual</button>
+                    <button id="btnAutoMode">Auto</button>
+                    <button id="btnOverlayOn">Overlay ON</button>
+                    <button id="btnOverlayOff" class="secondary">Overlay OFF</button>
+                </div>
+            </div>
+
+            <div class="videoWrap videoWrapHero">
+                <img id="videoFeed" src="/stream.mjpg" alt="Flux vidéo live" />
+            </div>
+
+            <div class="cameraHeroFooter">
+                <div class="statusRow">
+                    <strong id="statusText">status: --</strong>
+                    <span id="autoState">auto state: --</span>
+                </div>
+                <div class="statusRow muted">
+                    <span id="targetVal">Target: --</span>
+                    <span id="fpsVal">FPS: --</span>
+                    <span id="batteryVal">Battery: --</span>
+                </div>
+                <div class="statusRow muted">
+                    <span>Flux live : <strong id="videoResolutionLive">--</strong></span>
+                    <span>Détection principale : <strong id="primaryDetectionVal">--</strong></span>
+                    <span>Confiance : <strong id="confidenceVal">--</strong></span>
+                    <span>Nb objets : <strong id="detectionCountVal">0</strong></span>
+                    <span>État IA : <strong id="cameraDetectionIndicator" class="detection-off">AUCUN OBJET</strong></span>
+                </div>
+                <div class="btnCamera">
+                    <button id="btnCalib">Calibration</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel cameraInfoPanel">
+            <div class="panelHead">
+                <h2>Chaîne caméra / vision</h2>
+            </div>
+
+            <div class="telemetryGrid telemetryGrid2 compactGrid">
+                <div class="telemetryCard"><span>Mode de base</span><strong id="profileBaseMode">--</strong></div>
+                <div class="telemetryCard"><span>Vision activée</span><strong id="profileVisionEnabled">--</strong></div>
+                <div class="telemetryCard"><span>Flux caméra</span><strong id="profileStreamCamera">--</strong></div>
+                <div class="telemetryCard"><span>Contrôle réseau</span><strong id="profileNetworkControl">--</strong></div>
+                <div class="telemetryCard"><span>Overlay par défaut</span><strong id="profileOverlayDefault">--</strong></div>
+                <div class="telemetryCard"><span>Période télémétrie</span><strong id="profileTelemetryPeriod">--</strong></div>
+            </div>
+
+            <div class="specList">
+                <div class="specRow"><span>Backend caméra</span><strong id="profileCameraBackend">--</strong></div>
+                <div class="specRow"><span>Device / index</span><strong id="profileCameraDevice">--</strong></div>
+                <div class="specRow"><span>Référence</span><strong id="profileCameraReference">--</strong></div>
+                <div class="specRow"><span>Résolution</span><strong id="profileCameraResolution">--</strong></div>
+                <div class="specRow"><span>FPS caméra</span><strong id="profileCameraFps">--</strong></div>
+                <div class="specRow"><span>FPS IA cible</span><strong id="profileAiFps">--</strong></div>
+                <div class="specRow"><span>Qualité JPEG web</span><strong id="profileJpegQuality">--</strong></div>
+                <div class="specRow"><span>Affichage local</span><strong id="profileCameraShowImage">--</strong></div>
+                <div class="specRow"><span>Enregistrement auto</span><strong id="profileCameraRecording">--</strong></div>
+                <div class="specRow"><span>Codec image / vidéo</span><strong id="profileCodec">--</strong></div>
+                <div class="specRow"><span>Chemin d'enregistrement</span><strong id="profileRecordingPath">--</strong></div>
+            </div>
+
+            <div class="specList specListAccent">
+                <div class="specRow"><span>Modèle ONNX</span><strong id="profileOnnxModel">--</strong></div>
+                <div class="specRow"><span>Score threshold</span><strong id="profileScoreThreshold">--</strong></div>
+                <div class="specRow"><span>NMS threshold</span><strong id="profileNmsThreshold">--</strong></div>
+            </div>
+        </section>
+
+        <section class="panel cameraTuningPanel">
+            <div class="panelHead">
+                <div>
+                    <h2>Réglages INI caméra / IA</h2>
+                    <p class="muted smallText">Édition terrain de <code>parametres/config.ini</code>. Les champs “live” sont appliqués sans redémarrage ; les autres sont sauvegardés pour le prochain run.</p>
+                </div>
+                <div class="miniActions tuningActions">
+                    <button id="btnVisionCfgReload" class="secondary">Reload</button>
+                    <button id="btnVisionCfgApply">Appliquer live</button>
+                    <button id="btnVisionCfgSave">Save config.ini</button>
+                    <button id="btnVisionCfgMakeReset" class="secondary">Créer reset</button>
+                    <button id="btnVisionCfgReset" class="danger">Reset</button>
+                </div>
+            </div>
+
+            <div class="configStatusBox">
+                <div><span>config.ini</span><strong id="visionCfgPath">--</strong></div>
+                <div><span>reset</span><strong id="visionCfgResetPath">--</strong></div>
+                <div><span>runtime</span><strong id="visionCfgRuntime">--</strong></div>
+            </div>
+
+            <div id="visionCfgMessage" class="configMessage muted">Chargement des paramètres...</div>
+            <form id="visionCfgForm" class="configEditorGrid"></form>
+        </section>
+
+        <section class="panel cameraControlsPanel">
+            <div class="panelHead">
+                <h2>Réglages et commandes caméra</h2>
+                <div class="miniActions">
+                    <button id="btnMissionStart">Start mission</button>
+                    <button id="btnMissionStop" class="danger">Stop mission</button>
+                    <button id="btnStopAll" class="danger">All stop</button>
+                </div>
+            </div>
+
+            <div id="manualLockBanner" class="lockBanner hidden">
+                Les commandes manuelles sont verrouillées en mode AUTO.
+            </div>
+
+            <div class="cameraControls cameraControlsWide">
+                <div class="controlBlock">
+                    <h3>Détections live</h3>
+                    <div id="detectionsBox" class="detectionsBox detectionsBoxLarge"></div>
+                </div>
+
+                <div class="controlBlock">
+                    <h3>Réglages image</h3>
+                    <label>Exposure <input id="expRange" type="range" min="-12" max="12" value="0" /></label>
+                    <label>Brightness <input id="brightRange" type="range" min="0" max="100" value="50" /></label>
+                    <label>Contrast <input id="contrastRange" type="range" min="0" max="100" value="50" /></label>
+
+                    <div class="miniTelemetry miniTelemetryStack">
+                        <span>Pan/Tilt actuel</span>
+                        <strong id="camPanVal">Pan --</strong>
+                        <strong id="camTiltVal">Tilt --</strong>
+                    </div>
+                </div>
+
+                <div class="controlBlock">
+                    <h3>Support caméra</h3>
+                    <div class="cameraPad">
+                        <button data-cam-step data-axis="tilt" data-steps="8">Tilt +</button>
+                        <div class="row centerRow">
+                            <button data-cam-step data-axis="pan" data-steps="-8">Pan -</button>
+                            <button id="btnCamCenter">Center</button>
+                            <button data-cam-step data-axis="pan" data-steps="8">Pan +</button>
+                        </div>
+                        <button data-cam-step data-axis="tilt" data-steps="-8">Tilt -</button>
+                    </div>
+                </div>
+
+                <div class="controlBlock">
+                    <h3>Actionneurs</h3>
+                    <label>Hélice gauche <input id="leftThruster" type="range" min="-100" max="100" value="0" /></label>
+                    <div class="value" id="leftThrusterValue">0 %</div>
+                    <label>Hélice droite <input id="rightThruster" type="range" min="-100" max="100" value="0" /></label>
+                    <div class="value" id="rightThrusterValue">0 %</div>
+                    <label>Tapis roulant <input id="conveyor" type="range" min="-100" max="100" value="0" /></label>
+                    <div class="value" id="conveyorValue">0 %</div>
+                </div>
+            </div>
+
+            <div class="quickButtons quickButtonsWide">
+                <button id="btnForward">Forward</button>
+                <button id="btnBackward">Backward</button>
+                <button id="btnRotateLeft">Rotate left</button>
+                <button id="btnRotateRight">Rotate right</button>
+            </div>
+        </section>
+
+        <section class="panel logPanel logPanelWide">
+            <div class="panelHead"><h2>Journal</h2></div>
+            <div id="logBox" class="logBox"></div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="dev"><h6>Developed by : Jerry CROZET</h6></div>
+    </footer>
+    <script src="app.js?v=ws_stop_fix_20260517"></script>
+</body>
+</html>

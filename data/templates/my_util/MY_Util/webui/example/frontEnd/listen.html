@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CATJ Boat - Comms Listen</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Comms • Écoute active / Poll</h1>
+      <p>Outil de debug : écouter une interface (UART / BT / TCP/UDP) ou faire un poll maître (I²C / SPI) et afficher les trames. Optionnel : auto-reply (ACK ou echo).</p>
+      <div class="navLinks">
+          <a href="index.html">Dashboard</a>
+          <a href="camera.html">Caméra</a>
+          <a href="capteur.html">Capteurs</a>
+          <a href="gpio.html">GPIO</a>
+          <a href="bus.html">Bus I²C/SPI</a>
+          <a class="active" href="listen.html">Comms Listen</a>
+          <a href="send.html">Comms Send</a>
+      </div>
+    </div>
+    <div class="topBadges">
+      <span id="wsBadge" class="badge badge-off">WS disconnected</span>
+      <span id="listenBadge" class="badge">LISTEN --</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+
+    <section class="panel controlsPanel">
+      <div class="panelHead">
+        <h2>Configuration</h2>
+        <div class="miniActions">
+          <button id="btnStart">Start</button>
+          <button id="btnStop" class="danger">Stop</button>
+          <button id="btnScan" class="secondary">Scan</button>
+        </div>
+      </div>
+
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <h3>Transport + device</h3>
+
+          <label>
+            Transport
+            <select id="transportSel">
+              <option value="uart">UART</option>
+            <option value="usb">USB serial</option>
+              <option value="bluetooth">Bluetooth</option>
+              <option value="wifi">WiFi (TCP/UDP)</option>
+              <option value="ethernet">RJ45 (TCP/UDP)</option>
+              <option value="i2c">I²C (poll maître)</option>
+              <option value="spi">SPI (poll maître)</option>
+            </select>
+          </label>
+
+          <label>
+            Device (dropdown)
+            <select id="deviceSel"></select>
+          </label>
+
+          <label>
+            Device spec (manuel)
+            <input id="deviceSpec" type="text" placeholder="/dev/serial0@115200 | /dev/ttyUSB0@460800 | server#1 | tcp://0.0.0.0:5000 | /dev/i2c-1@0x42 | /dev/spidev0.0@1000000#0+8" />
+          </label>
+
+          <div class="hint">
+            <div><span class="kbd">UART carte mère</span> ex: <code>/dev/serial0@115200</code> — USB/LiDAR ex: <code>/dev/ttyUSB0@460800</code></div>
+            <div><span class="kbd">BT</span> ex: <code>server#1</code> ou <code>DC:A6:32:11:22:33#1</code></div>
+            <div><span class="kbd">NET</span> ex: <code>tcp://0.0.0.0:5000</code> ou <code>udp://0.0.0.0:5000</code></div>
+            <div><span class="kbd">I²C</span> ex: <code>/dev/i2c-1@0x42</code></div>
+            <div><span class="kbd">SPI</span> ex: <code>/dev/spidev0.0@1000000#0+8</code> (device@speed#mode+bits)</div>
+          </div>
+        </div>
+
+        <div class="controlBlock">
+          <h3>Réception + réponse</h3>
+
+          <label>
+            RX mode
+            <select id="rxModeSel">
+              <option value="bytes">bytes</option>
+              <option value="line">line (\n)</option>
+              <option value="packet">packet</option>
+            </select>
+          </label>
+
+          <label>
+            Poll timeout (ms)
+            <input id="pollMs" type="number" min="5" max="2000" value="80" />
+          </label>
+
+          <label>
+            Max bytes
+            <input id="maxBytes" type="number" min="1" max="8192" value="512" />
+          </label>
+
+          <label>
+            Master poll interval (I²C / SPI)
+            <input id="pollIntervalMs" type="number" min="20" max="5000" value="250" />
+          </label>
+
+          <label>
+            Poll request payload (I²C / SPI)
+            <textarea id="pollTxPayload" rows="2" placeholder="Ex: 0x01 0x02 ou WHO?"></textarea>
+          </label>
+
+          <label>
+            Poll request encoding
+            <select id="pollTxEncoding">
+              <option value="hex">hex</option>
+              <option value="ascii">ascii</option>
+            </select>
+          </label>
+
+          <div class="row">
+            <label class="dev"><input id="autoReply" type="checkbox" /> Auto-reply</label>
+            <label class="dev"><input id="echoReply" type="checkbox" /> Echo</label>
+            <label class="dev"><input id="replyNewline" type="checkbox" checked /> +\n</label>
+          </div>
+
+          <label>
+            Reply encoding
+            <select id="replyEncoding">
+              <option value="ascii">ascii</option>
+              <option value="hex">hex (0xAA 55 ...)</option>
+            </select>
+          </label>
+
+          <label>
+            Reply payload
+            <textarea id="replyPayload" rows="3" placeholder="ACK ou 0xAA 0x55 ..."></textarea>
+          </label>
+
+          <div class="hint">
+            <b>Important :</b> en Linux user-space, <b>I²C / SPI ne peuvent pas écouter passivement</b> comme UART/TCP.
+            Ici on fait un <b>poll maître</b> : le Pi envoie périodiquement une requête puis lit la réponse.
+          </div>
+        </div>
+      </div>
+
+      <div class="telemetryGrid telemetryGrid3" style="margin-top:14px;">
+        <div class="telemetryCard"><span>Running</span><strong id="stRunning">--</strong></div>
+        <div class="telemetryCard"><span>Peer</span><strong id="stPeer">--</strong></div>
+        <div class="telemetryCard"><span>RX / TX</span><strong id="stCount">--</strong></div>
+      </div>
+      <div class="statusRow muted" style="margin-top:10px;">
+        <span id="stError">error: --</span>
+      </div>
+    </section>
+
+    <section class="panel logPanel">
+      <div class="panelHead">
+        <h2>Logs</h2>
+        <div class="miniActions">
+          <button id="btnClear" class="secondary">Clear</button>
+          <button id="btnScroll" class="secondary">Auto-scroll: ON</button>
+        </div>
+      </div>
+      <div id="logBox" class="logBox"></div>
+    </section>
+
+  </main>
+
+  <script src="listen.js"></script>
+</body>
+</html>

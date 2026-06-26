@@ -29,6 +29,19 @@ interface PendingFile {
   binary?: boolean;
 }
 
+interface CviBundleChoice {
+  label: string;
+  group: string;
+  description: string;
+  detail: string;
+  defaultFolder: string;
+  entries?: string[];
+  generator?: 'minimal-webui';
+}
+
+const BUNDLED_C_MODULE_ROOT = path.join('data', 'templates', 'my_util', 'MY_Util');
+const BUNDLED_C_MODULE_SKIP_EXTENSIONS = new Set(['.bak']);
+
 export interface NewFileGenerationResult {
   files: string[];
   createdFiles: string[];
@@ -229,16 +242,20 @@ const DLL_SOURCE_TEMPLATE = `#include <windows.h>
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    (void)lpvReserved;
-
     switch (fdwReason)
     {
-        case DLL_PROCESS_ATTACH:
+        case DLL_PROCESS_ATTACH:    // Code to run when the DLL is loaded
             if (InitCVIRTE (hinstDLL, 0, 0) == 0)
                 return FALSE;    /* out of memory */
             break;
 
-        case DLL_PROCESS_DETACH:
+        case DLL_THREAD_ATTACH:     // Code to run when a thread is created
+            break;
+
+        case DLL_THREAD_DETACH:     // Code to run when a thread ends
+            break;
+
+        case DLL_PROCESS_DETACH:    // Code to run when the DLL is unloaded
             if (!CVIRTEHasBeenDetached ())
                 CloseCVIRTE ();
             break;
@@ -454,6 +471,125 @@ void CviError_Report (int code, const char *message, const char *file,
 }
 `;
 
+
+const MINIMAL_CVI_WEBUI_INDEX_TEMPLATE = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CVI Web UI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page">
+    <h1>CVI Web UI</h1>
+    <section class="card">
+      <h2>State</h2>
+      <pre id="state">Loading...</pre>
+      <button id="refresh">Refresh state</button>
+    </section>
+    <section class="card">
+      <h2>Action</h2>
+      <input id="actionName" value="ping" aria-label="Action name">
+      <button id="sendAction">Send action</button>
+      <pre id="result"></pre>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
+`;
+
+const MINIMAL_CVI_WEBUI_APP_TEMPLATE = `async function getState() {
+  const stateElement = document.getElementById('state');
+  try {
+    const response = await fetch('/api/state');
+    stateElement.textContent = await response.text() || '{}';
+  } catch (error) {
+    stateElement.textContent = String(error);
+  }
+}
+
+async function sendAction() {
+  const name = document.getElementById('actionName').value || 'ping';
+  const resultElement = document.getElementById('result');
+  try {
+    const response = await fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: name, timestamp: new Date().toISOString() })
+    });
+    resultElement.textContent = await response.text();
+    await getState();
+  } catch (error) {
+    resultElement.textContent = String(error);
+  }
+}
+
+document.getElementById('refresh').addEventListener('click', getState);
+document.getElementById('sendAction').addEventListener('click', sendAction);
+getState();
+`;
+
+const MINIMAL_CVI_WEBUI_STYLE_TEMPLATE = `:root {
+  font-family: system-ui, Segoe UI, sans-serif;
+  color: #222;
+  background: #f4f4f4;
+}
+
+.page {
+  max-width: 900px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+pre {
+  background: #111;
+  color: #f4f4f4;
+  padding: 12px;
+  overflow: auto;
+}
+
+button, input {
+  font: inherit;
+  padding: 8px 10px;
+  margin-right: 8px;
+}
+`;
+
+const MINIMAL_CVI_WEBUI_README_TEMPLATE = `# Minimal CVI Web UI frontend
+
+Generic static frontend intended for a C/CVI HTTP backend exposing:
+
+- GET /api/state
+- POST /api/action
+
+This starter intentionally contains only HTML, JavaScript and CSS assets. Backend C files are kept separate.
+`;
+
+function getBuiltInCviCBundles(): CviBundleChoice[] {
+  return [
+    { label: 'UART communication', group: 'C communication bundles', description: 'Create cpm_uart.c and cpm_uart.h.', detail: 'Pure C serial-port wrapper with open/read/write/read-line helpers for Windows and POSIX.', defaultFolder: 'Bundle/C/Communication/UART', entries: ['CBundle/Communication/UART/cpm_uart.c=>cpm_uart.c', 'CBundle/Communication/UART/cpm_uart.h=>cpm_uart.h', 'CBundle/Communication/UART/README.md=>README.md'] },
+    { label: 'IPC communication', group: 'C communication bundles', description: 'Create cpm_ipc.c and cpm_ipc.h.', detail: 'Pure C named-pipe/FIFO wrapper for simple local process communication.', defaultFolder: 'Bundle/C/Communication/IPC', entries: ['CBundle/Communication/IPC/cpm_ipc.c=>cpm_ipc.c', 'CBundle/Communication/IPC/cpm_ipc.h=>cpm_ipc.h', 'CBundle/Communication/IPC/README.md=>README.md'] },
+    { label: 'Ethernet TCP/UDP communication', group: 'C communication bundles', description: 'Create cpm_socket.c and cpm_socket.h.', detail: 'Pure C TCP client/server and UDP socket wrapper. On Windows, link against ws2_32.', defaultFolder: 'Bundle/C/Communication/Ethernet', entries: ['CBundle/Communication/Ethernet/cpm_socket.c=>cpm_socket.c', 'CBundle/Communication/Ethernet/cpm_socket.h=>cpm_socket.h', 'CBundle/Communication/Ethernet/README.md=>README.md'] },
+    { label: 'Wi-Fi communication', group: 'C communication bundles', description: 'Create cpm_wifi.c and cpm_wifi.h.', detail: 'Pure C TCP/UDP wrapper for Wi-Fi-connected systems. It handles IP traffic, not SSID association.', defaultFolder: 'Bundle/C/Communication/WiFi', entries: ['CBundle/Communication/WiFi/cpm_wifi.c=>cpm_wifi.c', 'CBundle/Communication/WiFi/cpm_wifi.h=>cpm_wifi.h', 'CBundle/Communication/WiFi/README.md=>README.md'] },
+    { label: 'Bluetooth RFCOMM communication', group: 'C communication bundles', description: 'Create cpm_bluetooth.c and cpm_bluetooth.h.', detail: 'Pure C Bluetooth Classic RFCOMM client wrapper. Windows implementation included; other platforms return unsupported.', defaultFolder: 'Bundle/C/Communication/Bluetooth', entries: ['CBundle/Communication/Bluetooth/cpm_bluetooth.c=>cpm_bluetooth.c', 'CBundle/Communication/Bluetooth/cpm_bluetooth.h=>cpm_bluetooth.h', 'CBundle/Communication/Bluetooth/README.md=>README.md'] },
+    { label: 'CAN communication', group: 'C communication bundles', description: 'Create cpm_can.c and cpm_can.h.', detail: 'Pure C CAN/SocketCAN helper with classical CAN, CAN FD, filters and diagnostic formatting.', defaultFolder: 'Bundle/C/Communication/CAN', entries: ['CBundle/Communication/CAN/cpm_can.c=>cpm_can.c', 'CBundle/Communication/CAN/cpm_can.h=>cpm_can.h', 'CBundle/Communication/CAN/README.md=>README.md'] },
+    { label: 'I2C communication', group: 'C communication bundles', description: 'Create cpm_i2c.c and cpm_i2c.h.', detail: 'Pure C Linux /dev/i2c wrapper with register read/write helpers. Other platforms return unsupported.', defaultFolder: 'Bundle/C/Communication/I2C', entries: ['CBundle/Communication/I2C/cpm_i2c.c=>cpm_i2c.c', 'CBundle/Communication/I2C/cpm_i2c.h=>cpm_i2c.h', 'CBundle/Communication/I2C/README.md=>README.md'] },
+    { label: 'SPI communication', group: 'C communication bundles', description: 'Create cpm_spi.c and cpm_spi.h.', detail: 'Pure C Linux spidev wrapper with mode/speed/bits configuration and full-duplex transfer helpers.', defaultFolder: 'Bundle/C/Communication/SPI', entries: ['CBundle/Communication/SPI/cpm_spi.c=>cpm_spi.c', 'CBundle/Communication/SPI/cpm_spi.h=>cpm_spi.h', 'CBundle/Communication/SPI/README.md=>README.md'] },
+    { label: 'Full communication stack', group: 'C communication bundles', description: 'Create UART, IPC, Ethernet, Wi-Fi, Bluetooth, CAN, I2C and SPI modules.', detail: 'Pure C communication stack adapted from the C/C++ Project Manager bundles. Windows network targets require ws2_32.', defaultFolder: 'Bundle/C/Communication', entries: ['CBundle/Communication/README.md=>README.md', 'CBundle/Communication/UART=>UART', 'CBundle/Communication/IPC=>IPC', 'CBundle/Communication/Ethernet=>Ethernet', 'CBundle/Communication/WiFi=>WiFi', 'CBundle/Communication/Bluetooth=>Bluetooth', 'CBundle/Communication/CAN=>CAN', 'CBundle/Communication/I2C=>I2C', 'CBundle/Communication/SPI=>SPI'] },
+    { label: 'Minimal Web UI frontend', group: 'Script / UI bundles', description: 'Create a generic HTML/JS/CSS frontend.', detail: 'Small static frontend for /api/state and /api/action. No project-specific GPIO, camera or Raspberry Pi assets are included.', defaultFolder: 'Bundle/Scripts/WebUI/MinimalFrontend', generator: 'minimal-webui' }
+  ];
+}
+
 function buildBlankUirHeader(): string {
   return `/**************************************************************************/
 /* LabWindows/CVI User Interface Resource (UIR) Include File              */
@@ -547,6 +683,43 @@ export function getBuiltInSnippets(): BuiltInSnippet[] {
       label: 'SetCtrlAttribute call',
       description: 'Parameterized control attribute update.',
       body: `SetCtrlAttribute (\${1:panel}, \${2:control}, \${3:ATTR_VISIBLE}, \${4:1});`
+    },
+    {
+      id: 'doc-file-header',
+      label: 'File header comment',
+      description: 'Program/file header with purpose, author, version and change history.',
+      body: `//==============================================================================
+//
+// Title:       \${1:Program title}
+// Purpose:     \${2:Short description}
+//
+// Created on:  \${3:YYYY-MM-DD}
+// Author:      \${4:Name}
+// Version:     \${5:1.0.0}
+//
+// Changes:
+//   \${6:YYYY-MM-DD} | \${7:Name} | \${8:1.0.0} | \${9:Creation}
+//
+//==============================================================================
+
+\${0}`
+    },
+    {
+      id: 'doc-comment-section',
+      label: 'Boxed comment section',
+      description: 'Readable section separator for Parameters, Constants, Types or Functions.',
+      body: `//==============================================================================
+// \${1:Section}
+//==============================================================================
+
+\${0}`
+    },
+    {
+      id: 'doc-change-line',
+      label: 'Header change line',
+      description: 'One formatted entry for a file-header change history.',
+      body: `//   \${1:YYYY-MM-DD} | \${2:Name} | \${3:1.0.0} | \${4:Description}
+\${0}`
     }
   ];
 }
@@ -568,6 +741,7 @@ export class CviTemplateService {
       { label: 'CVI UI application starter (.c + .uir + .h)', description: 'Create a panel resource and a complete LoadPanel / RunUserInterface baseline', value: 'ui-app' },
       { label: 'CVI DLL starter (.c + .h)', description: 'Create DllMain with the CVIRTE attach / detach lifecycle', value: 'dll' },
       { label: 'CVI error-management module (.c + .h)', description: 'Create a cleaned generic logger and goto-based error-check helpers', value: 'error-module' },
+      { label: 'C utility / communication bundle...', description: 'Create a CVI-compatible C bundle adapted from the C/C++ Project Manager', value: 'c-bundle' },
       { label: 'Text file', description: 'Create an empty .txt file', value: 'text' }
     ];
     if (userTemplates.length > 0) {
@@ -587,6 +761,7 @@ export class CviTemplateService {
       case 'ui-app': return this.generateUir(projectDirectory, true);
       case 'dll': return this.generateDll(projectDirectory);
       case 'error-module': return this.generateErrorModule(projectDirectory);
+      case 'c-bundle': return this.generateCBundle(projectDirectory);
       case 'text': return this.generateSingleTextFile(projectDirectory, '.txt', 'new_file', '', 'Text file');
       case 'user-template': return this.generateUserTemplate(projectDirectory, userTemplates);
       default: return undefined;
@@ -616,6 +791,20 @@ export class CviTemplateService {
       return;
     }
     await editor.insertSnippet(new vscode.SnippetString(selected.body));
+  }
+
+  async insertBuiltInSnippet(snippetId: string): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showErrorMessage('Open a source file before inserting a CVI snippet.');
+      return;
+    }
+    const snippet = getBuiltInSnippets().find((item) => item.id === snippetId);
+    if (!snippet) {
+      vscode.window.showErrorMessage(`Built-in CVI snippet not found: ${snippetId}`);
+      return;
+    }
+    await editor.insertSnippet(new vscode.SnippetString(snippet.body));
   }
 
   async saveSelectionAsSnippet(): Promise<void> {
@@ -849,6 +1038,120 @@ export class CviTemplateService {
     }
     const variables = this.createVariables(target, target, undefined);
     return this.writeFiles([{ absolutePath: target, contents: toCrlf(renderTemplateText(selected.template.content, variables)) }], target);
+  }
+
+  private async generateCBundle(projectDirectory: string): Promise<NewFileGenerationResult | undefined> {
+    const bundles = getBuiltInCviCBundles();
+    const items: Array<vscode.QuickPickItem & { bundle?: CviBundleChoice }> = [];
+    let currentGroup = '';
+    for (const bundle of bundles) {
+      if (bundle.group !== currentGroup) {
+        currentGroup = bundle.group;
+        items.push({ label: currentGroup, kind: vscode.QuickPickItemKind.Separator });
+      }
+      items.push({ label: bundle.label, description: bundle.description, detail: bundle.detail, bundle });
+    }
+
+    const selected = await vscode.window.showQuickPick(items, {
+      title: 'Create a CVI-compatible C bundle',
+      placeHolder: 'Select the bundle to generate',
+      matchOnDescription: true,
+      matchOnDetail: true
+    });
+    if (!selected?.bundle) {
+      return undefined;
+    }
+
+    const relativeFolder = await vscode.window.showInputBox({
+      title: `Target folder for ${selected.bundle.label}`,
+      prompt: 'Relative folder under the CVI project directory. Existing files are preserved unless you choose overwrite in the next prompt.',
+      value: selected.bundle.defaultFolder,
+      validateInput: (value) => this.validateRelativeBundleFolder(value)
+    });
+    if (relativeFolder === undefined) {
+      return undefined;
+    }
+
+    return this.generateCBundleFiles(projectDirectory, relativeFolder || selected.bundle.defaultFolder, selected.bundle);
+  }
+
+  private async generateCBundleFiles(projectDirectory: string, relativeFolder: string, bundle: CviBundleChoice): Promise<NewFileGenerationResult | undefined> {
+    const targetRoot = path.join(projectDirectory, relativeFolder);
+
+    if (bundle.generator === 'minimal-webui') {
+      const indexPath = path.join(targetRoot, 'index.html');
+      const appPath = path.join(targetRoot, 'app.js');
+      const stylePath = path.join(targetRoot, 'style.css');
+      const readmePath = path.join(targetRoot, 'README.md');
+      return this.writeFiles([
+        { absolutePath: indexPath, contents: toCrlf(MINIMAL_CVI_WEBUI_INDEX_TEMPLATE) },
+        { absolutePath: appPath, contents: toCrlf(MINIMAL_CVI_WEBUI_APP_TEMPLATE) },
+        { absolutePath: stylePath, contents: toCrlf(MINIMAL_CVI_WEBUI_STYLE_TEMPLATE) },
+        { absolutePath: readmePath, contents: toCrlf(MINIMAL_CVI_WEBUI_README_TEMPLATE) }
+      ], indexPath);
+    }
+
+    const files: PendingFile[] = [];
+    for (const entry of bundle.entries || []) {
+      files.push(...this.collectBundledEntryFiles(entry, targetRoot));
+    }
+    if (files.length === 0) {
+      vscode.window.showErrorMessage(`No files were found for bundle: ${bundle.label}`);
+      return undefined;
+    }
+    const primary = files.find((file) => path.extname(file.absolutePath).toLowerCase() === '.c')?.absolutePath || files[0].absolutePath;
+    return this.writeFiles(files, primary);
+  }
+
+  private collectBundledEntryFiles(entry: string, targetRoot: string): PendingFile[] {
+    const [sourcePartRaw, destinationPartRaw] = entry.split('=>');
+    const sourcePart = sourcePartRaw.trim();
+    const destinationPart = (destinationPartRaw || '').trim();
+    const sourcePath = path.join(this.context.extensionPath, BUNDLED_C_MODULE_ROOT, sourcePart);
+    if (!fs.existsSync(sourcePath)) {
+      this.output.appendLine(`[CVI Templates] Bundled entry not found: ${sourcePath}`);
+      return [];
+    }
+
+    const stat = fs.statSync(sourcePath);
+    const defaultName = path.basename(sourcePath);
+    const destinationBase = path.join(targetRoot, destinationPart || defaultName);
+    if (stat.isDirectory()) {
+      const files: PendingFile[] = [];
+      this.collectDirectoryFiles(sourcePath, destinationBase, files);
+      return files;
+    }
+    return [{ absolutePath: destinationBase, contents: fs.readFileSync(sourcePath), binary: true }];
+  }
+
+  private collectDirectoryFiles(sourceDirectory: string, destinationDirectory: string, files: PendingFile[]): void {
+    for (const entry of fs.readdirSync(sourceDirectory, { withFileTypes: true })) {
+      const sourcePath = path.join(sourceDirectory, entry.name);
+      const destinationPath = path.join(destinationDirectory, entry.name);
+      if (entry.isDirectory()) {
+        this.collectDirectoryFiles(sourcePath, destinationPath, files);
+        continue;
+      }
+      if (!entry.isFile() || BUNDLED_C_MODULE_SKIP_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        continue;
+      }
+      files.push({ absolutePath: destinationPath, contents: fs.readFileSync(sourcePath), binary: true });
+    }
+  }
+
+  private validateRelativeBundleFolder(value: string): string | undefined {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return 'Enter a relative folder.';
+    }
+    if (path.isAbsolute(trimmed)) {
+      return 'Use a relative folder under the CVI project directory.';
+    }
+    const normalized = path.normalize(trimmed);
+    if (normalized === '..' || normalized.startsWith(`..${path.sep}`)) {
+      return 'The folder cannot escape the CVI project directory.';
+    }
+    return undefined;
   }
 
   private async askTargetPath(projectDirectory: string, extension: string, suggestedBaseName: string, title: string): Promise<string | undefined> {

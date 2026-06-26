@@ -1,0 +1,1308 @@
+:root {
+    color-scheme: dark;
+    --bg: #020617;
+    --panel: #0f172a;
+    --panel-2: #111827;
+    --line: #23324d;
+    --text: #e5eefb;
+    --muted: #94a3b8;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+    --manual: #10b981;
+    --auto: #3b82f6;
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: radial-gradient(circle at top, #0b1222, #020617 55%);
+    color: var(--text);
+}
+
+.topbar {
+    width: min(1680px, calc(100% - 28px));
+    margin: 18px auto 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+.topbar h1 { margin: 0 0 6px; }
+.topbar p { margin: 0; color: var(--muted); }
+.topBadges { display: flex; gap: 10px; flex-wrap: wrap; }
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--line);
+    font-weight: 700;
+}
+.badge-on { background: rgba(34, 197, 94, 0.15); color: #bbf7d0; }
+.badge-off { background: rgba(239, 68, 68, 0.15); color: #fecaca; }
+.badge-manual { background: rgba(16,185,129,0.20); color: #bbf7d0; }
+.badge-auto { background: rgba(59,130,246,0.22); color: #dbeafe; }
+
+.dashboard {
+    width: min(1680px, calc(100% - 28px));
+    margin: 18px auto 28px;
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 16px;
+}
+
+.panel {
+    background: linear-gradient(180deg, rgba(17,24,39,0.96), rgba(15,23,42,0.96));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.videoPanel { grid-column: 1; 
+}
+.telemetryPanel { grid-column: 2; }
+.controlsPanel { grid-column: 1; }
+.logPanel { grid-column: 2; }
+
+.panelHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.panelHead h2 { margin: 0; }
+.miniActions, .quickButtons, .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+button {
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+button.secondary {
+    background: linear-gradient(180deg, #475569, #334155);
+}
+button:hover {
+    filter: brightness(1.08);
+}
+button:active {
+    filter: brightness(1.4);
+}
+button.btnPrg {
+    color: white;
+    background: linear-gradient(180deg, #ef4444, #ae5959);
+    margin-right: 100px;
+}
+button.danger {
+    background: linear-gradient(180deg, #ef4444, #b91c1c);
+}
+button:disabled,
+input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.dev {
+    align-items: center;
+    color: lightsteelblue;
+}
+.videoWrap {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #000;
+    aspect-ratio: 16 / 9;
+}
+.videoWrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.videoFooter {
+    margin-top: 4px;
+    display: grid;
+    gap: 4px;
+}
+.statusRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.statusRow.muted { color: var(--muted); }
+
+.cameraControls, .controlColumns, .telemetryGrid, .canvasGrid {
+    display: grid;
+    gap: 14px;
+}
+.cameraControls, .controlColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.telemetryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px; }
+.telemetryGrid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.canvasGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.canvasGrid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.controlBlock, .telemetryCard, .canvasCard {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+}
+.controlBlock h3, .canvasCard h3 { margin: 0 0 10px; }
+.controlBlock label {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    color: var(--muted);
+}
+.telemetryCard span { color: var(--muted); display: block; }
+.telemetryCard strong { font-size: 1.25rem; display: block; margin-top: 6px; }
+.value { margin-top: 8px; color: #bfdbfe; font-weight: 700; }
+
+input[type="range"] { width: 100%; }
+
+/* Generic inputs for additional pages (comms, listen, etc.) */
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(15,23,42,0.75);
+    color: var(--text);
+    outline: none;
+}
+textarea { resize: vertical; }
+
+.row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.hint {
+    margin-top: 10px;
+    color: var(--muted);
+    display: grid;
+    gap: 6px;
+    font-size: 0.92rem;
+}
+.kbd {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: #bfdbfe;
+}
+
+.navLinks {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.navLinks a {
+    text-decoration: none;
+    color: #cbd5e1;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.03);
+}
+.navLinks a:hover { background: rgba(255,255,255,0.06); }
+.navLinks a.active {
+    border-color: rgba(59,130,246,0.55);
+    background: rgba(59,130,246,0.14);
+    color: #dbeafe;
+}
+.canvasCard canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: #0f172a;
+}
+.cameraPad {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+}
+.miniTelemetry {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+}
+.lockBanner {
+    margin-bottom: 14px;
+    border: 1px solid rgba(239,68,68,0.35);
+    background: rgba(239,68,68,0.12);
+    color: #fecaca;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+.hidden { display: none; }
+
+.detectionsBox {
+    display: grid;
+    gap: 10px;
+    min-height: 180px;
+}
+.detItem {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.04);
+}
+.detItem.primary {
+    border-color: rgba(250, 204, 21, 0.45);
+    background: rgba(250, 204, 21, 0.10);
+}
+.detItem strong { display: flex; justify-content: space-between; gap: 12px; }
+.detItem small { color: var(--muted); }
+.detItem.empty { color: var(--muted); }
+
+.detection-on,
+.detection-off {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.detection-on {
+    color: #bbf7d0 !important;
+    border: 1px solid rgba(34,197,94,0.55);
+    background: rgba(34,197,94,0.16);
+}
+.detection-off {
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(148,163,184,0.35);
+    background: rgba(148,163,184,0.10);
+}
+
+.logBox {
+    min-height: 260px;
+    max-height: 540px;
+    overflow: auto;
+    display: grid;
+    gap: 8px;
+}
+.logLine {
+    font-family: Consolas, monospace;
+    font-size: 0.92rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.logLineRx { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.08); }
+.logLineTx { border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08); }
+.logLineErr { border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.10); }
+
+
+@media (max-width: 1320px) {
+    .canvasGrid3,
+    .telemetryGrid3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+    .videoPanel, .telemetryPanel, .controlsPanel, .logPanel { grid-column: auto; }
+}
+
+@media (max-width: 780px) {
+    .cameraControls,
+    .controlColumns,
+    .telemetryGrid,
+    .telemetryGrid3,
+    .canvasGrid,
+    .canvasGrid3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+.telemetryGrid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.telemetryGrid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.compactGrid { gap: 10px; }
+.telemetryCardLarge strong { font-size: 1.8rem; }
+.videoWrapHero { aspect-ratio: 16 / 9; min-height: 540px; }
+.cameraHeroFooter { margin-top: 12px; display: grid; gap: 10px; }
+.cameraDashboard {
+    grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.95fr);
+    grid-auto-flow: row dense;
+}
+.cameraHeroPanel { grid-column: 1; }
+.cameraInfoPanel { grid-column: 2; }
+.cameraControlsPanel { grid-column: 1 / span 2; }
+.logPanelWide { grid-column: 1 / span 2; }
+.cameraControlsWide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.quickButtonsWide { margin-top: 14px; }
+.detectionsBoxLarge { min-height: 320px; max-height: 420px; overflow: auto; }
+.specList {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+.specListAccent {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.specRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(140px, auto);
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+}
+.specRow span { color: var(--muted); }
+.specRow strong {
+    text-align: right;
+    font-weight: 700;
+    color: #dbeafe;
+    overflow-wrap: anywhere;
+}
+.centerRow { justify-content: center; }
+.miniTelemetryStack {
+    display: grid;
+    gap: 6px;
+    justify-content: start;
+}
+
+.sensorsDashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.sensorSummaryPanel { grid-column: 1 / span 2; }
+.sensorCompassPanel,
+.sensorGyroPanel,
+.sensorConfigPanel { grid-column: span 1; }
+.sensorLidarPanel,
+.page-sensors .logPanelWide { grid-column: 1 / span 2; }
+.sensorCompassPanel canvas,
+.sensorGyroPanel canvas,
+.sensorLidarPanel canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: #0f172a;
+}
+.sensorLidarPanel canvas {
+    max-height: 720px;
+    object-fit: contain;
+}
+.sensorTopGrid .telemetryCard {
+    min-height: 116px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.sensorSectorGrid { margin-bottom: 16px; }
+.statusList {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.statusChip {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+}
+.statusChip span {
+    display: block;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+.statusChip strong { display: block; }
+
+@media (max-width: 1480px) {
+    .cameraControlsWide {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .telemetryGrid4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .cameraDashboard,
+    .sensorsDashboard {
+        grid-template-columns: 1fr;
+    }
+    .cameraHeroPanel,
+    .cameraInfoPanel,
+    .cameraControlsPanel,
+    .logPanelWide,
+    .sensorSummaryPanel,
+    .sensorCompassPanel,
+    .sensorGyroPanel,
+    .sensorLidarPanel,
+    .sensorConfigPanel,
+    .page-sensors .logPanelWide {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 780px) {
+    .cameraControlsWide,
+    .statusList,
+    .telemetryGrid4,
+    .telemetryGrid2 {
+        grid-template-columns: 1fr;
+    }
+    .specRow {
+        grid-template-columns: 1fr;
+    }
+    .specRow strong {
+        text-align: left;
+    }
+    .videoWrapHero {
+        min-height: 300px;
+    }
+}
+
+.panelSubtext {
+    margin: 6px 0 0;
+    color: var(--muted);
+}
+
+.cockpitDashboard {
+    grid-template-columns: minmax(0, 1.4fr) minmax(360px, 0.82fr);
+    align-items: start;
+}
+
+.pilotPanel,
+.logPanelWide {
+    grid-column: 1 / -1;
+}
+
+.dashboardTelemetryPanel {
+    grid-column: 1;
+}
+
+.sensorSidePanel {
+    grid-column: 2;
+}
+
+.cockpitHead {
+    align-items: flex-start;
+}
+
+.cockpitGlobalActions {
+    justify-content: flex-end;
+}
+
+.cockpitLayout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(280px, 340px);
+    gap: 18px;
+    align-items: stretch;
+}
+
+.cockpitWing,
+.cockpitCenter {
+    min-width: 0;
+}
+
+.cockpitWing {
+    display: grid;
+    gap: 16px;
+}
+
+.wingHeader {
+    display: grid;
+    gap: 6px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(56,189,248,0.10), rgba(15,23,42,0.68));
+}
+
+.wingEyebrow {
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    color: #93c5fd;
+}
+
+.wingHeader h3 {
+    margin: 0;
+    font-size: 1.08rem;
+}
+
+.cockpitStatsGrid .telemetryCard strong {
+    font-size: 1.5rem;
+}
+
+.directionPadCard {
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: radial-gradient(circle at center, rgba(59,130,246,0.18), rgba(15,23,42,0.92) 65%);
+}
+
+.directionPadHint {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+}
+
+.directionPad {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: center;
+}
+
+.padSpacer {
+    min-height: 70px;
+}
+
+.padBtn {
+    min-height: 86px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 8px;
+    font-size: 1.8rem;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 10px 20px rgba(0,0,0,0.18);
+}
+
+.padBtn span {
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.padStop {
+    background: linear-gradient(180deg, #ef4444, #991b1b);
+}
+
+.leftWingFooter {
+    display: grid;
+    gap: 12px;
+}
+
+.cockpitCenter {
+    display: grid;
+    gap: 16px;
+}
+
+.cockpitVideoShell {
+    position: relative;
+    padding: 14px;
+    border-radius: 24px;
+    border: 1px solid rgba(59,130,246,0.20);
+    background: linear-gradient(180deg, rgba(8,15,30,0.94), rgba(2,6,23,0.98));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 18px 42px rgba(0,0,0,0.32);
+}
+
+.videoHud {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.videoHudTop {
+    margin-bottom: 12px;
+}
+
+.videoHudBottom {
+    margin-top: 12px;
+}
+
+.hudPillGroup,
+.hudMetricStrip,
+.cameraMiniButtons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.hudPill,
+.hudMetric,
+.hudMiniItem {
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.05);
+    min-width: 120px;
+}
+
+.hudPill span,
+.hudMetric span,
+.hudMiniItem span,
+.miniLabel {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+}
+
+.hudPill strong,
+.hudMetric strong,
+.hudMiniItem strong {
+    display: block;
+    font-size: 1rem;
+    color: #eff6ff;
+}
+
+.hudMiniCol {
+    display: grid;
+    gap: 10px;
+    min-width: 150px;
+}
+
+.cockpitVideoWrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    min-height: 460px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.32);
+}
+
+.cockpitVideoWrap img {
+    object-fit: cover;
+}
+
+.videoCrosshair {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.videoCrosshair::before,
+.videoCrosshair::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255,255,255,0.55);
+    box-shadow: 0 0 18px rgba(56,189,248,0.35);
+}
+
+.videoCrosshair::before {
+    width: 70px;
+    height: 2px;
+}
+
+.videoCrosshair::after {
+    width: 2px;
+    height: 70px;
+}
+
+.videoHeadingRibbon {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(2,6,23,0.72);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(8px);
+}
+
+.videoHeadingRibbon span {
+    color: #93c5fd;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.videoHeadingRibbon strong {
+    font-size: 1.08rem;
+}
+
+.cockpitBottomBar {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) minmax(270px, auto);
+    align-items: start;
+}
+
+.videoActionRow {
+    align-items: center;
+}
+
+.cameraPanTiltMini {
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+}
+
+.cameraMiniButtons button {
+    padding-inline: 12px;
+}
+
+.engineCards,
+.powerSummaryGrid {
+    display: grid;
+    gap: 14px;
+}
+
+.engineCard {
+    padding: 16px;
+}
+
+.engineHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.engineHead h3 {
+    margin: 0;
+}
+
+.powerBar {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.07);
+    margin-bottom: 12px;
+}
+
+.powerBar span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ef4444, #38bdf8, #22c55e);
+    transform-origin: center;
+    transform: translateX(0);
+}
+
+.engineMeta {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: 8px;
+}
+
+.powerSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compactInfoRow {
+    align-items: stretch;
+}
+
+.infoChip {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.05);
+    color: var(--muted);
+}
+
+.infoChip strong {
+    margin-left: 8px;
+    color: #e2e8f0;
+}
+
+.telemetryVisualGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 14px;
+}
+
+.sensorSummaryCards {
+    margin-bottom: 0;
+}
+
+.lidarCardLarge canvas {
+    width: 100%;
+    max-height: 420px;
+}
+
+.sectorGridWide {
+    margin: 16px 0;
+}
+
+.dashboardUtilityGrid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+#detectionsBox.detectionsBoxLarge {
+    min-height: 260px;
+    max-height: 360px;
+}
+
+@media (max-width: 1480px) {
+    .cockpitLayout {
+        grid-template-columns: 280px minmax(0, 1fr) 300px;
+    }
+
+    .cockpitBottomBar {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1240px) {
+    .cockpitDashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .sensorSidePanel,
+    .dashboardTelemetryPanel,
+    .pilotPanel,
+    .logPanelWide {
+        grid-column: auto;
+    }
+
+    .cockpitLayout {
+        grid-template-columns: 1fr;
+    }
+
+    .cockpitVideoWrap {
+        min-height: 360px;
+    }
+}
+
+@media (max-width: 780px) {
+    .cockpitGlobalActions,
+    .hudPillGroup,
+    .hudMetricStrip,
+    .cameraMiniButtons {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .directionPad {
+        gap: 8px;
+    }
+
+    .padBtn {
+        min-height: 72px;
+        font-size: 1.4rem;
+    }
+
+    .powerSummaryGrid,
+    .telemetryVisualGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .cockpitVideoWrap {
+        min-height: 260px;
+    }
+}
+
+
+/* ============================
+   COMMS SEND PAGE
+   ============================ */
+
+.commsSendDashboard {
+    grid-template-columns: minmax(0, 1.18fr) minmax(360px, 0.92fr);
+    align-items: start;
+}
+
+.commsHeroPanel,
+.commsLogPanel {
+    grid-column: 1 / -1;
+}
+
+.sendWorkspacePanel {
+    grid-column: 1;
+}
+
+.quickPresetPanel,
+.replyPanel {
+    grid-column: 2;
+}
+
+.commsHeroGrid {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.commsComposerGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.commsSubpanel {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+}
+
+.commsPayloadPanel {
+    grid-column: 1 / -1;
+}
+
+.commsSubpanel h3 {
+    margin: 0 0 14px;
+    font-size: 1.02rem;
+}
+
+.deviceMetaCard {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: rgba(15,23,42,0.75);
+}
+
+.deviceMetaCard span,
+.deviceMetaCard small {
+    color: var(--muted);
+}
+
+.deviceMetaCard strong {
+    font-size: 1rem;
+    color: #e2e8f0;
+    overflow-wrap: anywhere;
+}
+
+.commsSendPage .field {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.commsSendPage .field:last-child {
+    margin-bottom: 0;
+}
+
+.commsSendPage textarea#payload {
+    min-height: 180px;
+}
+
+.commsSendPage textarea#replyBox {
+    min-height: 220px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(15,23,42,0.75);
+    color: var(--text);
+    resize: vertical;
+    font-family: Consolas, monospace;
+}
+
+.commsOptionGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.optionChip {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+}
+
+.optionChipCheck {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 58px;
+}
+
+.optionChipCheck input {
+    width: auto;
+    margin: 0;
+}
+
+.commsReplyGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.presetQuickGrid {
+    display: grid;
+    gap: 16px;
+}
+
+.presetGroup {
+    display: grid;
+    gap: 12px;
+}
+
+.presetGroupTitle {
+    font-weight: 700;
+    color: #bfdbfe;
+    letter-spacing: 0.02em;
+}
+
+.presetGroupGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.presetCard {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(59,130,246,0.09), rgba(15,23,42,0.78));
+}
+
+.presetCardHead {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+}
+
+.presetCard strong {
+    color: #eff6ff;
+}
+
+.presetCard code {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(2,6,23,0.55);
+    color: #bfdbfe;
+    font-family: Consolas, monospace;
+    overflow-wrap: anywhere;
+}
+
+.presetCardActions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.presetEmptyState {
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px dashed rgba(255,255,255,0.14);
+    color: var(--muted);
+    text-align: center;
+    background: rgba(255,255,255,0.02);
+}
+
+.commsHelpList {
+    margin-top: 12px;
+}
+
+.commsHelpList span {
+    display: block;
+}
+
+.commsLogPanel .logBox {
+    min-height: 280px;
+}
+
+@media (max-width: 1480px) {
+    .commsHeroGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .commsOptionGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .presetGroupGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1180px) {
+    .commsSendDashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .sendWorkspacePanel,
+    .quickPresetPanel,
+    .replyPanel,
+    .commsLogPanel {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 780px) {
+    .commsHeroGrid,
+    .commsComposerGrid,
+    .commsOptionGrid,
+    .commsReplyGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Camera INI tuning panel --- */
+.cameraTuningPanel { grid-column: 1 / span 2; }
+.smallText { font-size: 0.88rem; margin: 4px 0 0 0; }
+.tuningActions { flex-wrap: wrap; justify-content: flex-end; }
+.configStatusBox {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+}
+.configStatusBox > div {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.20);
+    border-radius: 14px;
+    padding: 10px 12px;
+    min-width: 0;
+}
+.configStatusBox span {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+}
+.configStatusBox strong {
+    display: block;
+    color: #e2e8f0;
+    font-size: 0.86rem;
+    word-break: break-all;
+}
+.configMessage {
+    margin: 8px 0 12px 0;
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.42);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.configMessage.ok { color: #86efac; border-color: rgba(34,197,94,.35); }
+.configMessage.err { color: #fecaca; border-color: rgba(239,68,68,.45); }
+.configEditorGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.configField {
+    display: grid;
+    gap: 6px;
+    padding: 11px;
+    border-radius: 14px;
+    background: rgba(2, 6, 23, 0.42);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.configField label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #cbd5e1;
+    font-size: 0.86rem;
+}
+.configField input,
+.configField select {
+    width: 100%;
+}
+.configMeta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.configPill {
+    font-size: 0.70rem;
+    border-radius: 999px;
+    padding: 2px 7px;
+    background: rgba(30, 41, 59, 0.85);
+    color: #cbd5e1;
+}
+.configPill.live { color: #86efac; background: rgba(22, 101, 52, 0.30); }
+.configPill.restart { color: #fde68a; background: rgba(146, 64, 14, 0.30); }
+@media (max-width: 1050px) {
+    .configEditorGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .configStatusBox { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+    .cameraTuningPanel { grid-column: auto; }
+    .configEditorGrid { grid-template-columns: 1fr; }
+}
+
+/* --- Camera target/ignore color palette --- */
+.colorConfigBox {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 7px;
+    align-items: center;
+}
+.colorConfigBox input[type="color"] {
+    width: 42px;
+    height: 34px;
+    padding: 2px;
+    border-radius: 10px;
+}
+.colorPalette {
+    grid-column: 1 / span 2;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.colorSwatch {
+    width: 25px;
+    height: 25px;
+    min-width: 25px;
+    border-radius: 999px;
+    border: 1px solid rgba(226,232,240,.55);
+    box-shadow: 0 0 0 1px rgba(15,23,42,.6) inset;
+    padding: 0;
+}
+.colorSwatch:hover { transform: translateY(-1px); }

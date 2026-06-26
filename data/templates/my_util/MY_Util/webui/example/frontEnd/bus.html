@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CATJ Robot - Bus I²C/SPI</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Bus I²C / SPI</h1>
+      <p>Outils maître dédiés : scan I²C, lecture/écriture de registres, transfert brut et journal de debug.</p>
+      <nav class="navLinks">
+          <a href="index.html">Dashboard</a>
+          <a href="camera.html">Caméra</a>
+          <a href="capteur.html">Capteurs</a>
+          <a href="gpio.html">GPIO</a>
+          <a class="active" href="bus.html">Bus I²C/SPI</a>
+          <a href="listen.html">Comms Listen</a>
+          <a href="send.html">Comms Send</a>
+      </nav>
+    </div>
+    <div class="topBadges">
+      <span class="badge" id="cfgBadge">Config: ...</span>
+    </div>
+  </div>
+
+  <main class="dashboard">
+    <section class="panel controlsPanel">
+      <div class="panelHead"><h2>I²C</h2></div>
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <h3>Bus + scan d'adresses</h3>
+          <label>Bus I²C
+            <select id="i2cBus"></select>
+          </label>
+          <div class="row">
+            <label style="flex:1">Start <input id="i2cScanStart" type="text" value="0x03"/></label>
+            <label style="flex:1">End <input id="i2cScanEnd" type="text" value="0x77"/></label>
+          </div>
+          <div class="row">
+            <button id="btnI2cScan">Scan addresses</button>
+            <button id="btnI2cUseFound" class="secondary">Use selected addr</button>
+          </div>
+          <label>Adresses détectées
+            <select id="i2cFound"></select>
+          </label>
+        </div>
+
+        <div class="controlBlock">
+          <h3>Registres I²C</h3>
+          <label>Device spec
+            <input id="i2cSpec" type="text" placeholder="/dev/i2c-1@0x42"/>
+          </label>
+          <div class="row">
+            <label style="flex:1">Registre <input id="i2cReg" type="text" value="0x00"/></label>
+            <label style="flex:1">Taille lecture <input id="i2cReadSize" type="number" min="1" max="256" value="1"/></label>
+          </div>
+          <label>Payload écriture
+            <input id="i2cWritePayload" type="text" placeholder="0xAA 0x55"/>
+          </label>
+          <div class="row">
+            <select id="i2cEncoding"><option value="hex">HEX</option><option value="ascii">ASCII</option></select>
+            <button id="btnI2cRead">Read reg</button>
+            <button id="btnI2cWrite" class="secondary">Write reg</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controlsPanel">
+      <div class="panelHead"><h2>SPI</h2></div>
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <h3>Device</h3>
+          <label>SPI device
+            <select id="spiDev"></select>
+          </label>
+          <label>Device spec
+            <input id="spiSpec" type="text" placeholder="/dev/spidev0.0@1000000#0+8"/>
+          </label>
+          <div class="hint">Format : <code>/dev/spidev0.0@1000000#0+8</code> = device @ speed # mode + bits.</div>
+        </div>
+
+        <div class="controlBlock">
+          <h3>Registres SPI</h3>
+          <div class="row">
+            <label style="flex:1">Registre <input id="spiReg" type="text" value="0x00"/></label>
+            <label style="flex:1">Width
+              <select id="spiRegWidth"><option value="8">8 bits</option><option value="16">16 bits</option></select>
+            </label>
+            <label style="flex:1">Taille lecture <input id="spiReadSize" type="number" min="1" max="256" value="1"/></label>
+          </div>
+          <label>Payload écriture
+            <input id="spiWritePayload" type="text" placeholder="0x01 0x02 0x03"/>
+          </label>
+          <div class="row">
+            <select id="spiEncoding"><option value="hex">HEX</option><option value="ascii">ASCII</option></select>
+            <button id="btnSpiRead">Read reg</button>
+            <button id="btnSpiWrite" class="secondary">Write reg</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controlsPanel">
+      <div class="panelHead"><h2>Transfert brut</h2></div>
+      <div class="controlColumns">
+        <div class="controlBlock">
+          <div class="row">
+            <label style="flex:1">Bus
+              <select id="rawTransport"><option value="i2c">I²C</option><option value="spi">SPI</option></select>
+            </label>
+            <label style="flex:2">Device spec
+              <input id="rawSpec" type="text" placeholder="/dev/i2c-1@0x42 ou /dev/spidev0.0@1000000#0+8"/>
+            </label>
+          </div>
+          <label>Payload TX
+            <textarea id="rawPayload" placeholder="0xAA 0x55" style="min-height:90px"></textarea>
+          </label>
+          <div class="row">
+            <select id="rawEncoding"><option value="hex">HEX</option><option value="ascii">ASCII</option></select>
+            <label style="flex:1">Timeout <input id="rawTimeout" type="number" min="10" max="5000" value="200"/></label>
+            <label style="flex:1">Max RX <input id="rawMaxBytes" type="number" min="1" max="4096" value="64"/></label>
+            <button id="btnRawTransfer">Transfer</button>
+          </div>
+        </div>
+      </div>
+      <label>Dernière réponse
+        <textarea id="replyBox" readonly style="min-height:100px"></textarea>
+      </label>
+    </section>
+
+    <section class="panel logPanel">
+      <div class="panelHead">
+        <h2>Logs bus</h2>
+        <div class="miniActions">
+          <button id="reloadHistoryBtn" class="secondary">Reload history</button>
+          <button id="clearLogBtn" class="secondary">Clear</button>
+        </div>
+      </div>
+      <div class="logBox" id="log"></div>
+    </section>
+  </main>
+
+  <script src="bus.js"></script>
+</body>
+</html>

@@ -2075,7 +2075,7 @@ return { libraryName, entries, label: 'C language pack' };
     add({ category: 'Keywords', name: '__declspec(dllimport)', description: 'Import a symbol from a Windows DLL.', insertText: '__declspec(dllimport)', longDescription: 'Place this in client code or headers used by applications linking against the DLL.' });
     add({ category: 'Keywords', name: '__stdcall', description: 'Windows stdcall calling convention.', insertText: '__stdcall', longDescription: 'Often required by older Win32 APIs and some callback-based DLL interfaces.' });
     add({ category: 'DLL Helpers', name: 'DLL export macro', description: 'Windows export/import macro pattern.', insertText: '#ifdef BUILDING_MY_DLL\n#define MY_API __declspec(dllexport)\n#else\n#define MY_API __declspec(dllimport)\n#endif', longDescription: 'Typical pattern for one header shared by both the DLL project and its consumers.' });
-    add({ category: 'DLL Helpers', name: 'DllMain', description: 'Minimal Windows DLL entry point.', insertText: '#include <windows.h>\n\nBOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)\n{\n    switch (ul_reason_for_call)\n    {\n        case DLL_PROCESS_ATTACH:\n        case DLL_THREAD_ATTACH:\n        case DLL_THREAD_DETACH:\n        case DLL_PROCESS_DETACH:\n            break;\n    }\n    return TRUE;\n}', longDescription: 'Keep DllMain very small. Avoid complex initialization, loader-lock sensitive code, or thread synchronization here.' });
+    add({ category: 'DLL Helpers', name: 'CVI DllMain', description: 'CVI DLL entry point with CVIRTE initialization and cleanup.', insertText: '#include <windows.h>\n#include <cvirte.h>\n\nBOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)\n{\n    switch (fdwReason)\n    {\n        case DLL_PROCESS_ATTACH:    // Code to run when the DLL is loaded\n            if (InitCVIRTE (hinstDLL, 0, 0) == 0)\n                return FALSE;    /* out of memory */\n            break;\n\n        case DLL_THREAD_ATTACH:     // Code to run when a thread is created\n            break;\n\n        case DLL_THREAD_DETACH:     // Code to run when a thread ends\n            break;\n\n        case DLL_PROCESS_DETACH:    // Code to run when the DLL is unloaded\n            if (!CVIRTEHasBeenDetached ())\n                CloseCVIRTE ();\n            break;\n    }\n\n    return TRUE;\n}', longDescription: 'Initialize the CVI Run-Time Engine on process attach and close it on process detach. Keep heavy initialization outside DllMain.' });
     add({ category: 'DLL Helpers', name: 'Exported function', description: 'Typical exported C function.', insertText: 'MY_API int MyFunction(int value);', signature: 'MY_API int MyFunction(int value);', longDescription: 'Simple export declaration suitable for a C-compatible DLL API.' });
     add({ category: 'DLL Helpers', name: 'Exported callback typedef', description: 'Callback typedef exported from a DLL.', insertText: 'typedef int (__stdcall *MyCallback)(int code);', signature: 'typedef int (__stdcall *MyCallback)(int code);', longDescription: 'Useful when the host application must register a function pointer back into the DLL.' });
     add({ category: 'DLL Helpers', name: 'Opaque handle API', description: 'C DLL API based on opaque handles.', insertText: 'typedef struct MyContextTag *MyContextHandle;\n\nMY_API MyContextHandle MyCreate(void);\nMY_API void MyDestroy(MyContextHandle handle);\nMY_API int MyProcess(MyContextHandle handle, const char *input);', longDescription: 'Good pattern to keep the ABI stable while hiding implementation details from client code.' });
@@ -19274,11 +19274,11 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const getPreferredDetailsColumn = (): vscode.ViewColumn => {
-    const activeColumn = vscode.window.activeTextEditor?.viewColumn ?? vscode.window.tabGroups.activeTabGroup?.viewColumn;
-    if (typeof activeColumn === 'number' && activeColumn >= 1) {
-      return activeColumn as vscode.ViewColumn;
-    }
-    return vscode.ViewColumn.One;
+    // If an editor is already open, keep the source visible and open the library
+    // details beside it. When no editor/tab is open, use the main editor column.
+    const hasOpenEditor = vscode.window.visibleTextEditors.length > 0
+      || vscode.window.tabGroups.all.some((group) => group.tabs.length > 0);
+    return hasOpenEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
   };
 
   const openStructuredChoicePicker = (fn: CviFunction, pickerConfig: StructuredPickerConfig, currentValues: string[]): void => {
