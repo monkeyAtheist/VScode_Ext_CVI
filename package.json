@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.34",
+  "version": "0.6.35",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -530,7 +530,7 @@
       },
       {
         "command": "labwindowsCvi.editBuildSettingsSafeMode",
-        "title": "Project Build Settings (Safe Mode)…",
+        "title": "Project Build Settings (Safe Mode)\u2026",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
@@ -712,6 +712,16 @@
       {
         "command": "labwindowsCvi.context.insertCommentSection",
         "title": "Insert comment section",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.insertHeaderChangeEntry",
+        "title": "Insert header change line",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.insertSpecialCharacterText",
+        "title": "Insert special-character text",
         "category": "LabWindows/CVI"
       }
     ],
@@ -1372,7 +1382,17 @@
         {
           "command": "labwindowsCvi.context.insertCommentSection",
           "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_comments@3"
+        },
+        {
+          "command": "labwindowsCvi.context.insertHeaderChangeEntry",
+          "when": "editorLangId == c || editorLangId == cpp",
           "group": "1_comments@2"
+        },
+        {
+          "command": "labwindowsCvi.context.insertSpecialCharacterText",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_comments@4"
         }
       ]
     },
