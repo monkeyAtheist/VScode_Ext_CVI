@@ -1,3 +1,9 @@
+/**
+ * @file cpm_uart.c
+ * @brief Implementation of the cpm_uart C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_uart.h"
 
 #include <errno.h>
@@ -7,6 +13,10 @@
 #ifdef _WIN32
 static char g_cpmUartLastError[256] = "";
 
+/**
+ * @brief Implements the CpmUart_SetLastErrorText operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmUart_SetLastErrorText(const char *message)
 {
     if (message == NULL)
@@ -15,11 +25,21 @@ static void CpmUart_SetLastErrorText(const char *message)
     g_cpmUartLastError[sizeof(g_cpmUartLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmUart_ToWindowsBaud operation.
+ * @param baudRate See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static DWORD CpmUart_ToWindowsBaud(unsigned int baudRate)
 {
     return (DWORD)baudRate;
 }
 
+/**
+ * @brief Implements the CpmUart_ToWindowsParity operation.
+ * @param parity See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static char CpmUart_ToWindowsParity(CpmUartParity parity)
 {
     switch (parity)
@@ -39,6 +59,10 @@ static char CpmUart_ToWindowsParity(CpmUartParity parity)
 
 static char g_cpmUartLastError[256] = "";
 
+/**
+ * @brief Implements the CpmUart_SetLastErrorText operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmUart_SetLastErrorText(const char *message)
 {
     if (message == NULL)
@@ -47,6 +71,11 @@ static void CpmUart_SetLastErrorText(const char *message)
     g_cpmUartLastError[sizeof(g_cpmUartLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmUart_ToPosixBaud operation.
+ * @param baudRate See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static speed_t CpmUart_ToPosixBaud(unsigned int baudRate)
 {
     switch (baudRate)
@@ -71,6 +100,10 @@ static speed_t CpmUart_ToPosixBaud(unsigned int baudRate)
 }
 #endif
 
+/**
+ * @brief Implements the CpmUart_Init operation.
+ * @param port See the matching header for semantic details.
+ */
 void CpmUart_Init(CpmUartPort *port)
 {
     if (port == NULL)
@@ -83,11 +116,28 @@ void CpmUart_Init(CpmUartPort *port)
     port->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmUart_Open operation.
+ * @param port See the matching header for semantic details.
+ * @param deviceName See the matching header for semantic details.
+ * @param baudRate See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_Open(CpmUartPort *port, const char *deviceName, unsigned int baudRate)
 {
     return CpmUart_OpenEx(port, deviceName, baudRate, 8, 1, CPM_UART_PARITY_NONE);
 }
 
+/**
+ * @brief Implements the CpmUart_OpenEx operation.
+ * @param port See the matching header for semantic details.
+ * @param deviceName See the matching header for semantic details.
+ * @param baudRate See the matching header for semantic details.
+ * @param dataBits See the matching header for semantic details.
+ * @param stopBits See the matching header for semantic details.
+ * @param parity See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_OpenEx(CpmUartPort *port, const char *deviceName, unsigned int baudRate,
                    int dataBits, int stopBits, CpmUartParity parity)
 {
@@ -209,11 +259,24 @@ int CpmUart_OpenEx(CpmUartPort *port, const char *deviceName, unsigned int baudR
 #endif
 }
 
+/**
+ * @brief Implements the CpmUart_IsOpen operation.
+ * @param port See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_IsOpen(const CpmUartPort *port)
 {
     return port != NULL && port->isOpen;
 }
 
+/**
+ * @brief Implements the CpmUart_Write operation.
+ * @param port See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param written See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_Write(CpmUartPort *port, const void *data, size_t size, size_t *written)
 {
     if (written != NULL)
@@ -242,6 +305,12 @@ int CpmUart_Write(CpmUartPort *port, const void *data, size_t size, size_t *writ
     return 0;
 }
 
+/**
+ * @brief Implements the CpmUart_WriteText operation.
+ * @param port See the matching header for semantic details.
+ * @param text See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_WriteText(CpmUartPort *port, const char *text)
 {
     if (text == NULL)
@@ -249,6 +318,15 @@ int CpmUart_WriteText(CpmUartPort *port, const char *text)
     return CpmUart_Write(port, text, strlen(text), NULL);
 }
 
+/**
+ * @brief Implements the CpmUart_Read operation.
+ * @param port See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_Read(CpmUartPort *port, void *buffer, size_t bufferSize, size_t *received, unsigned int timeoutMs)
 {
     if (received != NULL)
@@ -292,6 +370,14 @@ int CpmUart_Read(CpmUartPort *port, void *buffer, size_t bufferSize, size_t *rec
     return 0;
 }
 
+/**
+ * @brief Implements the CpmUart_ReadLine operation.
+ * @param port See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmUart_ReadLine(CpmUartPort *port, char *buffer, size_t bufferSize, unsigned int timeoutMs)
 {
     if (buffer == NULL || bufferSize == 0)
@@ -316,6 +402,10 @@ int CpmUart_ReadLine(CpmUartPort *port, char *buffer, size_t bufferSize, unsigne
     return 0;
 }
 
+/**
+ * @brief Implements the CpmUart_Close operation.
+ * @param port See the matching header for semantic details.
+ */
 void CpmUart_Close(CpmUartPort *port)
 {
     if (port == NULL || !port->isOpen)
@@ -330,6 +420,10 @@ void CpmUart_Close(CpmUartPort *port)
     port->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmUart_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmUart_LastError(void)
 {
     return g_cpmUartLastError;

@@ -1,3 +1,18 @@
+# 0.6.37
+
+- Added CVI-compatible C Python and Lua execution bridge bundles.
+- Added generic Python worker and Lua worker protocol starters.
+- Synced C communication bundle Doxygen headers and examples from the C/C++ Project Manager 0.2.40 branch.
+- Kept C++-only bundles excluded from the CVI extension.
+
+# Changelog
+
+## 0.6.36
+
+- Updated CVI C communication bundle templates from C/C++ Project Manager 0.2.38.
+- Added Doxygen file headers, function comments and usage examples to generated C bundle headers and implementations.
+- Preserved the CVI-compatible bundle selection workflow and did not import C++-only bundles.
+
 ## 0.6.23
 
 - Treat transient `DMLERR_BUSY` and unavailable DDE responses as silent polling states while CVI is starting and loading the requested workspace.

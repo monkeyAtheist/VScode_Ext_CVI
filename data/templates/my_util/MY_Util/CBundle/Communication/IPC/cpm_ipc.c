@@ -1,3 +1,9 @@
+/**
+ * @file cpm_ipc.c
+ * @brief Implementation of the cpm_ipc C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_ipc.h"
 
 #include <errno.h>
@@ -13,6 +19,10 @@
 
 static char g_cpmIpcLastError[256] = "";
 
+/**
+ * @brief Implements the CpmIpc_SetLastErrorText operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmIpc_SetLastErrorText(const char *message)
 {
     if (message == NULL)
@@ -21,6 +31,12 @@ static void CpmIpc_SetLastErrorText(const char *message)
     g_cpmIpcLastError[sizeof(g_cpmIpcLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmIpc_CopyName operation.
+ * @param dst See the matching header for semantic details.
+ * @param dstSize See the matching header for semantic details.
+ * @param name See the matching header for semantic details.
+ */
 static void CpmIpc_CopyName(char *dst, size_t dstSize, const char *name)
 {
     if (dst == NULL || dstSize == 0)
@@ -32,6 +48,12 @@ static void CpmIpc_CopyName(char *dst, size_t dstSize, const char *name)
 }
 
 #ifdef _WIN32
+/**
+ * @brief Implements the CpmIpc_FormatPipeName operation.
+ * @param name See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ */
 static void CpmIpc_FormatPipeName(const char *name, char *buffer, size_t bufferSize)
 {
     if (strncmp(name, "\\\\.\\pipe\\", 9) == 0)
@@ -41,6 +63,10 @@ static void CpmIpc_FormatPipeName(const char *name, char *buffer, size_t bufferS
 }
 #endif
 
+/**
+ * @brief Implements the CpmIpc_Init operation.
+ * @param pipeObj See the matching header for semantic details.
+ */
 void CpmIpc_Init(CpmIpcPipe *pipeObj)
 {
     if (pipeObj == NULL)
@@ -55,6 +81,12 @@ void CpmIpc_Init(CpmIpcPipe *pipeObj)
     pipeObj->name[0] = '\0';
 }
 
+/**
+ * @brief Implements the CpmIpc_CreateServer operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @param name See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_CreateServer(CpmIpcPipe *pipeObj, const char *name)
 {
     if (pipeObj == NULL || name == NULL || name[0] == '\0')
@@ -91,6 +123,12 @@ int CpmIpc_CreateServer(CpmIpcPipe *pipeObj, const char *name)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_WaitClient operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_WaitClient(CpmIpcPipe *pipeObj, unsigned int timeoutMs)
 {
     if (!CpmIpc_IsOpen(pipeObj) || !pipeObj->isServer)
@@ -112,6 +150,13 @@ int CpmIpc_WaitClient(CpmIpcPipe *pipeObj, unsigned int timeoutMs)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_ConnectClient operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @param name See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_ConnectClient(CpmIpcPipe *pipeObj, const char *name, unsigned int timeoutMs)
 {
     if (pipeObj == NULL || name == NULL || name[0] == '\0')
@@ -151,6 +196,14 @@ int CpmIpc_ConnectClient(CpmIpcPipe *pipeObj, const char *name, unsigned int tim
     return 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_Write operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param written See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_Write(CpmIpcPipe *pipeObj, const void *data, size_t size, size_t *written)
 {
     if (written != NULL)
@@ -179,6 +232,14 @@ int CpmIpc_Write(CpmIpcPipe *pipeObj, const void *data, size_t size, size_t *wri
     return 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_Read operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_Read(CpmIpcPipe *pipeObj, void *buffer, size_t bufferSize, size_t *received)
 {
     if (received != NULL)
@@ -207,6 +268,10 @@ int CpmIpc_Read(CpmIpcPipe *pipeObj, void *buffer, size_t bufferSize, size_t *re
     return 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_Close operation.
+ * @param pipeObj See the matching header for semantic details.
+ */
 void CpmIpc_Close(CpmIpcPipe *pipeObj)
 {
     if (pipeObj == NULL || !pipeObj->isOpen)
@@ -225,11 +290,20 @@ void CpmIpc_Close(CpmIpcPipe *pipeObj)
     pipeObj->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmIpc_IsOpen operation.
+ * @param pipeObj See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmIpc_IsOpen(const CpmIpcPipe *pipeObj)
 {
     return pipeObj != NULL && pipeObj->isOpen;
 }
 
+/**
+ * @brief Implements the CpmIpc_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmIpc_LastError(void)
 {
     return g_cpmIpcLastError;

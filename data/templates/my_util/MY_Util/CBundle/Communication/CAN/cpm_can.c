@@ -1,3 +1,9 @@
+/**
+ * @file cpm_can.c
+ * @brief Implementation of the cpm_can C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #define _DEFAULT_SOURCE
 #include "cpm_can.h"
 
@@ -18,6 +24,10 @@
 
 static char g_cpmCanLastError[256] = "";
 
+/**
+ * @brief Implements the CpmCan_SetLastErrorText operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmCan_SetLastErrorText(const char *message)
 {
     if (message == NULL)
@@ -26,6 +36,12 @@ static void CpmCan_SetLastErrorText(const char *message)
     g_cpmCanLastError[sizeof(g_cpmCanLastError) - 1u] = '\0';
 }
 
+/**
+ * @brief Implements the CpmCan_CopyName operation.
+ * @param dst See the matching header for semantic details.
+ * @param dstSize See the matching header for semantic details.
+ * @param src See the matching header for semantic details.
+ */
 static void CpmCan_CopyName(char *dst, size_t dstSize, const char *src)
 {
     if (dst == NULL || dstSize == 0u)
@@ -36,6 +52,10 @@ static void CpmCan_CopyName(char *dst, size_t dstSize, const char *src)
     dst[dstSize - 1u] = '\0';
 }
 
+/**
+ * @brief Implements the CpmCan_InitBus operation.
+ * @param bus See the matching header for semantic details.
+ */
 void CpmCan_InitBus(CpmCanBus *bus)
 {
     if (bus == NULL)
@@ -45,6 +65,10 @@ void CpmCan_InitBus(CpmCanBus *bus)
     bus->interfaceName[0] = '\0';
 }
 
+/**
+ * @brief Implements the CpmCan_InitFrame operation.
+ * @param frame See the matching header for semantic details.
+ */
 void CpmCan_InitFrame(CpmCanFrame *frame)
 {
     if (frame == NULL)
@@ -52,6 +76,13 @@ void CpmCan_InitFrame(CpmCanFrame *frame)
     memset(frame, 0, sizeof(*frame));
 }
 
+/**
+ * @brief Implements the CpmCan_SetData operation.
+ * @param frame See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_SetData(CpmCanFrame *frame, const uint8_t *data, size_t size)
 {
     if (frame == NULL || (data == NULL && size > 0u))
@@ -66,16 +97,33 @@ int CpmCan_SetData(CpmCanFrame *frame, const uint8_t *data, size_t size)
     return CPM_CAN_OK;
 }
 
+/**
+ * @brief Implements the CpmCan_MakeStandardId operation.
+ * @param id11 See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 uint32_t CpmCan_MakeStandardId(uint16_t id11)
 {
     return (uint32_t)(id11 & 0x07FFu);
 }
 
+/**
+ * @brief Implements the CpmCan_MakeExtendedId operation.
+ * @param id29 See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 uint32_t CpmCan_MakeExtendedId(uint32_t id29)
 {
     return (uint32_t)(id29 & 0x1FFFFFFFu);
 }
 
+/**
+ * @brief Implements the CpmCan_Open operation.
+ * @param bus See the matching header for semantic details.
+ * @param interfaceName See the matching header for semantic details.
+ * @param enableCanFd See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_Open(CpmCanBus *bus, const char *interfaceName, int enableCanFd)
 {
 #if defined(__linux__)
@@ -140,6 +188,10 @@ int CpmCan_Open(CpmCanBus *bus, const char *interfaceName, int enableCanFd)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_Close operation.
+ * @param bus See the matching header for semantic details.
+ */
 void CpmCan_Close(CpmCanBus *bus)
 {
     if (bus == NULL)
@@ -153,11 +205,22 @@ void CpmCan_Close(CpmCanBus *bus)
     bus->interfaceName[0] = '\0';
 }
 
+/**
+ * @brief Implements the CpmCan_IsOpen operation.
+ * @param bus See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_IsOpen(const CpmCanBus *bus)
 {
     return bus != NULL && bus->handle >= 0;
 }
 
+/**
+ * @brief Implements the CpmCan_SetReceiveTimeout operation.
+ * @param bus See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_SetReceiveTimeout(CpmCanBus *bus, int timeoutMs)
 {
 #if defined(__linux__)
@@ -176,6 +239,12 @@ int CpmCan_SetReceiveTimeout(CpmCanBus *bus, int timeoutMs)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_SetLoopback operation.
+ * @param bus See the matching header for semantic details.
+ * @param enabled See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_SetLoopback(CpmCanBus *bus, int enabled)
 {
 #if defined(__linux__)
@@ -193,6 +262,12 @@ int CpmCan_SetLoopback(CpmCanBus *bus, int enabled)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_SetReceiveOwnMessages operation.
+ * @param bus See the matching header for semantic details.
+ * @param enabled See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_SetReceiveOwnMessages(CpmCanBus *bus, int enabled)
 {
 #if defined(__linux__)
@@ -210,6 +285,14 @@ int CpmCan_SetReceiveOwnMessages(CpmCanBus *bus, int enabled)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_SetFilters operation.
+ * @param bus See the matching header for semantic details.
+ * @param ids See the matching header for semantic details.
+ * @param masks See the matching header for semantic details.
+ * @param count See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_SetFilters(CpmCanBus *bus, const uint32_t *ids, const uint32_t *masks, size_t count)
 {
 #if defined(__linux__)
@@ -234,6 +317,11 @@ int CpmCan_SetFilters(CpmCanBus *bus, const uint32_t *ids, const uint32_t *masks
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_ClearFilters operation.
+ * @param bus See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_ClearFilters(CpmCanBus *bus)
 {
 #if defined(__linux__)
@@ -249,6 +337,11 @@ int CpmCan_ClearFilters(CpmCanBus *bus)
 }
 
 #if defined(__linux__)
+/**
+ * @brief Implements the CpmCan_ToLinuxId operation.
+ * @param frame See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static canid_t CpmCan_ToLinuxId(const CpmCanFrame *frame)
 {
     canid_t id = (canid_t)(frame->id & (frame->isExtended ? CAN_EFF_MASK : CAN_SFF_MASK));
@@ -261,6 +354,11 @@ static canid_t CpmCan_ToLinuxId(const CpmCanFrame *frame)
     return id;
 }
 
+/**
+ * @brief Implements the CpmCan_FromLinuxId operation.
+ * @param frame See the matching header for semantic details.
+ * @param id See the matching header for semantic details.
+ */
 static void CpmCan_FromLinuxId(CpmCanFrame *frame, canid_t id)
 {
     frame->isExtended = (id & CAN_EFF_FLAG) ? 1u : 0u;
@@ -270,6 +368,12 @@ static void CpmCan_FromLinuxId(CpmCanFrame *frame, canid_t id)
 }
 #endif
 
+/**
+ * @brief Implements the CpmCan_Send operation.
+ * @param bus See the matching header for semantic details.
+ * @param frame See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_Send(CpmCanBus *bus, const CpmCanFrame *frame)
 {
 #if defined(__linux__)
@@ -310,6 +414,12 @@ int CpmCan_Send(CpmCanBus *bus, const CpmCanFrame *frame)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_Receive operation.
+ * @param bus See the matching header for semantic details.
+ * @param frame See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_Receive(CpmCanBus *bus, CpmCanFrame *frame)
 {
 #if defined(__linux__)
@@ -355,6 +465,13 @@ int CpmCan_Receive(CpmCanBus *bus, CpmCanFrame *frame)
 #endif
 }
 
+/**
+ * @brief Implements the CpmCan_FormatFrame operation.
+ * @param frame See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmCan_FormatFrame(const CpmCanFrame *frame, char *buffer, size_t bufferSize)
 {
     size_t offset;
@@ -383,6 +500,10 @@ int CpmCan_FormatFrame(const CpmCanFrame *frame, char *buffer, size_t bufferSize
     return CPM_CAN_OK;
 }
 
+/**
+ * @brief Implements the CpmCan_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmCan_LastError(void)
 {
     return g_cpmCanLastError;

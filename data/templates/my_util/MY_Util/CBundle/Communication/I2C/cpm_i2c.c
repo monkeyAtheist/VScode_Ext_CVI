@@ -1,3 +1,9 @@
+/**
+ * @file cpm_i2c.c
+ * @brief Implementation of the cpm_i2c C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_i2c.h"
 
 #include <string.h>
@@ -18,6 +24,10 @@
 #endif
 #endif
 
+/**
+ * @brief Implements the CpmI2c_Init operation.
+ * @param bus See the matching header for semantic details.
+ */
 void CpmI2c_Init(CpmI2cBus *bus)
 {
     if (bus != NULL)
@@ -27,6 +37,12 @@ void CpmI2c_Init(CpmI2cBus *bus)
     }
 }
 
+/**
+ * @brief Implements the CpmI2c_Open operation.
+ * @param bus See the matching header for semantic details.
+ * @param devicePath See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_Open(CpmI2cBus *bus, const char *devicePath)
 {
 #if defined(__linux__)
@@ -45,6 +61,10 @@ int CpmI2c_Open(CpmI2cBus *bus, const char *devicePath)
 #endif
 }
 
+/**
+ * @brief Implements the CpmI2c_Close operation.
+ * @param bus See the matching header for semantic details.
+ */
 void CpmI2c_Close(CpmI2cBus *bus)
 {
     if (bus == NULL)
@@ -61,6 +81,12 @@ void CpmI2c_Close(CpmI2cBus *bus)
     bus->currentAddress = -1;
 }
 
+/**
+ * @brief Implements the CpmI2c_SetAddress operation.
+ * @param bus See the matching header for semantic details.
+ * @param address See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_SetAddress(CpmI2cBus *bus, uint8_t address)
 {
 #if defined(__linux__)
@@ -85,6 +111,13 @@ int CpmI2c_SetAddress(CpmI2cBus *bus, uint8_t address)
 #endif
 }
 
+/**
+ * @brief Implements the CpmI2c_Write operation.
+ * @param bus See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_Write(CpmI2cBus *bus, const uint8_t *data, size_t size)
 {
 #if defined(__linux__)
@@ -103,6 +136,13 @@ int CpmI2c_Write(CpmI2cBus *bus, const uint8_t *data, size_t size)
 #endif
 }
 
+/**
+ * @brief Implements the CpmI2c_Read operation.
+ * @param bus See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_Read(CpmI2cBus *bus, uint8_t *data, size_t size)
 {
 #if defined(__linux__)
@@ -121,6 +161,15 @@ int CpmI2c_Read(CpmI2cBus *bus, uint8_t *data, size_t size)
 #endif
 }
 
+/**
+ * @brief Implements the CpmI2c_WriteRead operation.
+ * @param bus See the matching header for semantic details.
+ * @param txData See the matching header for semantic details.
+ * @param txSize See the matching header for semantic details.
+ * @param rxData See the matching header for semantic details.
+ * @param rxSize See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_WriteRead(CpmI2cBus *bus,
                      const uint8_t *txData,
                      size_t txSize,
@@ -138,6 +187,13 @@ int CpmI2c_WriteRead(CpmI2cBus *bus,
     return 0;
 }
 
+/**
+ * @brief Implements the CpmI2c_WriteRegister8 operation.
+ * @param bus See the matching header for semantic details.
+ * @param registerAddress See the matching header for semantic details.
+ * @param value See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_WriteRegister8(CpmI2cBus *bus, uint8_t registerAddress, uint8_t value)
 {
     uint8_t frame[2];
@@ -146,6 +202,13 @@ int CpmI2c_WriteRegister8(CpmI2cBus *bus, uint8_t registerAddress, uint8_t value
     return CpmI2c_Write(bus, frame, sizeof(frame));
 }
 
+/**
+ * @brief Implements the CpmI2c_ReadRegister8 operation.
+ * @param bus See the matching header for semantic details.
+ * @param registerAddress See the matching header for semantic details.
+ * @param value See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_ReadRegister8(CpmI2cBus *bus, uint8_t registerAddress, uint8_t *value)
 {
     if (value == NULL)
@@ -155,6 +218,14 @@ int CpmI2c_ReadRegister8(CpmI2cBus *bus, uint8_t registerAddress, uint8_t *value
     return CpmI2c_WriteRead(bus, &registerAddress, 1, value, 1);
 }
 
+/**
+ * @brief Implements the CpmI2c_ReadRegisters operation.
+ * @param bus See the matching header for semantic details.
+ * @param startRegister See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmI2c_ReadRegisters(CpmI2cBus *bus, uint8_t startRegister, uint8_t *data, size_t size)
 {
     return CpmI2c_WriteRead(bus, &startRegister, 1, data, size);

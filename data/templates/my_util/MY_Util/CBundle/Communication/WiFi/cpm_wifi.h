@@ -1,3 +1,43 @@
+/**
+ * @file cpm_wifi.h
+ * @brief CPM C Wi-Fi TCP/UDP application communication API.
+ *
+ * @details
+ * This bundle is intended to be readable immediately after insertion into a
+ * CPM project. The comments below summarize what the module provides, when it
+ * is useful and how to start using the public API.
+ *
+ * @par Main features
+ * - uses normal TCP/UDP sockets once the operating system is connected to Wi-Fi;
+ * - supports client/server modes, UDP endpoints and peer tracking;
+ * - provides text, byte and small packet helpers;
+ * - keeps Wi-Fi transport code separate from SSID/password association logic.
+ *
+ * @par Typical applications
+ * - wireless communication with ESP32/Raspberry Pi services;
+ * - test tools that talk to a Wi-Fi instrument over TCP or UDP;
+ * - local wireless telemetry channels.
+ *
+ * @par Usage notes
+ * - This module does not connect the PC to an SSID; configure Wi-Fi with the OS first.
+ * - On Windows, link with ws2_32; CPM adds it automatically for this bundle.
+ * - For reliable messages over TCP, add delimiters or use the packet helpers.
+ *
+ * @par Example of use
+ * @code{.c}
+ * #include "cpm_wifi.h"
+ * 
+ * CpmWifiLink link;
+ * CpmWifi_InitLibrary();
+ * CpmWifi_Init(&link);
+ * if (CpmWifi_OpenTcpClient(&link, "192.168.1.42", 5000) == 0)
+ * {
+ *     CpmWifi_Send(&link, "PING\n", 5, NULL);
+ *     CpmWifi_Close(&link);
+ * }
+ * CpmWifi_ShutdownLibrary();
+ * @endcode
+ */
 #ifndef CPM_WIFI_H
 #define CPM_WIFI_H
 

@@ -1,0 +1,5 @@
+{
+    "cpm.libraries": [
+        "ws2_32"
+    ]
+}

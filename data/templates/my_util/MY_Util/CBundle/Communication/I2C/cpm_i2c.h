@@ -1,3 +1,43 @@
+/**
+ * @file cpm_i2c.h
+ * @brief CPM C Linux I2C device-file communication API.
+ *
+ * @details
+ * This bundle is intended to be readable immediately after insertion into a
+ * CPM project. The comments below summarize what the module provides, when it
+ * is useful and how to start using the public API.
+ *
+ * @par Main features
+ * - opens an I2C bus device such as "/dev/i2c-1";
+ * - selects the slave address for the active transaction;
+ * - reads and writes raw buffers;
+ * - provides register read/write helpers for 8-bit register maps.
+ *
+ * @par Typical applications
+ * - Raspberry Pi or Linux SBC communication with sensors, EEPROMs and expanders;
+ * - quick validation of I2C peripherals from C;
+ * - test benches that need deterministic low-level I2C access.
+ *
+ * @par Usage notes
+ * - The bundled implementation targets Linux i2c-dev.
+ * - Enable I2C and configure permissions before running the executable.
+ * - For 16-bit registers or special protocols, build a small wrapper above the raw read/write calls.
+ *
+ * @par Example of use
+ * @code{.c}
+ * #include "cpm_i2c.h"
+ * 
+ * CpmI2cBus bus;
+ * uint8_t value = 0;
+ * CpmI2c_Init(&bus);
+ * if (CpmI2c_Open(&bus, "/dev/i2c-1") == 0)
+ * {
+ *     CpmI2c_SetAddress(&bus, 0x48);
+ *     CpmI2c_ReadRegister8(&bus, 0x00, &value);
+ *     CpmI2c_Close(&bus);
+ * }
+ * @endcode
+ */
 #ifndef CPM_I2C_H
 #define CPM_I2C_H
 

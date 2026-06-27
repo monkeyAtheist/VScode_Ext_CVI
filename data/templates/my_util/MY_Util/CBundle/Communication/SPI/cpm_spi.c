@@ -1,3 +1,9 @@
+/**
+ * @file cpm_spi.c
+ * @brief Implementation of the cpm_spi C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_spi.h"
 
 #include <stdlib.h>
@@ -18,6 +24,10 @@
 #endif
 #endif
 
+/**
+ * @brief Implements the CpmSpi_Init operation.
+ * @param device See the matching header for semantic details.
+ */
 void CpmSpi_Init(CpmSpiDevice *device)
 {
     if (device != NULL)
@@ -29,6 +39,15 @@ void CpmSpi_Init(CpmSpiDevice *device)
     }
 }
 
+/**
+ * @brief Implements the CpmSpi_Open operation.
+ * @param device See the matching header for semantic details.
+ * @param devicePath See the matching header for semantic details.
+ * @param speedHz See the matching header for semantic details.
+ * @param mode See the matching header for semantic details.
+ * @param bitsPerWord See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_Open(CpmSpiDevice *device, const char *devicePath, uint32_t speedHz, uint8_t mode, uint8_t bitsPerWord)
 {
 #if defined(__linux__)
@@ -60,6 +79,10 @@ int CpmSpi_Open(CpmSpiDevice *device, const char *devicePath, uint32_t speedHz, 
 #endif
 }
 
+/**
+ * @brief Implements the CpmSpi_Close operation.
+ * @param device See the matching header for semantic details.
+ */
 void CpmSpi_Close(CpmSpiDevice *device)
 {
     if (device == NULL)
@@ -75,6 +98,12 @@ void CpmSpi_Close(CpmSpiDevice *device)
     device->handle = -1;
 }
 
+/**
+ * @brief Implements the CpmSpi_SetMode operation.
+ * @param device See the matching header for semantic details.
+ * @param mode See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_SetMode(CpmSpiDevice *device, uint8_t mode)
 {
 #if defined(__linux__)
@@ -95,6 +124,12 @@ int CpmSpi_SetMode(CpmSpiDevice *device, uint8_t mode)
 #endif
 }
 
+/**
+ * @brief Implements the CpmSpi_SetSpeed operation.
+ * @param device See the matching header for semantic details.
+ * @param speedHz See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_SetSpeed(CpmSpiDevice *device, uint32_t speedHz)
 {
 #if defined(__linux__)
@@ -115,6 +150,12 @@ int CpmSpi_SetSpeed(CpmSpiDevice *device, uint32_t speedHz)
 #endif
 }
 
+/**
+ * @brief Implements the CpmSpi_SetBitsPerWord operation.
+ * @param device See the matching header for semantic details.
+ * @param bitsPerWord See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_SetBitsPerWord(CpmSpiDevice *device, uint8_t bitsPerWord)
 {
 #if defined(__linux__)
@@ -135,6 +176,14 @@ int CpmSpi_SetBitsPerWord(CpmSpiDevice *device, uint8_t bitsPerWord)
 #endif
 }
 
+/**
+ * @brief Implements the CpmSpi_Transfer operation.
+ * @param device See the matching header for semantic details.
+ * @param txData See the matching header for semantic details.
+ * @param rxData See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_Transfer(CpmSpiDevice *device, const uint8_t *txData, uint8_t *rxData, size_t size)
 {
 #if defined(__linux__)
@@ -162,11 +211,26 @@ int CpmSpi_Transfer(CpmSpiDevice *device, const uint8_t *txData, uint8_t *rxData
 #endif
 }
 
+/**
+ * @brief Implements the CpmSpi_Write operation.
+ * @param device See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_Write(CpmSpiDevice *device, const uint8_t *data, size_t size)
 {
     return CpmSpi_Transfer(device, data, NULL, size);
 }
 
+/**
+ * @brief Implements the CpmSpi_Read operation.
+ * @param device See the matching header for semantic details.
+ * @param fillByte See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSpi_Read(CpmSpiDevice *device, uint8_t fillByte, uint8_t *data, size_t size)
 {
     uint8_t *txBuffer;

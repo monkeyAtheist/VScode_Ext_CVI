@@ -1,3 +1,9 @@
+/**
+ * @file cpm_bluetooth.c
+ * @brief Implementation of the cpm_bluetooth C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_bluetooth.h"
 
 #include <stdio.h>
@@ -11,6 +17,10 @@
 
 static char g_cpmBluetoothLastError[256] = "";
 
+/**
+ * @brief Implements the CpmBluetooth_SetLastError operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmBluetooth_SetLastError(const char *message)
 {
     if (message == NULL)
@@ -19,6 +29,10 @@ static void CpmBluetooth_SetLastError(const char *message)
     g_cpmBluetoothLastError[sizeof(g_cpmBluetoothLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmBluetooth_Init operation.
+ * @param link See the matching header for semantic details.
+ */
 void CpmBluetooth_Init(CpmBluetoothLink *link)
 {
     if (link == NULL)
@@ -27,6 +41,10 @@ void CpmBluetooth_Init(CpmBluetoothLink *link)
     link->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_InitLibrary operation.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmBluetooth_InitLibrary(void)
 {
 #ifdef _WIN32
@@ -40,6 +58,9 @@ int CpmBluetooth_InitLibrary(void)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_ShutdownLibrary operation.
+ */
 void CpmBluetooth_ShutdownLibrary(void)
 {
 #ifdef _WIN32
@@ -48,6 +69,12 @@ void CpmBluetooth_ShutdownLibrary(void)
 }
 
 #ifdef _WIN32
+/**
+ * @brief Implements the CpmBluetooth_ParseAddress operation.
+ * @param text See the matching header for semantic details.
+ * @param address See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static int CpmBluetooth_ParseAddress(const char *text, BTH_ADDR *address)
 {
     if (text == NULL || address == NULL)
@@ -65,6 +92,13 @@ static int CpmBluetooth_ParseAddress(const char *text, BTH_ADDR *address)
 }
 #endif
 
+/**
+ * @brief Implements the CpmBluetooth_OpenRfcommClient operation.
+ * @param link See the matching header for semantic details.
+ * @param address See the matching header for semantic details.
+ * @param channel See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmBluetooth_OpenRfcommClient(CpmBluetoothLink *link, const char *address, unsigned int channel)
 {
     if (link == NULL)
@@ -105,6 +139,14 @@ int CpmBluetooth_OpenRfcommClient(CpmBluetoothLink *link, const char *address, u
 #endif
 }
 
+/**
+ * @brief Implements the CpmBluetooth_Send operation.
+ * @param link See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param sent See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmBluetooth_Send(CpmBluetoothLink *link, const void *data, size_t size, size_t *sent)
 {
     if (!CpmBluetooth_IsOpen(link) || data == NULL)
@@ -121,6 +163,14 @@ int CpmBluetooth_Send(CpmBluetoothLink *link, const void *data, size_t size, siz
     return 0;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_Receive operation.
+ * @param link See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmBluetooth_Receive(CpmBluetoothLink *link, void *buffer, size_t bufferSize, size_t *received)
 {
     if (!CpmBluetooth_IsOpen(link) || buffer == NULL || bufferSize == 0)
@@ -137,6 +187,10 @@ int CpmBluetooth_Receive(CpmBluetoothLink *link, void *buffer, size_t bufferSize
     return ret == 0 ? 1 : 0;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_Close operation.
+ * @param link See the matching header for semantic details.
+ */
 void CpmBluetooth_Close(CpmBluetoothLink *link)
 {
     if (link == NULL || !link->isOpen)
@@ -150,11 +204,20 @@ void CpmBluetooth_Close(CpmBluetoothLink *link)
     link->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_IsOpen operation.
+ * @param link See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmBluetooth_IsOpen(const CpmBluetoothLink *link)
 {
     return link != NULL && link->isOpen;
 }
 
+/**
+ * @brief Implements the CpmBluetooth_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmBluetooth_LastError(void)
 {
     return g_cpmBluetoothLastError;

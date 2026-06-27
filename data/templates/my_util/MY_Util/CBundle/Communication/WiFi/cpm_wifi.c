@@ -1,3 +1,9 @@
+/**
+ * @file cpm_wifi.c
+ * @brief Implementation of the cpm_wifi C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_wifi.h"
 
 #include <stdio.h>
@@ -17,6 +23,10 @@
 
 static char g_cpmWifiLastError[256] = "";
 
+/**
+ * @brief Implements the CpmWifi_SetLastError operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmWifi_SetLastError(const char *message)
 {
     if (message == NULL)
@@ -25,6 +35,13 @@ static void CpmWifi_SetLastError(const char *message)
     g_cpmWifiLastError[sizeof(g_cpmWifiLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmWifi_FillIpv4Address operation.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param address See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static int CpmWifi_FillIpv4Address(const char *host, unsigned short port, struct sockaddr_in *address)
 {
     if (address == NULL)
@@ -49,6 +66,10 @@ static int CpmWifi_FillIpv4Address(const char *host, unsigned short port, struct
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_InitLibrary operation.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_InitLibrary(void)
 {
 #ifdef _WIN32
@@ -62,6 +83,9 @@ int CpmWifi_InitLibrary(void)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_ShutdownLibrary operation.
+ */
 void CpmWifi_ShutdownLibrary(void)
 {
 #ifdef _WIN32
@@ -69,6 +93,10 @@ void CpmWifi_ShutdownLibrary(void)
 #endif
 }
 
+/**
+ * @brief Implements the CpmWifi_Init operation.
+ * @param link See the matching header for semantic details.
+ */
 void CpmWifi_Init(CpmWifiLink *link)
 {
     if (link == NULL)
@@ -78,6 +106,13 @@ void CpmWifi_Init(CpmWifiLink *link)
     link->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_OpenTcpClient operation.
+ * @param link See the matching header for semantic details.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_OpenTcpClient(CpmWifiLink *link, const char *host, unsigned short port)
 {
     if (link == NULL)
@@ -108,6 +143,14 @@ int CpmWifi_OpenTcpClient(CpmWifiLink *link, const char *host, unsigned short po
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_OpenTcpServer operation.
+ * @param link See the matching header for semantic details.
+ * @param bindAddress See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param backlog See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_OpenTcpServer(CpmWifiLink *link, const char *bindAddress, unsigned short port, int backlog)
 {
     if (link == NULL)
@@ -137,6 +180,12 @@ int CpmWifi_OpenTcpServer(CpmWifiLink *link, const char *bindAddress, unsigned s
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_AcceptClient operation.
+ * @param server See the matching header for semantic details.
+ * @param client See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_AcceptClient(CpmWifiLink *server, CpmWifiLink *client)
 {
     if (!CpmWifi_IsOpen(server) || client == NULL)
@@ -151,6 +200,13 @@ int CpmWifi_AcceptClient(CpmWifiLink *server, CpmWifiLink *client)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_OpenUdp operation.
+ * @param link See the matching header for semantic details.
+ * @param bindAddress See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_OpenUdp(CpmWifiLink *link, const char *bindAddress, unsigned short port)
 {
     if (link == NULL)
@@ -179,6 +235,14 @@ int CpmWifi_OpenUdp(CpmWifiLink *link, const char *bindAddress, unsigned short p
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_Send operation.
+ * @param link See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param sent See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_Send(CpmWifiLink *link, const void *data, size_t size, size_t *sent)
 {
     if (!CpmWifi_IsOpen(link) || data == NULL)
@@ -191,6 +255,14 @@ int CpmWifi_Send(CpmWifiLink *link, const void *data, size_t size, size_t *sent)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_Receive operation.
+ * @param link See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_Receive(CpmWifiLink *link, void *buffer, size_t bufferSize, size_t *received)
 {
     if (!CpmWifi_IsOpen(link) || buffer == NULL || bufferSize == 0)
@@ -203,6 +275,16 @@ int CpmWifi_Receive(CpmWifiLink *link, void *buffer, size_t bufferSize, size_t *
     return ret == 0 ? 1 : 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_SendTo operation.
+ * @param link See the matching header for semantic details.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param sent See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_SendTo(CpmWifiLink *link, const char *host, unsigned short port, const void *data, size_t size, size_t *sent)
 {
     if (!CpmWifi_IsOpen(link) || data == NULL)
@@ -218,6 +300,15 @@ int CpmWifi_SendTo(CpmWifiLink *link, const char *host, unsigned short port, con
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_ReceiveFrom operation.
+ * @param link See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @param remoteEndpoint See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_ReceiveFrom(CpmWifiLink *link, void *buffer, size_t bufferSize, size_t *received, CpmWifiEndpoint *remoteEndpoint)
 {
     if (!CpmWifi_IsOpen(link) || buffer == NULL || bufferSize == 0)
@@ -243,6 +334,10 @@ int CpmWifi_ReceiveFrom(CpmWifiLink *link, void *buffer, size_t bufferSize, size
     return 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_Close operation.
+ * @param link See the matching header for semantic details.
+ */
 void CpmWifi_Close(CpmWifiLink *link)
 {
     if (link == NULL || !link->isOpen)
@@ -256,11 +351,20 @@ void CpmWifi_Close(CpmWifiLink *link)
     link->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmWifi_IsOpen operation.
+ * @param link See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmWifi_IsOpen(const CpmWifiLink *link)
 {
     return link != NULL && link->isOpen;
 }
 
+/**
+ * @brief Implements the CpmWifi_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmWifi_LastError(void)
 {
     return g_cpmWifiLastError;

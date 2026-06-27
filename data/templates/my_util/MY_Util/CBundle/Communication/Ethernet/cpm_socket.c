@@ -1,3 +1,9 @@
+/**
+ * @file cpm_socket.c
+ * @brief Implementation of the cpm_socket C bundle.
+ *
+ * Generated bundle implementation. Public API semantics are documented in the matching header file.
+ */
 #include "cpm_socket.h"
 
 #include <errno.h>
@@ -18,6 +24,10 @@
 
 static char g_cpmSocketLastError[256] = "";
 
+/**
+ * @brief Implements the CpmSocket_SetLastErrorText operation.
+ * @param message See the matching header for semantic details.
+ */
 static void CpmSocket_SetLastErrorText(const char *message)
 {
     if (message == NULL)
@@ -26,6 +36,13 @@ static void CpmSocket_SetLastErrorText(const char *message)
     g_cpmSocketLastError[sizeof(g_cpmSocketLastError) - 1] = '\0';
 }
 
+/**
+ * @brief Implements the CpmSocket_FillAddress operation.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param address See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 static int CpmSocket_FillAddress(const char *host, unsigned short port, struct sockaddr_in *address)
 {
     if (address == NULL)
@@ -48,6 +65,10 @@ static int CpmSocket_FillAddress(const char *host, unsigned short port, struct s
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_InitLibrary operation.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_InitLibrary(void)
 {
 #ifdef _WIN32
@@ -61,6 +82,9 @@ int CpmSocket_InitLibrary(void)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_ShutdownLibrary operation.
+ */
 void CpmSocket_ShutdownLibrary(void)
 {
 #ifdef _WIN32
@@ -68,6 +92,10 @@ void CpmSocket_ShutdownLibrary(void)
 #endif
 }
 
+/**
+ * @brief Implements the CpmSocket_Init operation.
+ * @param socketObj See the matching header for semantic details.
+ */
 void CpmSocket_Init(CpmSocket *socketObj)
 {
     if (socketObj == NULL)
@@ -77,6 +105,13 @@ void CpmSocket_Init(CpmSocket *socketObj)
     socketObj->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_TcpConnect operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_TcpConnect(CpmSocket *socketObj, const char *host, unsigned short port)
 {
     if (socketObj == NULL)
@@ -104,6 +139,14 @@ int CpmSocket_TcpConnect(CpmSocket *socketObj, const char *host, unsigned short 
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_TcpListen operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param bindAddress See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param backlog See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_TcpListen(CpmSocket *socketObj, const char *bindAddress, unsigned short port, int backlog)
 {
     if (socketObj == NULL)
@@ -133,6 +176,12 @@ int CpmSocket_TcpListen(CpmSocket *socketObj, const char *bindAddress, unsigned 
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_TcpAccept operation.
+ * @param server See the matching header for semantic details.
+ * @param client See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_TcpAccept(CpmSocket *server, CpmSocket *client)
 {
     if (!CpmSocket_IsOpen(server) || client == NULL)
@@ -150,6 +199,13 @@ int CpmSocket_TcpAccept(CpmSocket *server, CpmSocket *client)
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_UdpOpen operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param bindAddress See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_UdpOpen(CpmSocket *socketObj, const char *bindAddress, unsigned short port)
 {
     if (socketObj == NULL)
@@ -178,6 +234,14 @@ int CpmSocket_UdpOpen(CpmSocket *socketObj, const char *bindAddress, unsigned sh
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_Send operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param sent See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_Send(CpmSocket *socketObj, const void *data, size_t size, size_t *sent)
 {
     if (sent != NULL)
@@ -195,6 +259,14 @@ int CpmSocket_Send(CpmSocket *socketObj, const void *data, size_t size, size_t *
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_Recv operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_Recv(CpmSocket *socketObj, void *buffer, size_t bufferSize, size_t *received)
 {
     if (received != NULL)
@@ -212,6 +284,16 @@ int CpmSocket_Recv(CpmSocket *socketObj, void *buffer, size_t bufferSize, size_t
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_UdpSendTo operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param host See the matching header for semantic details.
+ * @param port See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param sent See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_UdpSendTo(CpmSocket *socketObj, const char *host, unsigned short port, const void *data, size_t size, size_t *sent)
 {
     if (sent != NULL)
@@ -232,6 +314,17 @@ int CpmSocket_UdpSendTo(CpmSocket *socketObj, const char *host, unsigned short p
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_UdpRecvFrom operation.
+ * @param socketObj See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param bufferSize See the matching header for semantic details.
+ * @param received See the matching header for semantic details.
+ * @param remoteHost See the matching header for semantic details.
+ * @param remoteHostSize See the matching header for semantic details.
+ * @param remotePort See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_UdpRecvFrom(CpmSocket *socketObj, void *buffer, size_t bufferSize, size_t *received, char *remoteHost, size_t remoteHostSize, unsigned short *remotePort)
 {
     if (received != NULL)
@@ -263,6 +356,10 @@ int CpmSocket_UdpRecvFrom(CpmSocket *socketObj, void *buffer, size_t bufferSize,
     return 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_Close operation.
+ * @param socketObj See the matching header for semantic details.
+ */
 void CpmSocket_Close(CpmSocket *socketObj)
 {
     if (socketObj == NULL || !socketObj->isOpen)
@@ -276,11 +373,20 @@ void CpmSocket_Close(CpmSocket *socketObj)
     socketObj->isOpen = 0;
 }
 
+/**
+ * @brief Implements the CpmSocket_IsOpen operation.
+ * @param socketObj See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
 int CpmSocket_IsOpen(const CpmSocket *socketObj)
 {
     return socketObj != NULL && socketObj->isOpen;
 }
 
+/**
+ * @brief Implements the CpmSocket_LastError operation.
+ * @return See the matching header for status code or value semantics.
+ */
 const char *CpmSocket_LastError(void)
 {
     return g_cpmSocketLastError;

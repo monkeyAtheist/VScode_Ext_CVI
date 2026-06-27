@@ -36,7 +36,7 @@ interface CviBundleChoice {
   detail: string;
   defaultFolder: string;
   entries?: string[];
-  generator?: 'minimal-webui';
+  generator?: 'minimal-webui' | 'c-python-bridge' | 'c-lua-bridge' | 'script-python-worker' | 'script-lua-worker';
 }
 
 const BUNDLED_C_MODULE_ROOT = path.join('data', 'templates', 'my_util', 'MY_Util');
@@ -472,6 +472,1696 @@ void CviError_Report (int code, const char *message, const char *file,
 `;
 
 
+const C_PYTHON_EXEC_HEADER_TEMPLATE = String.raw`/**
+ * @file {{headerFile}}
+ * @brief CPM C Python execution bridge API.
+ *
+ * @details
+ * This generated bundle header documents the module directly in the file
+ * copied into the user project. It summarizes the public API scope, common
+ * applications and the minimum code needed to verify integration.
+ *
+ * @par Main features
+ * - launches Python as an external process;
+ * - forwards C string arguments to the script command line;
+ * - captures stdout and optionally stderr into CpmPythonResult.output;
+ * - supports one-shot execution with CpmPython_RunScript;
+ * - supports persistent sessions with stdin/stdout line or JSON-style exchanges.
+ *
+ * @par Typical applications
+ * - calling Python analysis scripts from C test programs;
+ * - delegating parsing, plotting, automation or data conversion to Python;
+ * - maintaining a Python worker process controlled by a C executable.
+ *
+ * @par Usage notes
+ * - Python receives arguments through sys.argv[1:].
+ * - print(...) output is captured in CpmPythonResult.output during one-shot execution.
+ * - Use unbuffered mode or flush=True for interactive sessions.
+ *
+ * @par Example of use
+ * @code{.c}
+ * #include "{{headerFile}}"
+ * #include <stdio.h>
+ * 
+ * CpmPythonConfig config;
+ * CpmPython_InitConfig(&config);
+ * snprintf(config.scriptPath, sizeof(config.scriptPath), "script.py");
+ * 
+ * CpmPythonResult result;
+ * CpmPython_ResultInit(&result);
+ * 
+ * const char *args[] = { "arg1", "arg2" };
+ * int rc = CpmPython_RunScript(&config, args, 2, 5000, &result);
+ * if (rc == 0)
+ * {
+ *     printf("Script finished with exit code: %d\n", result.exitCode);
+ *     printf("Output:\n%s\n", result.output != NULL ? result.output : "");
+ * }
+ * else if (rc == 1)
+ * {
+ *     printf("Script timed out.\n");
+ * }
+ * else
+ * {
+ *     printf("Failed to run script.\n");
+ * }
+ * CpmPython_ResultFree(&result);
+ * @endcode
+ */
+#ifndef {{guard}}
+#define {{guard}}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifndef CPM_PYTHON_PATH_SIZE
+#define CPM_PYTHON_PATH_SIZE 1024
+#endif
+
+#ifndef CPM_PYTHON_LINE_SIZE
+#define CPM_PYTHON_LINE_SIZE 8192
+#endif
+
+typedef struct CpmPythonConfig
+{
+    char pythonExe[CPM_PYTHON_PATH_SIZE];
+    char scriptPath[CPM_PYTHON_PATH_SIZE];
+    char workingDirectory[CPM_PYTHON_PATH_SIZE];
+    int unbuffered;
+    int mergeStdErrToStdOut;
+    int readTimeoutMs;
+    int writeTimeoutMs;
+} CpmPythonConfig;
+
+typedef struct CpmPythonResult
+{
+    int launched;
+    int finished;
+    int timedOut;
+    int exitCode;
+    char *output;
+    size_t outputSize;
+} CpmPythonResult;
+
+typedef struct CpmPythonSession CpmPythonSession;
+
+void CpmPython_InitConfig(CpmPythonConfig *config);
+void CpmPython_ResultInit(CpmPythonResult *result);
+void CpmPython_ResultFree(CpmPythonResult *result);
+
+int CpmPython_RunScript(const CpmPythonConfig *config,
+                        const char *const *args,
+                        size_t argCount,
+                        int timeoutMs,
+                        CpmPythonResult *result);
+
+int CpmPythonSession_Start(CpmPythonSession **session,
+                           const CpmPythonConfig *config,
+                           const char *const *args,
+                           size_t argCount);
+void CpmPythonSession_Close(CpmPythonSession **session, int forceKill);
+void CpmPythonSession_CloseInput(CpmPythonSession *session);
+int CpmPythonSession_IsRunning(CpmPythonSession *session);
+int CpmPythonSession_Wait(CpmPythonSession *session, int timeoutMs);
+
+int CpmPythonSession_WriteBytes(CpmPythonSession *session, const uint8_t *data, size_t size);
+int CpmPythonSession_WriteString(CpmPythonSession *session, const char *text);
+int CpmPythonSession_SendLine(CpmPythonSession *session, const char *line);
+int CpmPythonSession_SendJson(CpmPythonSession *session, const char *jsonLine);
+
+int CpmPythonSession_ReadBytes(CpmPythonSession *session, uint8_t *buffer, size_t maxSize, int timeoutMs);
+int CpmPythonSession_ReadLine(CpmPythonSession *session, char *outLine, size_t outLineSize, int timeoutMs);
+int CpmPythonSession_ReceiveJson(CpmPythonSession *session, char *jsonLine, size_t jsonLineSize, int timeoutMs);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* {{guard}} */
+`;
+
+const C_PYTHON_EXEC_SOURCE_TEMPLATE = String.raw`/**
+ * @file {{baseName}}.c
+ * @brief Implementation of the CPM C Python execution bridge.
+ */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+#include "{{headerFile}}"
+
+#include <stdlib.h>
+#include <string.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
+#endif
+
+struct CpmPythonSession
+{
+    CpmPythonConfig config;
+#if defined(_WIN32)
+    HANDLE processHandle;
+    HANDLE threadHandle;
+    HANDLE stdinWrite;
+    HANDLE stdoutRead;
+#else
+    int pid;
+    int stdinWrite;
+    int stdoutRead;
+#endif
+    int finished;
+    int cachedExitCode;
+    uint8_t *rxBuffer;
+    size_t rxSize;
+    size_t rxCapacity;
+};
+
+/**
+ * @brief Implements the CpmPy_CopyString operation.
+ * @param dst See the matching header for semantic details.
+ * @param dstSize See the matching header for semantic details.
+ * @param src See the matching header for semantic details.
+ */
+static void CpmPy_CopyString(char *dst, size_t dstSize, const char *src)
+{
+    if (dst == NULL || dstSize == 0)
+    {
+        return;
+    }
+    if (src == NULL)
+    {
+        src = "";
+    }
+    strncpy(dst, src, dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
+
+/**
+ * @brief Implements the CpmPy_AppendBytes operation.
+ * @param buffer See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param capacity See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param dataSize See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+static int CpmPy_AppendBytes(uint8_t **buffer, size_t *size, size_t *capacity, const uint8_t *data, size_t dataSize)
+{
+    uint8_t *newBuffer;
+    size_t newCapacity;
+
+    if (dataSize == 0)
+    {
+        return 0;
+    }
+    if (buffer == NULL || size == NULL || capacity == NULL || data == NULL)
+    {
+        return -1;
+    }
+
+    if (*size + dataSize + 1 > *capacity)
+    {
+        newCapacity = (*capacity == 0) ? 512 : *capacity;
+        while (newCapacity < *size + dataSize + 1)
+        {
+            newCapacity *= 2;
+        }
+        newBuffer = (uint8_t *)realloc(*buffer, newCapacity);
+        if (newBuffer == NULL)
+        {
+            return -1;
+        }
+        *buffer = newBuffer;
+        *capacity = newCapacity;
+    }
+
+    memcpy(*buffer + *size, data, dataSize);
+    *size += dataSize;
+    (*buffer)[*size] = 0;
+    return 0;
+}
+
+/**
+ * @brief Implements the CpmPy_AppendOutput operation.
+ * @param result See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param dataSize See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+static int CpmPy_AppendOutput(CpmPythonResult *result, const uint8_t *data, size_t dataSize)
+{
+    char *newOutput;
+    size_t newSize;
+
+    if (result == NULL || data == NULL || dataSize == 0)
+    {
+        return 0;
+    }
+
+    newSize = result->outputSize + dataSize;
+    newOutput = (char *)realloc(result->output, newSize + 1);
+    if (newOutput == NULL)
+    {
+        return -1;
+    }
+
+    memcpy(newOutput + result->outputSize, data, dataSize);
+    newOutput[newSize] = '\0';
+    result->output = newOutput;
+    result->outputSize = newSize;
+    return 0;
+}
+
+/**
+ * @brief Implements the CpmPython_InitConfig operation.
+ * @param config See the matching header for semantic details.
+ */
+void CpmPython_InitConfig(CpmPythonConfig *config)
+{
+    if (config == NULL)
+    {
+        return;
+    }
+    memset(config, 0, sizeof(*config));
+#if defined(_WIN32)
+    CpmPy_CopyString(config->pythonExe, sizeof(config->pythonExe), "python");
+#else
+    CpmPy_CopyString(config->pythonExe, sizeof(config->pythonExe), "python3");
+#endif
+    config->unbuffered = 1;
+    config->mergeStdErrToStdOut = 1;
+    config->readTimeoutMs = 100;
+    config->writeTimeoutMs = 100;
+}
+
+/**
+ * @brief Implements the CpmPython_ResultInit operation.
+ * @param result See the matching header for semantic details.
+ */
+void CpmPython_ResultInit(CpmPythonResult *result)
+{
+    if (result == NULL)
+    {
+        return;
+    }
+    memset(result, 0, sizeof(*result));
+    result->exitCode = -1;
+}
+
+/**
+ * @brief Implements the CpmPython_ResultFree operation.
+ * @param result See the matching header for semantic details.
+ */
+void CpmPython_ResultFree(CpmPythonResult *result)
+{
+    if (result == NULL)
+    {
+        return;
+    }
+    free(result->output);
+    CpmPython_ResultInit(result);
+}
+
+#if defined(_WIN32)
+/**
+ * @brief Implements the CpmPy_CloseHandle operation.
+ * @param handle See the matching header for semantic details.
+ */
+static void CpmPy_CloseHandle(HANDLE *handle)
+{
+    if (handle != NULL && *handle != NULL)
+    {
+        CloseHandle(*handle);
+        *handle = NULL;
+    }
+}
+
+/**
+ * @brief Implements the CpmPy_QuoteArgWin operation.
+ * @param arg See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+static char *CpmPy_QuoteArgWin(const char *arg)
+{
+    size_t len;
+    size_t i;
+    size_t outCapacity;
+    size_t outSize = 0;
+    int needQuotes = 0;
+    int backslashes = 0;
+    char *out;
+
+    if (arg == NULL || arg[0] == '\0')
+    {
+        out = (char *)malloc(3);
+        if (out != NULL)
+        {
+            strcpy(out, "\"\"");
+        }
+        return out;
+    }
+
+    len = strlen(arg);
+    for (i = 0; i < len; ++i)
+    {
+        if (arg[i] == ' ' || arg[i] == '\t' || arg[i] == '"')
+        {
+            needQuotes = 1;
+            break;
+        }
+    }
+    if (!needQuotes)
+    {
+        out = (char *)malloc(len + 1);
+        if (out != NULL)
+        {
+            memcpy(out, arg, len + 1);
+        }
+        return out;
+    }
+
+    outCapacity = len * 2 + 4;
+    out = (char *)malloc(outCapacity);
+    if (out == NULL)
+    {
+        return NULL;
+    }
+
+#define CPM_PY_APPEND_CHAR(ch) do { if (outSize + 2 >= outCapacity) { char *tmp; outCapacity *= 2; tmp = (char *)realloc(out, outCapacity); if (tmp == NULL) { free(out); return NULL; } out = tmp; } out[outSize++] = (ch); } while (0)
+    CPM_PY_APPEND_CHAR('"');
+    for (i = 0; i < len; ++i)
+    {
+        char c = arg[i];
+        if (c == '\\')
+        {
+            ++backslashes;
+            continue;
+        }
+        if (c == '"')
+        {
+            int j;
+            for (j = 0; j < backslashes * 2 + 1; ++j)
+            {
+                CPM_PY_APPEND_CHAR('\\');
+            }
+            CPM_PY_APPEND_CHAR('"');
+            backslashes = 0;
+            continue;
+        }
+        while (backslashes > 0)
+        {
+            CPM_PY_APPEND_CHAR('\\');
+            --backslashes;
+        }
+        CPM_PY_APPEND_CHAR(c);
+    }
+    while (backslashes > 0)
+    {
+        CPM_PY_APPEND_CHAR('\\');
+        CPM_PY_APPEND_CHAR('\\');
+        --backslashes;
+    }
+    CPM_PY_APPEND_CHAR('"');
+    CPM_PY_APPEND_CHAR('\0');
+#undef CPM_PY_APPEND_CHAR
+    return out;
+}
+
+/**
+ * @brief Implements the CpmPy_AppendCommandPart operation.
+ * @param commandLine See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @param capacity See the matching header for semantic details.
+ * @param part See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+static int CpmPy_AppendCommandPart(char **commandLine, size_t *size, size_t *capacity, const char *part)
+{
+    char *quoted;
+    char *newCommand;
+    size_t quotedLen;
+    size_t required;
+
+    quoted = CpmPy_QuoteArgWin(part);
+    if (quoted == NULL)
+    {
+        return -1;
+    }
+
+    quotedLen = strlen(quoted);
+    required = *size + quotedLen + 2;
+    if (required > *capacity)
+    {
+        size_t newCapacity = (*capacity == 0) ? 256 : *capacity;
+        while (newCapacity < required)
+        {
+            newCapacity *= 2;
+        }
+        newCommand = (char *)realloc(*commandLine, newCapacity);
+        if (newCommand == NULL)
+        {
+            free(quoted);
+            return -1;
+        }
+        *commandLine = newCommand;
+        *capacity = newCapacity;
+    }
+
+    if (*size > 0)
+    {
+        (*commandLine)[(*size)++] = ' ';
+    }
+    memcpy(*commandLine + *size, quoted, quotedLen);
+    *size += quotedLen;
+    (*commandLine)[*size] = '\0';
+    free(quoted);
+    return 0;
+}
+#else
+/**
+ * @brief Implements the CpmPy_CloseFd operation.
+ * @param fd See the matching header for semantic details.
+ */
+static void CpmPy_CloseFd(int *fd)
+{
+    if (fd != NULL && *fd >= 0)
+    {
+        close(*fd);
+        *fd = -1;
+    }
+}
+#endif
+
+/**
+ * @brief Implements the CpmPy_FreeSession operation.
+ * @param session See the matching header for semantic details.
+ */
+static void CpmPy_FreeSession(CpmPythonSession *session)
+{
+    if (session == NULL)
+    {
+        return;
+    }
+    free(session->rxBuffer);
+    free(session);
+}
+
+/**
+ * @brief Implements the CpmPythonSession_Start operation.
+ * @param sessionPtr See the matching header for semantic details.
+ * @param config See the matching header for semantic details.
+ * @param args See the matching header for semantic details.
+ * @param argCount See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_Start(CpmPythonSession **sessionPtr,
+                           const CpmPythonConfig *config,
+                           const char *const *args,
+                           size_t argCount)
+{
+    CpmPythonSession *session;
+
+    if (sessionPtr == NULL || config == NULL || config->scriptPath[0] == '\0')
+    {
+        return -1;
+    }
+
+    CpmPythonSession_Close(sessionPtr, 1);
+
+    session = (CpmPythonSession *)calloc(1, sizeof(*session));
+    if (session == NULL)
+    {
+        return -1;
+    }
+    session->config = *config;
+    session->cachedExitCode = -1;
+#if defined(_WIN32)
+    session->processHandle = NULL;
+    session->threadHandle = NULL;
+    session->stdinWrite = NULL;
+    session->stdoutRead = NULL;
+#else
+    session->pid = -1;
+    session->stdinWrite = -1;
+    session->stdoutRead = -1;
+#endif
+
+#if defined(_WIN32)
+    {
+        SECURITY_ATTRIBUTES securityAttributes;
+        HANDLE childStdoutRead = NULL;
+        HANDLE childStdoutWrite = NULL;
+        HANDLE childStdinRead = NULL;
+        HANDLE childStdinWrite = NULL;
+        STARTUPINFOA startupInfo;
+        PROCESS_INFORMATION processInfo;
+        char *commandLine = NULL;
+        size_t commandSize = 0;
+        size_t commandCapacity = 0;
+        size_t i;
+        BOOL ok;
+
+        memset(&securityAttributes, 0, sizeof(securityAttributes));
+        securityAttributes.nLength = sizeof(securityAttributes);
+        securityAttributes.bInheritHandle = TRUE;
+
+        if (!CreatePipe(&childStdoutRead, &childStdoutWrite, &securityAttributes, 0))
+        {
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+        if (!SetHandleInformation(childStdoutRead, HANDLE_FLAG_INHERIT, 0))
+        {
+            CpmPy_CloseHandle(&childStdoutRead);
+            CpmPy_CloseHandle(&childStdoutWrite);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+        if (!CreatePipe(&childStdinRead, &childStdinWrite, &securityAttributes, 0))
+        {
+            CpmPy_CloseHandle(&childStdoutRead);
+            CpmPy_CloseHandle(&childStdoutWrite);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+        if (!SetHandleInformation(childStdinWrite, HANDLE_FLAG_INHERIT, 0))
+        {
+            CpmPy_CloseHandle(&childStdoutRead);
+            CpmPy_CloseHandle(&childStdoutWrite);
+            CpmPy_CloseHandle(&childStdinRead);
+            CpmPy_CloseHandle(&childStdinWrite);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+
+        if (CpmPy_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->pythonExe) != 0 ||
+            (config->unbuffered && CpmPy_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, "-u") != 0) ||
+            CpmPy_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->scriptPath) != 0)
+        {
+            free(commandLine);
+            CpmPy_CloseHandle(&childStdoutRead);
+            CpmPy_CloseHandle(&childStdoutWrite);
+            CpmPy_CloseHandle(&childStdinRead);
+            CpmPy_CloseHandle(&childStdinWrite);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+        for (i = 0; i < argCount; ++i)
+        {
+            if (CpmPy_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, args != NULL ? args[i] : "") != 0)
+            {
+                free(commandLine);
+                CpmPy_CloseHandle(&childStdoutRead);
+                CpmPy_CloseHandle(&childStdoutWrite);
+                CpmPy_CloseHandle(&childStdinRead);
+                CpmPy_CloseHandle(&childStdinWrite);
+                CpmPy_FreeSession(session);
+                return -1;
+            }
+        }
+
+        memset(&startupInfo, 0, sizeof(startupInfo));
+        startupInfo.cb = sizeof(startupInfo);
+        startupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startupInfo.hStdInput = childStdinRead;
+        startupInfo.hStdOutput = childStdoutWrite;
+        startupInfo.hStdError = config->mergeStdErrToStdOut ? childStdoutWrite : GetStdHandle(STD_ERROR_HANDLE);
+        memset(&processInfo, 0, sizeof(processInfo));
+
+        ok = CreateProcessA(NULL,
+                            commandLine,
+                            NULL,
+                            NULL,
+                            TRUE,
+                            0,
+                            NULL,
+                            config->workingDirectory[0] != '\0' ? config->workingDirectory : NULL,
+                            &startupInfo,
+                            &processInfo);
+        free(commandLine);
+        CpmPy_CloseHandle(&childStdoutWrite);
+        CpmPy_CloseHandle(&childStdinRead);
+
+        if (!ok)
+        {
+            CpmPy_CloseHandle(&childStdoutRead);
+            CpmPy_CloseHandle(&childStdinWrite);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+
+        session->stdoutRead = childStdoutRead;
+        session->stdinWrite = childStdinWrite;
+        session->processHandle = processInfo.hProcess;
+        session->threadHandle = processInfo.hThread;
+        *sessionPtr = session;
+        return 0;
+    }
+#else
+    {
+        int stdinPipe[2] = { -1, -1 };
+        int stdoutPipe[2] = { -1, -1 };
+        pid_t childPid;
+
+        if (pipe(stdinPipe) != 0)
+        {
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+        if (pipe(stdoutPipe) != 0)
+        {
+            CpmPy_CloseFd(&stdinPipe[0]);
+            CpmPy_CloseFd(&stdinPipe[1]);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+
+        childPid = fork();
+        if (childPid < 0)
+        {
+            CpmPy_CloseFd(&stdinPipe[0]);
+            CpmPy_CloseFd(&stdinPipe[1]);
+            CpmPy_CloseFd(&stdoutPipe[0]);
+            CpmPy_CloseFd(&stdoutPipe[1]);
+            CpmPy_FreeSession(session);
+            return -1;
+        }
+
+        if (childPid == 0)
+        {
+            char **argv;
+            size_t index = 0;
+            size_t i;
+
+            dup2(stdinPipe[0], STDIN_FILENO);
+            dup2(stdoutPipe[1], STDOUT_FILENO);
+            if (config->mergeStdErrToStdOut)
+            {
+                dup2(stdoutPipe[1], STDERR_FILENO);
+            }
+            close(stdinPipe[0]);
+            close(stdinPipe[1]);
+            close(stdoutPipe[0]);
+            close(stdoutPipe[1]);
+
+            if (config->workingDirectory[0] != '\0')
+            {
+                chdir(config->workingDirectory);
+            }
+
+            argv = (char **)calloc(argCount + 4, sizeof(char *));
+            if (argv == NULL)
+            {
+                _exit(127);
+            }
+            argv[index++] = (char *)config->pythonExe;
+            if (config->unbuffered)
+            {
+                argv[index++] = (char *)"-u";
+            }
+            argv[index++] = (char *)config->scriptPath;
+            for (i = 0; i < argCount; ++i)
+            {
+                argv[index++] = (char *)(args != NULL ? args[i] : "");
+            }
+            argv[index] = NULL;
+            execvp(config->pythonExe, argv);
+            _exit(127);
+        }
+
+        CpmPy_CloseFd(&stdinPipe[0]);
+        CpmPy_CloseFd(&stdoutPipe[1]);
+        session->stdinWrite = stdinPipe[1];
+        session->stdoutRead = stdoutPipe[0];
+        session->pid = childPid;
+
+        {
+            int flags = fcntl(session->stdoutRead, F_GETFL, 0);
+            if (flags >= 0)
+            {
+                fcntl(session->stdoutRead, F_SETFL, flags | O_NONBLOCK);
+            }
+        }
+
+        *sessionPtr = session;
+        return 0;
+    }
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_CloseInput operation.
+ * @param session See the matching header for semantic details.
+ */
+void CpmPythonSession_CloseInput(CpmPythonSession *session)
+{
+    if (session == NULL)
+    {
+        return;
+    }
+#if defined(_WIN32)
+    CpmPy_CloseHandle(&session->stdinWrite);
+#else
+    CpmPy_CloseFd(&session->stdinWrite);
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_IsRunning operation.
+ * @param session See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_IsRunning(CpmPythonSession *session)
+{
+    if (session == NULL || session->finished)
+    {
+        return 0;
+    }
+#if defined(_WIN32)
+    {
+        DWORD exitCode = 0;
+        if (session->processHandle == NULL || !GetExitCodeProcess(session->processHandle, &exitCode))
+        {
+            return 0;
+        }
+        if (exitCode == STILL_ACTIVE)
+        {
+            return 1;
+        }
+        session->finished = 1;
+        session->cachedExitCode = (int)exitCode;
+        return 0;
+    }
+#else
+    {
+        int status = 0;
+        pid_t rc;
+        if (session->pid <= 0)
+        {
+            return 0;
+        }
+        rc = waitpid(session->pid, &status, WNOHANG);
+        if (rc == 0)
+        {
+            return 1;
+        }
+        if (rc == session->pid)
+        {
+            session->finished = 1;
+            if (WIFEXITED(status))
+            {
+                session->cachedExitCode = WEXITSTATUS(status);
+            }
+            else if (WIFSIGNALED(status))
+            {
+                session->cachedExitCode = 128 + WTERMSIG(status);
+            }
+            else
+            {
+                session->cachedExitCode = -1;
+            }
+        }
+        return 0;
+    }
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_Wait operation.
+ * @param session See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_Wait(CpmPythonSession *session, int timeoutMs)
+{
+    if (session == NULL)
+    {
+        return -1;
+    }
+    if (session->finished)
+    {
+        return session->cachedExitCode;
+    }
+#if defined(_WIN32)
+    {
+        DWORD waitTime = timeoutMs < 0 ? INFINITE : (DWORD)timeoutMs;
+        DWORD rc;
+        DWORD exitCode = 0;
+        if (session->processHandle == NULL)
+        {
+            return -1;
+        }
+        rc = WaitForSingleObject(session->processHandle, waitTime);
+        if (rc != WAIT_OBJECT_0)
+        {
+            return -1;
+        }
+        if (!GetExitCodeProcess(session->processHandle, &exitCode))
+        {
+            return -1;
+        }
+        session->finished = 1;
+        session->cachedExitCode = (int)exitCode;
+        return session->cachedExitCode;
+    }
+#else
+    {
+        int status = 0;
+        long elapsedMs = 0;
+        struct timespec sleepTime;
+        sleepTime.tv_sec = 0;
+        sleepTime.tv_nsec = 10000000L;
+        while (1)
+        {
+            pid_t rc = waitpid(session->pid, &status, WNOHANG);
+            if (rc == session->pid)
+            {
+                session->finished = 1;
+                if (WIFEXITED(status))
+                {
+                    session->cachedExitCode = WEXITSTATUS(status);
+                }
+                else if (WIFSIGNALED(status))
+                {
+                    session->cachedExitCode = 128 + WTERMSIG(status);
+                }
+                else
+                {
+                    session->cachedExitCode = -1;
+                }
+                return session->cachedExitCode;
+            }
+            if (rc < 0)
+            {
+                return session->finished ? session->cachedExitCode : -1;
+            }
+            if (timeoutMs >= 0 && elapsedMs >= timeoutMs)
+            {
+                return -1;
+            }
+            nanosleep(&sleepTime, NULL);
+            elapsedMs += 10;
+        }
+    }
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_Close operation.
+ * @param sessionPtr See the matching header for semantic details.
+ * @param forceKill See the matching header for semantic details.
+ */
+void CpmPythonSession_Close(CpmPythonSession **sessionPtr, int forceKill)
+{
+    CpmPythonSession *session;
+    if (sessionPtr == NULL || *sessionPtr == NULL)
+    {
+        return;
+    }
+    session = *sessionPtr;
+
+#if defined(_WIN32)
+    if (forceKill && session->processHandle != NULL && CpmPythonSession_IsRunning(session))
+    {
+        TerminateProcess(session->processHandle, 1);
+        WaitForSingleObject(session->processHandle, 1000);
+    }
+    CpmPythonSession_CloseInput(session);
+    CpmPy_CloseHandle(&session->stdoutRead);
+    CpmPy_CloseHandle(&session->threadHandle);
+    CpmPy_CloseHandle(&session->processHandle);
+#else
+    if (forceKill && session->pid > 0 && CpmPythonSession_IsRunning(session))
+    {
+        kill(session->pid, SIGTERM);
+        CpmPythonSession_Wait(session, 1000);
+        if (CpmPythonSession_IsRunning(session))
+        {
+            kill(session->pid, SIGKILL);
+            CpmPythonSession_Wait(session, 1000);
+        }
+    }
+    CpmPythonSession_CloseInput(session);
+    CpmPy_CloseFd(&session->stdoutRead);
+    if (session->pid > 0 && !session->finished)
+    {
+        CpmPythonSession_Wait(session, 0);
+    }
+#endif
+
+    CpmPy_FreeSession(session);
+    *sessionPtr = NULL;
+}
+
+/**
+ * @brief Implements the CpmPythonSession_WriteBytes operation.
+ * @param session See the matching header for semantic details.
+ * @param data See the matching header for semantic details.
+ * @param size See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_WriteBytes(CpmPythonSession *session, const uint8_t *data, size_t size)
+{
+    if (session == NULL || data == NULL || size == 0)
+    {
+        return 0;
+    }
+#if defined(_WIN32)
+    {
+        DWORD written = 0;
+        if (session->stdinWrite == NULL)
+        {
+            return -1;
+        }
+        if (!WriteFile(session->stdinWrite, data, (DWORD)size, &written, NULL))
+        {
+            return -1;
+        }
+        return (int)written;
+    }
+#else
+    {
+        ssize_t written;
+        if (session->stdinWrite < 0)
+        {
+            return -1;
+        }
+        written = write(session->stdinWrite, data, size);
+        return written < 0 ? -1 : (int)written;
+    }
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_WriteString operation.
+ * @param session See the matching header for semantic details.
+ * @param text See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_WriteString(CpmPythonSession *session, const char *text)
+{
+    if (text == NULL)
+    {
+        text = "";
+    }
+    return CpmPythonSession_WriteBytes(session, (const uint8_t *)text, strlen(text));
+}
+
+/**
+ * @brief Implements the CpmPythonSession_SendLine operation.
+ * @param session See the matching header for semantic details.
+ * @param line See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_SendLine(CpmPythonSession *session, const char *line)
+{
+    size_t len;
+    if (line == NULL)
+    {
+        line = "";
+    }
+    len = strlen(line);
+    if (CpmPythonSession_WriteBytes(session, (const uint8_t *)line, len) < 0)
+    {
+        return -1;
+    }
+    if (len == 0 || line[len - 1] != '\n')
+    {
+        return CpmPythonSession_WriteBytes(session, (const uint8_t *)"\n", 1) == 1 ? 0 : -1;
+    }
+    return 0;
+}
+
+/**
+ * @brief Implements the CpmPythonSession_SendJson operation.
+ * @param session See the matching header for semantic details.
+ * @param jsonLine See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_SendJson(CpmPythonSession *session, const char *jsonLine)
+{
+    return CpmPythonSession_SendLine(session, jsonLine);
+}
+
+/**
+ * @brief Implements the CpmPy_WaitReadable operation.
+ * @param session See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+static int CpmPy_WaitReadable(CpmPythonSession *session, int timeoutMs)
+{
+#if defined(_WIN32)
+    DWORD startTick;
+    if (session == NULL || session->stdoutRead == NULL)
+    {
+        return -1;
+    }
+    startTick = GetTickCount();
+    while (1)
+    {
+        DWORD available = 0;
+        if (!PeekNamedPipe(session->stdoutRead, NULL, 0, NULL, &available, NULL))
+        {
+            return -1;
+        }
+        if (available > 0)
+        {
+            return 1;
+        }
+        if (!CpmPythonSession_IsRunning(session))
+        {
+            return 1;
+        }
+        if (timeoutMs == 0)
+        {
+            return 0;
+        }
+        if (timeoutMs > 0 && (DWORD)(GetTickCount() - startTick) >= (DWORD)timeoutMs)
+        {
+            return 0;
+        }
+        Sleep(5);
+    }
+#else
+    fd_set readSet;
+    struct timeval tv;
+    struct timeval *tvPtr = NULL;
+    int rc;
+
+    if (session == NULL || session->stdoutRead < 0)
+    {
+        return -1;
+    }
+    FD_ZERO(&readSet);
+    FD_SET(session->stdoutRead, &readSet);
+    if (timeoutMs >= 0)
+    {
+        tv.tv_sec = timeoutMs / 1000;
+        tv.tv_usec = (timeoutMs % 1000) * 1000;
+        tvPtr = &tv;
+    }
+    rc = select(session->stdoutRead + 1, &readSet, NULL, NULL, tvPtr);
+    return rc > 0 ? 1 : rc;
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_ReadBytes operation.
+ * @param session See the matching header for semantic details.
+ * @param buffer See the matching header for semantic details.
+ * @param maxSize See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_ReadBytes(CpmPythonSession *session, uint8_t *buffer, size_t maxSize, int timeoutMs)
+{
+    if (session == NULL || buffer == NULL || maxSize == 0)
+    {
+        return 0;
+    }
+    if (session->rxSize > 0)
+    {
+        size_t count = session->rxSize < maxSize ? session->rxSize : maxSize;
+        memcpy(buffer, session->rxBuffer, count);
+        memmove(session->rxBuffer, session->rxBuffer + count, session->rxSize - count);
+        session->rxSize -= count;
+        return (int)count;
+    }
+
+    if (CpmPy_WaitReadable(session, timeoutMs < 0 ? session->config.readTimeoutMs : timeoutMs) <= 0)
+    {
+        return 0;
+    }
+
+#if defined(_WIN32)
+    {
+        DWORD bytesRead = 0;
+        if (session->stdoutRead == NULL)
+        {
+            return -1;
+        }
+        if (!ReadFile(session->stdoutRead, buffer, (DWORD)maxSize, &bytesRead, NULL))
+        {
+            return 0;
+        }
+        return (int)bytesRead;
+    }
+#else
+    {
+        ssize_t bytesRead;
+        if (session->stdoutRead < 0)
+        {
+            return -1;
+        }
+        bytesRead = read(session->stdoutRead, buffer, maxSize);
+        if (bytesRead < 0)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                return 0;
+            }
+            return -1;
+        }
+        return (int)bytesRead;
+    }
+#endif
+}
+
+/**
+ * @brief Implements the CpmPythonSession_ReadLine operation.
+ * @param session See the matching header for semantic details.
+ * @param outLine See the matching header for semantic details.
+ * @param outLineSize See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_ReadLine(CpmPythonSession *session, char *outLine, size_t outLineSize, int timeoutMs)
+{
+    size_t outSize = 0;
+    int elapsedMs = 0;
+
+    if (session == NULL || outLine == NULL || outLineSize == 0)
+    {
+        return -1;
+    }
+    outLine[0] = '\0';
+
+    while (outSize + 1 < outLineSize)
+    {
+        size_t i;
+        for (i = 0; i < session->rxSize; ++i)
+        {
+            if (session->rxBuffer[i] == '\n')
+            {
+                size_t count = i;
+                if (count > 0 && session->rxBuffer[count - 1] == '\r')
+                {
+                    --count;
+                }
+                if (count > outLineSize - 1)
+                {
+                    count = outLineSize - 1;
+                }
+                memcpy(outLine, session->rxBuffer, count);
+                outLine[count] = '\0';
+                memmove(session->rxBuffer, session->rxBuffer + i + 1, session->rxSize - i - 1);
+                session->rxSize -= i + 1;
+                return 1;
+            }
+        }
+
+        {
+            uint8_t temp[256];
+            int perTry = timeoutMs == 0 ? 0 : 20;
+            int count = CpmPythonSession_ReadBytes(session, temp, sizeof(temp), perTry);
+            if (count > 0)
+            {
+                if (CpmPy_AppendBytes(&session->rxBuffer, &session->rxSize, &session->rxCapacity, temp, (size_t)count) != 0)
+                {
+                    return -1;
+                }
+                continue;
+            }
+            if (count < 0)
+            {
+                return -1;
+            }
+        }
+
+        if (timeoutMs == 0)
+        {
+            return 0;
+        }
+        if (timeoutMs > 0)
+        {
+            elapsedMs += 20;
+            if (elapsedMs >= timeoutMs)
+            {
+                return 0;
+            }
+        }
+        if (!CpmPythonSession_IsRunning(session) && session->rxSize == 0)
+        {
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * @brief Implements the CpmPythonSession_ReceiveJson operation.
+ * @param session See the matching header for semantic details.
+ * @param jsonLine See the matching header for semantic details.
+ * @param jsonLineSize See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPythonSession_ReceiveJson(CpmPythonSession *session, char *jsonLine, size_t jsonLineSize, int timeoutMs)
+{
+    return CpmPythonSession_ReadLine(session, jsonLine, jsonLineSize, timeoutMs);
+}
+
+/**
+ * @brief Implements the CpmPython_RunScript operation.
+ * @param config See the matching header for semantic details.
+ * @param args See the matching header for semantic details.
+ * @param argCount See the matching header for semantic details.
+ * @param timeoutMs See the matching header for semantic details.
+ * @param result See the matching header for semantic details.
+ * @return See the matching header for status code or value semantics.
+ */
+int CpmPython_RunScript(const CpmPythonConfig *config,
+                        const char *const *args,
+                        size_t argCount,
+                        int timeoutMs,
+                        CpmPythonResult *result)
+{
+    CpmPythonSession *session = NULL;
+    uint8_t temp[512];
+    int rc;
+    int elapsedMs = 0;
+
+    if (result == NULL)
+    {
+        return -1;
+    }
+    CpmPython_ResultInit(result);
+
+    if (CpmPythonSession_Start(&session, config, args, argCount) != 0)
+    {
+        return -1;
+    }
+    result->launched = 1;
+    CpmPythonSession_CloseInput(session);
+
+    while (1)
+    {
+        rc = CpmPythonSession_ReadBytes(session, temp, sizeof(temp), 50);
+        if (rc > 0)
+        {
+            CpmPy_AppendOutput(result, temp, (size_t)rc);
+        }
+
+        if (!CpmPythonSession_IsRunning(session))
+        {
+            while ((rc = CpmPythonSession_ReadBytes(session, temp, sizeof(temp), 20)) > 0)
+            {
+                CpmPy_AppendOutput(result, temp, (size_t)rc);
+            }
+            result->exitCode = CpmPythonSession_Wait(session, 200);
+            result->finished = 1;
+            CpmPythonSession_Close(&session, 0);
+            return 0;
+        }
+
+        if (timeoutMs >= 0)
+        {
+            elapsedMs += 50;
+            if (elapsedMs >= timeoutMs)
+            {
+                result->timedOut = 1;
+                CpmPythonSession_Close(&session, 1);
+                return 1;
+            }
+        }
+    }
+}
+`;
+
+
+
+const C_LUA_EXEC_HEADER_TEMPLATE = String.raw`/**
+ * @file {{headerFile}}
+ * @brief CPM C Lua execution bridge API.
+ *
+ * @details
+ * This generated bundle header documents the module directly in the file
+ * copied into the user project. It summarizes the public API scope, common
+ * applications and the minimum code needed to verify integration.
+ *
+ * @par Main features
+ * - launches Lua as an external process;
+ * - forwards C string arguments to the Lua script command line;
+ * - captures stdout and optionally stderr into CpmLuaResult.output;
+ * - supports one-shot execution with CpmLua_RunScript;
+ * - supports persistent sessions with stdin/stdout line or JSON-style text exchanges.
+ *
+ * @par Typical applications
+ * - calling Lua scripts from C or C++ test executables;
+ * - running configurable test sequences without recompiling C code;
+ * - maintaining a lightweight Lua worker process controlled by a C application.
+ *
+ * @par Usage notes
+ * - Lua receives arguments through the global arg table: arg[1], arg[2], and so on.
+ * - print(...) output is captured in CpmLuaResult.output during one-shot execution.
+ * - Call io.stdout:flush() after writes when using interactive sessions.
+ *
+ * @par Example of use
+ * @code{.c}
+ * #include "{{headerFile}}"
+ * #include <stdio.h>
+ * 
+ * CpmLuaConfig config;
+ * CpmLua_InitConfig(&config);
+ * snprintf(config.scriptPath, sizeof(config.scriptPath), "script.lua");
+ * 
+ * CpmLuaResult result;
+ * CpmLua_ResultInit(&result);
+ * 
+ * const char *args[] = { "arg1", "arg2" };
+ * int rc = CpmLua_RunScript(&config, args, 2, 5000, &result);
+ * if (rc == 0)
+ * {
+ *     printf("Lua exit code: %d\n", result.exitCode);
+ *     printf("Lua output:\n%s\n", result.output != NULL ? result.output : "");
+ * }
+ * else if (rc == 1)
+ * {
+ *     printf("Lua script timed out.\n");
+ * }
+ * else
+ * {
+ *     printf("Failed to run Lua script.\n");
+ * }
+ * CpmLua_ResultFree(&result);
+ * @endcode
+ */
+#ifndef {{guard}}
+#define {{guard}}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifndef CPM_LUA_PATH_SIZE
+#define CPM_LUA_PATH_SIZE 1024
+#endif
+
+#ifndef CPM_LUA_LINE_SIZE
+#define CPM_LUA_LINE_SIZE 8192
+#endif
+
+typedef struct CpmLuaConfig
+{
+    char luaExe[CPM_LUA_PATH_SIZE];
+    char scriptPath[CPM_LUA_PATH_SIZE];
+    char workingDirectory[CPM_LUA_PATH_SIZE];
+    int mergeStdErrToStdOut;
+    int readTimeoutMs;
+    int writeTimeoutMs;
+} CpmLuaConfig;
+
+typedef struct CpmLuaResult
+{
+    int launched;
+    int finished;
+    int timedOut;
+    int exitCode;
+    char *output;
+    size_t outputSize;
+} CpmLuaResult;
+
+typedef struct CpmLuaSession CpmLuaSession;
+
+void CpmLua_InitConfig(CpmLuaConfig *config);
+void CpmLua_ResultInit(CpmLuaResult *result);
+void CpmLua_ResultFree(CpmLuaResult *result);
+
+int CpmLua_RunScript(const CpmLuaConfig *config,
+                     const char *const *args,
+                     size_t argCount,
+                     int timeoutMs,
+                     CpmLuaResult *result);
+
+int CpmLuaSession_Start(CpmLuaSession **session,
+                        const CpmLuaConfig *config,
+                        const char *const *args,
+                        size_t argCount);
+void CpmLuaSession_Close(CpmLuaSession **session, int forceKill);
+void CpmLuaSession_CloseInput(CpmLuaSession *session);
+int CpmLuaSession_IsRunning(CpmLuaSession *session);
+int CpmLuaSession_Wait(CpmLuaSession *session, int timeoutMs);
+
+int CpmLuaSession_WriteBytes(CpmLuaSession *session, const uint8_t *data, size_t size);
+int CpmLuaSession_WriteString(CpmLuaSession *session, const char *text);
+int CpmLuaSession_SendLine(CpmLuaSession *session, const char *line);
+int CpmLuaSession_SendJson(CpmLuaSession *session, const char *jsonLine);
+
+int CpmLuaSession_ReadBytes(CpmLuaSession *session, uint8_t *buffer, size_t maxSize, int timeoutMs);
+int CpmLuaSession_ReadLine(CpmLuaSession *session, char *outLine, size_t outLineSize, int timeoutMs);
+int CpmLuaSession_ReceiveJson(CpmLuaSession *session, char *jsonLine, size_t jsonLineSize, int timeoutMs);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* {{guard}} */
+`;
+
+function buildLuaExecSourceTemplate(): string {
+  let text = C_PYTHON_EXEC_SOURCE_TEMPLATE
+    .replace(/CpmPython/g, 'CpmLua')
+    .replace(/CPM_PYTHON/g, 'CPM_LUA')
+    .replace(/CpmPy_/g, 'CpmLua_')
+    .replace(/pythonExe/g, 'luaExe')
+    .replace(/Python/g, 'Lua')
+    .replace(/python/g, 'lua');
+
+  text = text.replace('    int unbuffered;\n', '');
+  text = text.replace('    CpmLua_CopyString(config->luaExe, sizeof(config->luaExe), "lua3");', '    CpmLua_CopyString(config->luaExe, sizeof(config->luaExe), "lua");');
+  text = text.replace('    config->unbuffered = 1;\n', '');
+  text = text.replace(
+`        if (CpmLua_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->luaExe) != 0 ||
+            (config->unbuffered && CpmLua_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, "-u") != 0) ||
+            CpmLua_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->scriptPath) != 0)`,
+`        if (CpmLua_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->luaExe) != 0 ||
+            CpmLua_AppendCommandPart(&commandLine, &commandSize, &commandCapacity, config->scriptPath) != 0)`);
+  text = text.replace(
+`            argv[index++] = (char *)config->luaExe;
+            if (config->unbuffered)
+            {
+                argv[index++] = (char *)"-u";
+            }
+            argv[index++] = (char *)config->scriptPath;`,
+`            argv[index++] = (char *)config->luaExe;
+            argv[index++] = (char *)config->scriptPath;`);
+  text = text.replace(/argCount \+ 4/g, 'argCount + 3');
+  return text;
+}
+
+const C_LUA_EXEC_SOURCE_TEMPLATE = buildLuaExecSourceTemplate();
+
+const C_PYTHON_EXEC_README_TEMPLATE = `# CPM C Python execution bridge
+
+Generated C bridge for launching Python scripts and exchanging text or JSON-like payloads through process pipes.
+
+## Files
+
+- 'cpm_python_exec.c' / 'cpm_python_exec.h': C API for one-shot script execution and interactive Python sessions.
+
+## Related bundle
+
+Python scripts are intentionally not copied with this backend bridge. Add them separately with:
+
+'Module bundles > Scripts > Python worker protocol starter'
+
+or, for the old project-specific demo scripts:
+
+'Module bundles > Scripts > Robot demo Python scripts'
+`;
+
+const C_LUA_EXEC_README_TEMPLATE = `# CPM C Lua execution bridge
+
+Generated C bridge for launching Lua scripts and exchanging text or JSON-like payloads through process pipes.
+
+## Files
+
+- 'cpm_lua_exec.c' / 'cpm_lua_exec.h': C API for one-shot Lua script execution and interactive Lua sessions.
+
+## Runtime dependency
+
+This bridge launches the Lua interpreter as an external executable. The default command is 'lua'. Set 'config.luaExe' when your interpreter uses another path or name, for example 'lua54'.
+
+## Arguments and output
+
+- C arguments passed to CpmLua_RunScript are available in Lua through the global 'arg' table: 'arg[1]', 'arg[2]', ...
+- Lua 'print(...)' output is captured in 'CpmLuaResult.output'.
+- For interactive sessions, call 'io.stdout:flush()' after writes in Lua.
+
+## Related bundle
+
+Lua scripts are intentionally not copied with this backend bridge. Add a starter separately with:
+
+'Module bundles > Scripts > Lua worker protocol starter'
+`;
+
+const PYTHON_WORKER_PROTOCOL_README_TEMPLATE = `# Python worker protocol starter
+
+Small generic Python side of the CPM Python execution bridge.
+
+## Files
+
+- 'catj_py_helper.py': helper for line/JSON style stdin/stdout exchanges.
+- 'example_worker.py': minimal worker loop example.
+- 'logger.py': small logging helper.
+
+This starter is intentionally generic. Project-specific robot, camera, LiDAR or ESP32 scripts are available separately in 'Robot demo Python scripts'.
+`;
+
+const PYTHON_WORKER_HELPER_TEMPLATE = `#!/usr/bin/env python3
+"""Small helper functions for CPM Python worker scripts."""
+
+import json
+import sys
+from typing import Any, Dict
+
+
+def send_json(payload: Dict[str, Any]) -> None:
+    print(json.dumps(payload, separators=(",", ":")), flush=True)
+
+
+def read_json_line() -> Dict[str, Any]:
+    line = sys.stdin.readline()
+    if not line:
+        return {"type": "eof"}
+    try:
+        value = json.loads(line)
+        if isinstance(value, dict):
+            return value
+        return {"type": "value", "value": value}
+    except json.JSONDecodeError as exc:
+        return {"type": "error", "message": str(exc), "raw": line.rstrip("\\n")}
+`;
+
+const PYTHON_WORKER_LOGGER_TEMPLATE = `#!/usr/bin/env python3
+"""Minimal logger for CPM Python worker scripts."""
+
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+
+class WorkerLogger:
+    def __init__(self, path: Optional[str] = None) -> None:
+        self.path = Path(path) if path else None
+
+    def log(self, message: str) -> None:
+        text = f"[{datetime.now().isoformat(timespec='seconds')}] {message}"
+        if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as stream:
+                stream.write(text + "\\n")
+        else:
+            print(text, flush=True)
+`;
+
+const PYTHON_WORKER_EXAMPLE_TEMPLATE = `#!/usr/bin/env python3
+"""Example Python worker for the CPM Python execution bridge."""
+
+from catj_py_helper import read_json_line, send_json
+from logger import WorkerLogger
+
+
+def main() -> int:
+    logger = WorkerLogger()
+    send_json({"type": "ready"})
+    while True:
+        request = read_json_line()
+        if request.get("type") in {"eof", "quit", "exit"}:
+            send_json({"type": "bye"})
+            return 0
+        logger.log(f"request={request}")
+        send_json({"type": "response", "ok": True, "echo": request})
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+`;
+
+const LUA_WORKER_PROTOCOL_README_TEMPLATE = `# Lua worker protocol starter
+
+Small generic Lua side of the CPM Lua execution bridge.
+
+## Files
+
+- 'example_worker.lua': minimal argument display and stdin/stdout worker loop.
+
+## Argument access
+
+When C calls:
+
+'const char *args[] = { "arg1", "arg2" };'
+
+Lua receives them as:
+
+- 'arg[1]' = 'arg1'
+- 'arg[2]' = 'arg2'
+
+All lines printed by Lua are captured in 'CpmLuaResult.output' when using one-shot execution.
+`;
+
+const LUA_WORKER_EXAMPLE_TEMPLATE = `-- Example Lua worker for the CPM Lua execution bridge.
+-- Arguments passed from C are available in the global arg table.
+
+local function print_arguments()
+    print("Lua worker started")
+    if arg ~= nil then
+        for index = 1, #arg do
+            print(string.format("arg[%d]=%s", index, tostring(arg[index])))
+        end
+    end
+    io.stdout:flush()
+end
+
+local function handle_line(line)
+    if line == "exit" or line == "quit" then
+        print("bye")
+        io.stdout:flush()
+        return false
+    end
+
+    print("echo:" .. line)
+    io.stdout:flush()
+    return true
+end
+
+local function main()
+    print_arguments()
+
+    for line in io.lines() do
+        if not handle_line(line) then
+            return 0
+        end
+    end
+
+    return 0
+end
+
+os.exit(main())
+`;
+
 const MINIMAL_CVI_WEBUI_INDEX_TEMPLATE = `<!doctype html>
 <html lang="en">
 <head>
@@ -586,6 +2276,10 @@ function getBuiltInCviCBundles(): CviBundleChoice[] {
     { label: 'I2C communication', group: 'C communication bundles', description: 'Create cpm_i2c.c and cpm_i2c.h.', detail: 'Pure C Linux /dev/i2c wrapper with register read/write helpers. Other platforms return unsupported.', defaultFolder: 'Bundle/C/Communication/I2C', entries: ['CBundle/Communication/I2C/cpm_i2c.c=>cpm_i2c.c', 'CBundle/Communication/I2C/cpm_i2c.h=>cpm_i2c.h', 'CBundle/Communication/I2C/README.md=>README.md'] },
     { label: 'SPI communication', group: 'C communication bundles', description: 'Create cpm_spi.c and cpm_spi.h.', detail: 'Pure C Linux spidev wrapper with mode/speed/bits configuration and full-duplex transfer helpers.', defaultFolder: 'Bundle/C/Communication/SPI', entries: ['CBundle/Communication/SPI/cpm_spi.c=>cpm_spi.c', 'CBundle/Communication/SPI/cpm_spi.h=>cpm_spi.h', 'CBundle/Communication/SPI/README.md=>README.md'] },
     { label: 'Full communication stack', group: 'C communication bundles', description: 'Create UART, IPC, Ethernet, Wi-Fi, Bluetooth, CAN, I2C and SPI modules.', detail: 'Pure C communication stack adapted from the C/C++ Project Manager bundles. Windows network targets require ws2_32.', defaultFolder: 'Bundle/C/Communication', entries: ['CBundle/Communication/README.md=>README.md', 'CBundle/Communication/UART=>UART', 'CBundle/Communication/IPC=>IPC', 'CBundle/Communication/Ethernet=>Ethernet', 'CBundle/Communication/WiFi=>WiFi', 'CBundle/Communication/Bluetooth=>Bluetooth', 'CBundle/Communication/CAN=>CAN', 'CBundle/Communication/I2C=>I2C', 'CBundle/Communication/SPI=>SPI'] },
+    { label: 'Python execution bridge', group: 'Script / execution bridges', description: 'Create cpm_python_exec.c and cpm_python_exec.h.', detail: 'Pure C bridge for launching Python scripts from CVI/C and exchanging lines or JSON through pipes.', defaultFolder: 'Bundle/C/PythonExec', generator: 'c-python-bridge' },
+    { label: 'Lua execution bridge', group: 'Script / execution bridges', description: 'Create cpm_lua_exec.c and cpm_lua_exec.h.', detail: 'Pure C bridge for launching Lua scripts from CVI/C, passing command-line arguments and capturing stdout/stderr.', defaultFolder: 'Bundle/C/LuaExec', generator: 'c-lua-bridge' },
+    { label: 'Python worker protocol starter', group: 'Script / execution bridges', description: 'Create a generic Python stdin/stdout worker starter.', detail: 'Companion Python files for JSON-line exchanges with the C Python execution bridge.', defaultFolder: 'Bundle/Scripts/PythonWorker', generator: 'script-python-worker' },
+    { label: 'Lua worker protocol starter', group: 'Script / execution bridges', description: 'Create a generic Lua stdin/stdout worker starter.', detail: 'Companion Lua script showing command-line arguments and JSON-line style exchanges with the C Lua execution bridge.', defaultFolder: 'Bundle/Scripts/LuaWorker', generator: 'script-lua-worker' },
     { label: 'Minimal Web UI frontend', group: 'Script / UI bundles', description: 'Create a generic HTML/JS/CSS frontend.', detail: 'Small static frontend for /api/state and /api/action. No project-specific GPIO, camera or Raspberry Pi assets are included.', defaultFolder: 'Bundle/Scripts/WebUI/MinimalFrontend', generator: 'minimal-webui' }
   ];
 }
@@ -1649,6 +3343,52 @@ export class CviTemplateService {
 
   private async generateCBundleFiles(projectDirectory: string, relativeFolder: string, bundle: CviBundleChoice): Promise<NewFileGenerationResult | undefined> {
     const targetRoot = path.join(projectDirectory, relativeFolder);
+
+    if (bundle.generator === 'c-python-bridge') {
+      const sourcePath = path.join(targetRoot, 'cpm_python_exec.c');
+      const headerPath = path.join(targetRoot, 'cpm_python_exec.h');
+      const variables = this.createVariables(sourcePath, headerPath, undefined);
+      const readmePath = path.join(targetRoot, 'README.md');
+      return this.writeFiles([
+        { absolutePath: sourcePath, contents: toCrlf(renderTemplateText(C_PYTHON_EXEC_SOURCE_TEMPLATE, variables)) },
+        { absolutePath: headerPath, contents: toCrlf(renderTemplateText(C_PYTHON_EXEC_HEADER_TEMPLATE, variables)) },
+        { absolutePath: readmePath, contents: toCrlf(C_PYTHON_EXEC_README_TEMPLATE) }
+      ], sourcePath);
+    }
+
+    if (bundle.generator === 'c-lua-bridge') {
+      const sourcePath = path.join(targetRoot, 'cpm_lua_exec.c');
+      const headerPath = path.join(targetRoot, 'cpm_lua_exec.h');
+      const variables = this.createVariables(sourcePath, headerPath, undefined);
+      const readmePath = path.join(targetRoot, 'README.md');
+      return this.writeFiles([
+        { absolutePath: sourcePath, contents: toCrlf(renderTemplateText(C_LUA_EXEC_SOURCE_TEMPLATE, variables)) },
+        { absolutePath: headerPath, contents: toCrlf(renderTemplateText(C_LUA_EXEC_HEADER_TEMPLATE, variables)) },
+        { absolutePath: readmePath, contents: toCrlf(C_LUA_EXEC_README_TEMPLATE) }
+      ], sourcePath);
+    }
+
+    if (bundle.generator === 'script-python-worker') {
+      const readmePath = path.join(targetRoot, 'README_python_worker_protocol.md');
+      const helperPath = path.join(targetRoot, 'catj_py_helper.py');
+      const loggerPath = path.join(targetRoot, 'logger.py');
+      const examplePath = path.join(targetRoot, 'example_worker.py');
+      return this.writeFiles([
+        { absolutePath: readmePath, contents: toCrlf(PYTHON_WORKER_PROTOCOL_README_TEMPLATE) },
+        { absolutePath: helperPath, contents: toCrlf(PYTHON_WORKER_HELPER_TEMPLATE) },
+        { absolutePath: loggerPath, contents: toCrlf(PYTHON_WORKER_LOGGER_TEMPLATE) },
+        { absolutePath: examplePath, contents: toCrlf(PYTHON_WORKER_EXAMPLE_TEMPLATE) }
+      ], examplePath);
+    }
+
+    if (bundle.generator === 'script-lua-worker') {
+      const readmePath = path.join(targetRoot, 'README_lua_worker_protocol.md');
+      const examplePath = path.join(targetRoot, 'example_worker.lua');
+      return this.writeFiles([
+        { absolutePath: readmePath, contents: toCrlf(LUA_WORKER_PROTOCOL_README_TEMPLATE) },
+        { absolutePath: examplePath, contents: toCrlf(LUA_WORKER_EXAMPLE_TEMPLATE) }
+      ], examplePath);
+    }
 
     if (bundle.generator === 'minimal-webui') {
       const indexPath = path.join(targetRoot, 'index.html');
