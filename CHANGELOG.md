@@ -1,3 +1,9 @@
+## 0.6.38
+
+- Synced the embedded JC Lib multi-select picker fix from standalone JC Lib 0.8.9.
+- Enum-backed select parameters now accept generated combined values such as `FLAG_A | FLAG_B` and immediately update the generated call preview.
+- The advanced picker still preserves single-choice behavior for normal enum parameters.
+
 # 0.6.37
 
 - Added CVI-compatible C Python and Lua execution bridge bundles.

@@ -13966,7 +13966,19 @@ function buildDetailsHtml(fn: CviFunction, storedState?: StoredFunctionState): s
       if (!input) {
         return;
       }
-      input.value = value;
+      const normalizedValue = String(value ?? '');
+      if (input.tagName === 'SELECT') {
+        const select = input;
+        const hasOption = Array.from(select.options || []).some((option) => String(option.value) === normalizedValue);
+        if (!hasOption && normalizedValue.length > 0) {
+          const option = document.createElement('option');
+          option.value = normalizedValue;
+          option.textContent = normalizedValue;
+          option.setAttribute('data-generated-multiselect', 'true');
+          select.appendChild(option);
+        }
+      }
+      input.value = normalizedValue;
       updatePreview();
     }
 
