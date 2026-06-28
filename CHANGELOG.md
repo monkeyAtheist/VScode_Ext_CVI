@@ -1,3 +1,9 @@
+## 0.6.39
+
+- Integrated the CPM 0.2.48 color value picker into the CVI editor context menu.
+- Added `CVI > Insert color value` with color picker, brightness slider, alpha preview, presets and formatted insertion.
+- Adapted output formats for CVI/C usage: `#RRGGBB`, `0xRRGGBB`, decimal RGB, `rgb(...)`, `rgba(...)`, channel lists, C brace initializers, `MakeColor(r, g, b)` and `RGB(r, g, b)`.
+
 ## 0.6.38
 
 - Synced the embedded JC Lib multi-select picker fix from standalone JC Lib 0.8.9.

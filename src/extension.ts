@@ -19,6 +19,7 @@ import { CviCompletionProvider, CviSourceSymbol, CviSymbolService, isSourceOrHea
 import { CviFunctionPanelService } from './services/cviFunctionPanelService';
 import { CviBreakpointSyncService } from './services/cviBreakpointSyncService';
 import { CviNativeCommandService } from './services/cviNativeCommandService';
+import { CviColorValueService } from './services/cviColorValueService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
@@ -30,6 +31,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const projectSettings = new CviProjectSettingsService(workspaces, parser, output);
   const breakpointSync = new CviBreakpointSyncService(context, parser, workspaces, output);
   const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
+  const colorValues = new CviColorValueService();
   const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output);
   const treeProvider = new CviTreeProvider(workspaces);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
@@ -278,6 +280,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.context.insertCommentSection', () => templates.insertCommentSection()),
     register('labwindowsCvi.context.insertHeaderChangeEntry', () => templates.insertHeaderChangeEntry()),
     register('labwindowsCvi.context.insertSpecialCharacterText', () => templates.insertSpecialCharacterText()),
+    register('labwindowsCvi.context.insertColorValue', () => colorValues.openColorValuePicker()),
     register('labwindowsCvi.saveFileAsTemplate', (node?: FileNode) => templates.saveCurrentFileAsTemplate(node?.file.absolutePath)),
     register('labwindowsCvi.importFileTemplate', () => templates.importFileTemplate()),
     register('labwindowsCvi.manageFileTemplates', () => templates.manageFileTemplates()),

@@ -2,7 +2,7 @@
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.6.13` initializes the native `.cws` blocks required by projects created or added directly from VS Code and retains the native project build-settings editor with file-browser buttons, per-configuration editing scopes and target-aware drop-down lists. It retains guarded native `.prj` / `.cws` writes, automatic backups, the file-creation wizard, blank `.uir` generation, reusable user templates, insertable CVI snippets and the embedded JC Lib `0.7.96` CVI catalog.
+Version `0.6.39` keeps the CVI workspace/project manager, native build/debug controls, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
 
 ## Main views
 
@@ -16,6 +16,10 @@ LabWindows/CVI
 ```
 
 The **CVI Workspace** title bar keeps the most common commands visible without requiring mouse hover. The separate **CVI Actions** view is a collapsible dashboard summarizing the active target type, build mode, launch settings, native build steps, dependencies and missing files. The dividers between the views remain resizable. **CVI Workspace** manages `.cws` and `.prj` content. **CVI Libraries** embeds the CVI API explorer derived from JC Lib.
+
+## Editor helpers
+
+The editor context menu exposes a compact `CVI` root. It includes snippet insertion, reusable snippet management, documentation/comment helpers, integer conversion and a color value picker. The color picker can insert generic web values, C/CVI hexadecimal values, decimal RGB integers, channel lists, C initializer-style values, `MakeColor(r, g, b)` and `RGB(r, g, b)`.
 
 ## Workspace and project operations
 

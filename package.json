@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.38",
+  "version": "0.6.39",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -77,7 +77,8 @@
     "onCommand:labwindowsCvi.nativeState",
     "onCommand:labwindowsCvi.diagnoseNativeCommandBridge",
     "onView:labwindowsCvi.debugControls",
-    "onCommand:labwindowsCvi.refreshNativeDebugView"
+    "onCommand:labwindowsCvi.refreshNativeDebugView",
+    "onCommand:labwindowsCvi.context.insertColorValue"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -723,6 +724,12 @@
         "command": "labwindowsCvi.context.insertSpecialCharacterText",
         "title": "Insert special-character text",
         "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.insertColorValue",
+        "title": "Insert color value",
+        "category": "LabWindows/CVI",
+        "icon": "$(symbol-color)"
       }
     ],
     "menus": {
@@ -1313,6 +1320,10 @@
         {
           "command": "labwindowsCvi.context.insertCommentSection",
           "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.insertColorValue",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -1349,6 +1360,11 @@
           "submenu": "labwindowsCvi.contextComments",
           "when": "editorLangId == c || editorLangId == cpp",
           "group": "2_comments@1"
+        },
+        {
+          "command": "labwindowsCvi.context.insertColorValue",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "3_tools@0"
         },
         {
           "submenu": "labwindowsCvi.convertSelectedInteger",
