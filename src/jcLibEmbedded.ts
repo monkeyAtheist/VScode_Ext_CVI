@@ -8299,6 +8299,8 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
       return bundledPackFileSelection('lua_mpt', 'MPT Studio / MPTLua pack', 'lua_pack.json', ['MPT Studio / MPTLua (Lua 5.2.4)']);
     case 'lua_stormworks':
       return bundledPackFileSelection('lua_stormworks', 'Stormworks Lua microcontroller pack', 'lua_pack.json', ['Stormworks Lua microcontroller']);
+    case 'tnt_exec_all':
+      return bundledPackFileSelection('tnt_exec_all', 'TNT_EXEC / HNF sequencer pack', 'tnt_exec_pack.json', ['Sequencer']);
     case 'examples_all':
       return combinePreservingLibraries('examples_all', 'All example packs', ['opencv_robotics_example', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
     case 'all_packs':
@@ -8330,6 +8332,7 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
     { label: 'Database pack', description: 'Structured SQL, NoSQL, client C APIs, ODBC, SQLAlchemy/Alembic, hiredis and operations pack with parameterized direct cards and retained recipes', value: 'database' },
     { label: 'Lua pack', description: 'Lua standard, industrial/test-bench Lua, MPTLua, and Stormworks microcontroller Lua content', value: 'lua' },
     { label: 'Embedded pack', description: 'Embedded-specific patterns, Arduino AVR registers and ISR vectors, ESP32 Arduino peripherals/connectivity, and Raspberry Pi Linux hardware interfaces', value: 'embedded' },
+    { label: 'TNT_EXEC / HNF sequencer pack', description: 'LabWindows/CVI TNT_EXEC test-DLL templates, sequence parameters, PASS/FAIL reporting, logs, multi-UUT helpers and constants', value: 'tnt_exec' },
     { label: 'Example packs', description: 'Real-world examples for robotics, hooks/input, UART protocols, and test benches', value: 'examples' }
   ];
 
@@ -8435,6 +8438,9 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'Lua industriel / banc de test', description: 'External communication references and test-sequence/logging patterns', value: 'lua_industrial' },
       { label: 'MPT Studio / MPTLua', description: 'MPTLua Lua 5.2.4 environment, operator prompts, reporting, persistence, switching, measurements, and advanced MPT patterns', value: 'lua_mpt' },
       { label: 'Stormworks Lua microcontroller', description: 'onTick/onDraw lifecycle, composite I/O, screen drawing, map conversion, properties, async HTTP, and practical Stormworks snippets', value: 'lua_stormworks' }
+    ],
+    tnt_exec: [
+      { label: 'TNT_EXEC / HNF sequencer complete pack', description: 'TNT_EXEC prototypes, DLL entry templates, sequence context, PASS/FAIL reporting, logging, RS232, loop/multi-UUT helpers and constants', value: 'tnt_exec_all' }
     ],
     embedded: [
       { label: 'Add all embedded pack', description: 'Add embedded architecture patterns, Arduino AVR, ESP32 Arduino, STM32 HAL / CubeProgrammer, and Raspberry Pi Linux embedded helpers together', value: 'embedded_all' },

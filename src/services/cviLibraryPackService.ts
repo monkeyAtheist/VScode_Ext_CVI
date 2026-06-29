@@ -24,7 +24,8 @@ function sanitizeVersion(version: string | undefined): string {
 function createBackupPath(target: string, previousVersion: string | undefined): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const suffix = sanitizeVersion(previousVersion);
-  return path.join(path.dirname(target), `cvi_pack.backup-${suffix}-${timestamp}.json`);
+  const packStem = path.basename(target, path.extname(target)).replace(/[^A-Za-z0-9._-]+/g, '_') || 'library_pack';
+  return path.join(path.dirname(target), `${packStem}.backup-${suffix}-${timestamp}.json`);
 }
 
 /**
@@ -96,5 +97,6 @@ function backupAndRemoveObsoleteBundledPack(context: vscode.ExtensionContext, ou
 export function ensureBundledCviLibraryPack(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
   seedOrUpgradeBundledPack(context, output, 'cvi_pack.json', 'CVI library pack');
   seedOrUpgradeBundledPack(context, output, 'c_language_pack.json', 'C language and C DLL library pack');
+  seedOrUpgradeBundledPack(context, output, 'tnt_exec_pack.json', 'TNT_EXEC/HNF sequencer library pack');
   backupAndRemoveObsoleteBundledPack(context, output, 'my_util_c_pack.json', 'my-util-c-pack', 'MY Util C library pack');
 }

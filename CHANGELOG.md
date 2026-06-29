@@ -1,3 +1,10 @@
+# 0.7.3
+
+- Ajout du pack embarqué `TNT_EXEC / HNF Sequencer Pack` dans le gestionnaire de librairies.
+- Le pack couvre les templates de DLL de tests, l’accès aux paramètres de séquence, le pilotage du statut, le reporting PASS/FAIL, la configuration des logs, les fonctions multi-UUT, les helpers RS232, les utilitaires et les constantes du séquenceur.
+- Les fonctions qui modifient le statut ou alimentent les rapports/logs sont annotées explicitement, notamment `exec_Return_Result`, `exec_Return_Comp`, `exec_Return_Meas`, les variantes multi-UUT et `exec_Init_SQL_Logging`.
+- Les paramètres utilisent les éditeurs modernes du gestionnaire embarqué : listes enum structurées, booléens, chemins de fichiers/dossiers, aides de sélection et descriptions longues.
+
 ## 0.6.39
 
 - Integrated the CPM 0.2.48 color value picker into the CVI editor context menu.
