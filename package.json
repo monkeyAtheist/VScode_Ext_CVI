@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.6.39",
+  "version": "0.7.2",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -78,7 +78,13 @@
     "onCommand:labwindowsCvi.diagnoseNativeCommandBridge",
     "onView:labwindowsCvi.debugControls",
     "onCommand:labwindowsCvi.refreshNativeDebugView",
-    "onCommand:labwindowsCvi.context.insertColorValue"
+    "onCommand:labwindowsCvi.context.insertColorValue",
+    "onCommand:labwindowsCvi.context.openCharacterTable",
+    "onCommand:labwindowsCvi.context.convertSelectedTextToDecimalValues",
+    "onCommand:labwindowsCvi.context.convertSelectedNumbersToText",
+    "onCommand:labwindowsCvi.context.openNumberConverter",
+    "onCommand:labwindowsCvi.context.openTruthTableDesigner",
+    "onCommand:labwindowsCvi.context.openDigitalFilterDesigner"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -730,6 +736,36 @@
         "title": "Insert color value",
         "category": "LabWindows/CVI",
         "icon": "$(symbol-color)"
+      },
+      {
+        "command": "labwindowsCvi.context.openCharacterTable",
+        "title": "Open character table / converter",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.convertSelectedTextToDecimalValues",
+        "title": "Convert selected text to decimal values",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.convertSelectedNumbersToText",
+        "title": "Convert selected numbers to text",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.openNumberConverter",
+        "title": "Open number / bit converter",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.openTruthTableDesigner",
+        "title": "Open truth table / FSM designer",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.context.openDigitalFilterDesigner",
+        "title": "Open digital filter designer",
+        "category": "LabWindows/CVI"
       }
     ],
     "menus": {
@@ -1324,6 +1360,30 @@
         {
           "command": "labwindowsCvi.context.insertColorValue",
           "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.openCharacterTable",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.convertSelectedTextToDecimalValues",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.convertSelectedNumbersToText",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.openNumberConverter",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.openTruthTableDesigner",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.context.openDigitalFilterDesigner",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -1362,13 +1422,8 @@
           "group": "2_comments@1"
         },
         {
-          "command": "labwindowsCvi.context.insertColorValue",
+          "submenu": "labwindowsCvi.contextUtilities",
           "when": "editorLangId == c || editorLangId == cpp",
-          "group": "3_tools@0"
-        },
-        {
-          "submenu": "labwindowsCvi.convertSelectedInteger",
-          "when": "editorHasSelection",
           "group": "3_tools@1"
         }
       ],
@@ -1409,6 +1464,76 @@
           "command": "labwindowsCvi.context.insertSpecialCharacterText",
           "when": "editorLangId == c || editorLangId == cpp",
           "group": "1_comments@4"
+        }
+      ],
+      "labwindowsCvi.contextUtilities": [
+        {
+          "command": "labwindowsCvi.context.insertColorValue",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_color@1"
+        },
+        {
+          "submenu": "labwindowsCvi.contextCharacterEncoding",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "2_encoding@1"
+        },
+        {
+          "submenu": "labwindowsCvi.contextNumberBitTools",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "3_number@1"
+        },
+        {
+          "submenu": "labwindowsCvi.contextLogicState",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "4_logic@1"
+        },
+        {
+          "submenu": "labwindowsCvi.contextSignalFilter",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "5_signal@1"
+        }
+      ],
+      "labwindowsCvi.contextCharacterEncoding": [
+        {
+          "command": "labwindowsCvi.context.openCharacterTable",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_table@1"
+        },
+        {
+          "command": "labwindowsCvi.context.convertSelectedTextToDecimalValues",
+          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
+          "group": "2_convert@1"
+        },
+        {
+          "command": "labwindowsCvi.context.convertSelectedNumbersToText",
+          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
+          "group": "2_convert@2"
+        }
+      ],
+      "labwindowsCvi.contextNumberBitTools": [
+        {
+          "command": "labwindowsCvi.context.openNumberConverter",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_table@1"
+        },
+        {
+          "submenu": "labwindowsCvi.convertSelectedInteger",
+          "when": "(editorLangId == c || editorLangId == cpp) && editorHasSelection",
+          "group": "2_convert@1"
+        }
+      ],
+      "labwindowsCvi.contextLogicState": [
+        {
+          "command": "labwindowsCvi.context.openTruthTableDesigner",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_logic@1"
+        }
+      ],
+      "labwindowsCvi.contextSignalFilter": [
+        {
+          "command": "labwindowsCvi.context.openDigitalFilterDesigner",
+          "when": "editorLangId == c || editorLangId == cpp",
+          "group": "1_filter@1"
         }
       ]
     },
@@ -1660,6 +1785,26 @@
       {
         "id": "labwindowsCvi.contextComments",
         "label": "Documentation / comments"
+      },
+      {
+        "id": "labwindowsCvi.contextUtilities",
+        "label": "Utilities"
+      },
+      {
+        "id": "labwindowsCvi.contextCharacterEncoding",
+        "label": "Character / encoding tools"
+      },
+      {
+        "id": "labwindowsCvi.contextNumberBitTools",
+        "label": "Number / bit tools"
+      },
+      {
+        "id": "labwindowsCvi.contextLogicState",
+        "label": "Logic / state tools"
+      },
+      {
+        "id": "labwindowsCvi.contextSignalFilter",
+        "label": "Signal / filter tools"
       }
     ],
     "breakpoints": [

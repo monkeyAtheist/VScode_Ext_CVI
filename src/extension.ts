@@ -20,6 +20,7 @@ import { CviFunctionPanelService } from './services/cviFunctionPanelService';
 import { CviBreakpointSyncService } from './services/cviBreakpointSyncService';
 import { CviNativeCommandService } from './services/cviNativeCommandService';
 import { CviColorValueService } from './services/cviColorValueService';
+import { CviContextToolsService } from './services/cviContextToolsService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
@@ -32,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const breakpointSync = new CviBreakpointSyncService(context, parser, workspaces, output);
   const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
   const colorValues = new CviColorValueService();
+  const contextTools = new CviContextToolsService(context);
   const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output);
   const treeProvider = new CviTreeProvider(workspaces);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
@@ -281,6 +283,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.context.insertHeaderChangeEntry', () => templates.insertHeaderChangeEntry()),
     register('labwindowsCvi.context.insertSpecialCharacterText', () => templates.insertSpecialCharacterText()),
     register('labwindowsCvi.context.insertColorValue', () => colorValues.openColorValuePicker()),
+    register('labwindowsCvi.context.openCharacterTable', () => contextTools.openCharacterTable()),
+    register('labwindowsCvi.context.convertSelectedTextToDecimalValues', () => contextTools.convertSelectedTextToDecimalValues()),
+    register('labwindowsCvi.context.convertSelectedNumbersToText', () => contextTools.convertSelectedNumbersToText()),
+    register('labwindowsCvi.context.openNumberConverter', () => contextTools.openNumberConverter()),
+    register('labwindowsCvi.context.openTruthTableDesigner', () => contextTools.openTruthTableDesigner()),
+    register('labwindowsCvi.context.openDigitalFilterDesigner', () => contextTools.openDigitalFilterDesigner()),
     register('labwindowsCvi.saveFileAsTemplate', (node?: FileNode) => templates.saveCurrentFileAsTemplate(node?.file.absolutePath)),
     register('labwindowsCvi.importFileTemplate', () => templates.importFileTemplate()),
     register('labwindowsCvi.manageFileTemplates', () => templates.manageFileTemplates()),
