@@ -1,3 +1,11 @@
+# 0.7.4
+
+- Synchronisation des structures de packs embarqués depuis JC Lib 0.8.27.
+- Mise à jour des packs structurés C, C++, Lua, SDL, Embedded, OpenCV, Web, Windows API / Devices et default pack.
+- Ajout des nouveaux packs embarqués Assembly, Visual Basic / VBA, SDL2 séparé et SDL3 séparé.
+- Mise à jour du menu d’ajout de packs : SDL2/SDL3, Assembly, VBA, Meson, Arduino Mega 2560, Microchip PIC, Texas Instruments MSP, et Windows API / Devices unifié.
+- Conservation et réintégration du pack CVI spécifique `TNT_EXEC / HNF Sequencer Pack` dans le menu de packs embarqués et dans l’action `Add all packs`.
+
 # 0.7.3
 
 - Ajout du pack embarqué `TNT_EXEC / HNF Sequencer Pack` dans le gestionnaire de librairies.

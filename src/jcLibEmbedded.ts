@@ -1053,7 +1053,7 @@ async function importSymbolsToPackFile(pack: LoadedPack, target?: { environmentN
 
 
 
-type LanguagePackMode = 'c_core' | 'c_dll' | 'cpp_core' | 'cpp_dll' | 'preprocessor_core' | 'cvi_core' | 'qt_core' | 'qt_pyside_core' | 'opencv_core' | 'qt_widgets_adv' | 'qml_core' | 'opencv_vision' | 'cmake_core' | 'gcc_core' | 'gpp_core' | 'mingw_core' | 'clang_core' | 'msvc_core' | 'make_ninja_core' | 'deps_core' | 'cross_toolchain_core' | 'build_quality_core' | 'system_automation_core' | 'powershell_core' | 'batch_core' | 'bash_core' | 'linux_admin_core' | 'devops_core' | 'python_core' | 'java_core' | 'web_core' | 'csharp_core' | 'php_core' | 'kotlin_core' | 'typescript_core' | 'database_core' | 'sqlite_core' | 'postgres_core' | 'mysql_core' | 'sqlserver_core' | 'duckdb_core' | 'mongodb_core' | 'redis_core' | 'sqlite_c_core' | 'libpq_core' | 'mysql_capi_core' | 'odbc_core' | 'sqlalchemy_core' | 'hiredis_core' | 'dbops_core' | 'embedded_core' | 'raspi_core' | 'arduino_core' | 'esp32_core' | 'stm32_core' | 'opencv_robotics_example' | 'win32_hooks_example' | 'uart_protocol_example' | 'instrumentation_example';
+type LanguagePackMode = 'c_core' | 'c_dll' | 'cpp_core' | 'cpp_dll' | 'preprocessor_core' | 'cvi_core' | 'qt_core' | 'qt_pyside_core' | 'opencv_core' | 'qt_widgets_adv' | 'qml_core' | 'opencv_vision' | 'cmake_core' | 'gcc_core' | 'gpp_core' | 'mingw_core' | 'clang_core' | 'msvc_core' | 'make_ninja_core' | 'meson_core' | 'deps_core' | 'cross_toolchain_core' | 'build_quality_core' | 'system_automation_core' | 'powershell_core' | 'batch_core' | 'bash_core' | 'linux_admin_core' | 'devops_core' | 'python_core' | 'java_core' | 'web_core' | 'csharp_core' | 'php_core' | 'kotlin_core' | 'typescript_core' | 'vba_core' | 'database_core' | 'sqlite_core' | 'postgres_core' | 'mysql_core' | 'sqlserver_core' | 'duckdb_core' | 'mongodb_core' | 'redis_core' | 'sqlite_c_core' | 'libpq_core' | 'mysql_capi_core' | 'odbc_core' | 'sqlalchemy_core' | 'hiredis_core' | 'dbops_core' | 'embedded_core' | 'raspi_core' | 'arduino_core' | 'arduino_mega_core' | 'esp32_core' | 'stm32_core' | 'pic_core' | 'msp_core' | 'opencv_robotics_example' | 'win32_hooks_example' | 'uart_protocol_example' | 'instrumentation_example';
 
 interface StarterEntryDefinition {
   category: string;
@@ -7913,7 +7913,7 @@ async function addContentIntoPackFile(pack: LoadedPack, target?: { environmentNa
   options.push(
     { label: 'Add function', description: 'Create a function through a guided wizard', value: 'addFunction' },
     { label: 'Import source/header', description: 'Parse prototypes, functions, structs, typedefs, enums, and classes from a source or header file', value: 'importSymbols' },
-    { label: 'Add language pack / DLL helpers', description: 'Add grouped C, C++, Lua, SDL, Qt, OpenCV, Win32, Windows Devices, build, platform, embedded, and example packs, with family-level Add all actions', value: 'starter' },
+    { label: 'Add language pack / DLL helpers', description: 'Add grouped C, C++, Lua, SDL2/SDL3, Qt, OpenCV, Win32, Windows Devices, build, platform, embedded, assembly, VBA, TNT_EXEC, and example packs, with family-level Add all actions', value: 'starter' },
     { label: 'Import file as snippet', description: 'Import a code or text file directly as a reusable snippet symbol', value: 'snippet' }
   );
 
@@ -7996,6 +7996,32 @@ interface StarterPackSelection {
   preserveEnvironments?: boolean;
 }
 
+function canonicalStarterEnvironmentName(id: string): string | undefined {
+  if (id === 'c_core' || id === 'c_dll' || id === 'cvi_core' || id === 'c_all') return 'C';
+  if (id === 'cpp_core' || id === 'cpp_dll' || id === 'cpp_all') return 'C++';
+  if (id === 'preprocessor_core') return 'C / C++ Preprocessor';
+  if (id.startsWith('qt_') || id === 'qml_core') return 'QT';
+  if (id.startsWith('opencv_')) return 'OpenCV';
+  if (['cmake_core', 'gcc_core', 'gpp_core', 'mingw_core', 'clang_core', 'msvc_core', 'make_ninja_core', 'meson_core', 'deps_core', 'cross_toolchain_core', 'build_quality_core', 'build_all'].includes(id)) return 'Build & Toolchains';
+  if (['system_automation_core', 'powershell_core', 'batch_core', 'bash_core', 'linux_admin_core', 'devops_core', 'scripting_all'].includes(id)) return 'Scripting / System';
+  if (id === 'python_core') return 'Python';
+  if (id === 'java_core') return 'Java';
+  if (id === 'web_core') return 'Web';
+  if (id === 'csharp_core') return 'C# / .NET';
+  if (id === 'php_core') return 'PHP';
+  if (id === 'kotlin_core') return 'Kotlin';
+  if (id === 'typescript_core') return 'TypeScript';
+  if (id === 'vba_core') return 'Visual Basic / VBA';
+  if (id.includes('database') || ['sqlite_core', 'postgres_core', 'mysql_core', 'sqlserver_core', 'duckdb_core', 'mongodb_core', 'redis_core', 'sqlite_c_core', 'libpq_core', 'mysql_capi_core', 'odbc_core', 'sqlalchemy_core', 'hiredis_core', 'dbops_core'].includes(id)) return 'Databases';
+  if (id.startsWith('embedded_') || ['raspi_core', 'arduino_core', 'arduino_mega_core', 'esp32_core', 'stm32_core', 'pic_core', 'msp_core'].includes(id)) return 'Embedded';
+  if (id.includes('asm') || id.startsWith('assembly_')) return 'Assembly';
+  if (id.startsWith('lua_')) return 'Lua';
+  if (id.startsWith('sdl')) return 'SDL';
+  if (id.startsWith('win32_') || id.startsWith('windows_')) return 'Windows API / Devices';
+  if (['uart_protocol_example', 'instrumentation_example'].includes(id)) return 'Examples';
+  return undefined;
+}
+
 interface StarterPackEntry extends CviFunction {
   /** Internal import-only path. Removed before writing the destination pack. */
   __jcGroupPath?: string[];
@@ -8027,20 +8053,43 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
 
   const direct = (mode: LanguagePackMode): StarterPackSelection => {
     const starter = createLanguagePackEntries(mode);
-    return { id: mode, label: starter.label, libraryName: starter.libraryName, entries: cloneEntries(starter.entries) };
+    const environmentName = canonicalStarterEnvironmentName(mode);
+    const entries = cloneEntries(starter.entries).map((entry) => environmentName && !entry.environment
+      ? { ...entry, environment: environmentName }
+      : entry);
+    return {
+      id: mode,
+      label: starter.label,
+      libraryName: starter.libraryName,
+      entries,
+      preserveEnvironments: !!environmentName
+    };
   };
 
   const combineSingleLibrary = (selectionId: string, label: string, libraryName: string, ids: string[]): StarterPackSelection => {
-    const entries = ids.flatMap((entryId) => buildStarterPackSelection(entryId).entries).map((entry) => ({
+    const childSelections = ids.map((entryId) => buildStarterPackSelection(entryId));
+    const environmentName = canonicalStarterEnvironmentName(selectionId);
+    const entries = childSelections.flatMap((selection) => selection.entries).map((entry) => ({
       ...entry,
+      environment: entry.environment || environmentName,
       library: libraryName
     }));
-    return { id: selectionId, label, libraryName, entries };
+    return { id: selectionId, label, libraryName, entries, preserveEnvironments: entries.some((entry) => !!entry.environment) };
   };
 
   const combinePreservingLibraries = (selectionId: string, label: string, ids: string[]): StarterPackSelection => {
-    const entries = ids.flatMap((entryId) => buildStarterPackSelection(entryId).entries);
-    return { id: selectionId, label, entries, preserveLibraries: true };
+    const childSelections = ids.map((entryId) => buildStarterPackSelection(entryId));
+    const environmentName = canonicalStarterEnvironmentName(selectionId);
+    const entries = childSelections.flatMap((selection) => selection.entries).map((entry) => entry.environment || !environmentName
+      ? entry
+      : { ...entry, environment: environmentName });
+    return {
+      id: selectionId,
+      label,
+      entries,
+      preserveLibraries: true,
+      preserveEnvironments: entries.some((entry) => !!entry.environment)
+    };
   };
 
   const bundledEnvironmentSelection = (selectionId: string, label: string, environmentNames: string[]): StarterPackSelection => {
@@ -8119,6 +8168,7 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
           (library.categories || []).flatMap((category) =>
             collectCategoryEntriesWithGroupPath(category).map(({ entry, groupPath }) => ({
               ...JSON.parse(JSON.stringify(entry)),
+              environment: environment.name,
               library: library.name,
               // The container category is the canonical hierarchy for bundled structured packs.
               // Individual entry.category metadata may be historical and must not flatten or reroute the tree.
@@ -8128,7 +8178,7 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
           )
         );
       if (entries.length) {
-        return { id: selectionId, label, entries, preserveLibraries: true };
+        return { id: selectionId, label, entries, preserveLibraries: true, preserveEnvironments: true };
       }
     } catch {
       // Fall through to the hard-coded pack when the bundled default pack is unavailable.
@@ -8149,6 +8199,7 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
           (library.categories || []).flatMap((category) =>
             collectCategoryEntriesWithGroupPath(category).map(({ entry, groupPath }) => ({
               ...JSON.parse(JSON.stringify(entry)),
+              environment: environment.name,
               library: library.name,
               // The container category is the canonical hierarchy for bundled structured packs.
               // Individual entry.category metadata may be historical and must not flatten or reroute the tree.
@@ -8158,7 +8209,38 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
           )
         );
       if (entries.length) {
-        return { id: selectionId, label, entries, preserveLibraries: true };
+        return { id: selectionId, label, entries, preserveLibraries: true, preserveEnvironments: true };
+      }
+    } catch {
+      // Fall through to the hard-coded starter when the bundled pack is unavailable.
+    }
+    return direct(selectionId as LanguagePackMode);
+  };
+
+
+  const bundledPackLibraryEnvironmentSelection = (selectionId: string, label: string, fileName: string, environmentName: string, libraryNames: string[]): StarterPackSelection => {
+    try {
+      const packPath = path.join(__dirname, '..', 'data', fileName);
+      const raw = JSON.parse(fs.readFileSync(packPath, 'utf8')) as LibraryPackFile;
+      const environment = normalizeEnvironments(Array.isArray(raw.environments) ? raw.environments : undefined, Array.isArray((raw as any).libraries) ? (raw as any).libraries : undefined)
+        .find((entry) => entry.name === environmentName);
+      const entries = (environment?.libraries || [])
+        .filter((library) => libraryNames.includes(library.name))
+        .flatMap((library) =>
+          (library.categories || []).flatMap((category) =>
+            collectCategoryEntriesWithGroupPath(category).map(({ entry, groupPath }) => ({
+              ...JSON.parse(JSON.stringify(entry)),
+              environment: environment.name,
+              library: library.name,
+              // The container category is the canonical hierarchy for bundled structured packs.
+              // Individual entry.category metadata may be historical and must not flatten or reroute the tree.
+              category: category.name,
+              __jcGroupPath: [...groupPath]
+            } as StarterPackEntry))
+          )
+        );
+      if (entries.length) {
+        return { id: selectionId, label, entries, preserveLibraries: true, preserveEnvironments: true };
       }
     } catch {
       // Fall through to the hard-coded starter when the bundled pack is unavailable.
@@ -8174,7 +8256,7 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
     case 'python_core':
       return bundledPackLibrarySelection('python_core', 'Python complete structured pack', 'python_pack.json', 'Python', ['Python Language']);
     case 'web_core':
-      return bundledPackLibrarySelection('web_core', 'JavaScript / HTML / CSS complete structured pack', 'web_language_pack.json', 'Web', ['JavaScript / HTML / CSS']);
+      return bundledPackLibrarySelection('web_core', 'JavaScript / HTML / CSS complete structured pack', 'web_language_pack.json', 'Web', ['JavaScript', 'HTML', 'CSS']);
     case 'java_core':
       return bundledPackLibrarySelection('java_core', 'Java complete structured pack', 'java_language_pack.json', 'Java', ['Java Language']);
     case 'csharp_core':
@@ -8185,6 +8267,8 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
       return bundledPackLibrarySelection('kotlin_core', 'Kotlin 2.4 JVM Android Ktor Compose Multiplatform structured pack', 'kotlin_language_pack.json', 'Kotlin', ['Kotlin Language']);
     case 'typescript_core':
       return bundledPackLibrarySelection('typescript_core', 'TypeScript structured language, types, Web, Node.js, backend and tooling pack', 'typescript_language_pack.json', 'TypeScript', ['TypeScript Language']);
+    case 'vba_core':
+      return bundledPackLibrarySelection('vba_core', 'Visual Basic / VBA structured pack for Excel macros and Office automation', 'vba_language_pack.json', 'Visual Basic / VBA', ['VBA Language', 'Excel VBA', 'Office Automation']);
     case 'database_core':
       return bundledPackLibrarySelection('database_core', 'SQL fundamentals and relational design pack', 'database_pack.json', 'Databases', ['SQL Fundamentals & Relational Design']);
     case 'sqlite_core':
@@ -8244,7 +8328,9 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
     case 'msvc_core':
       return bundledPackLibrarySelection('msvc_core', 'MSVC Build Tools structured pack', 'build_pack.json', 'Build & Toolchains', ['MSVC Build Tools']);
     case 'make_ninja_core':
-      return bundledPackLibrarySelection('make_ninja_core', 'Make Ninja structured build pack', 'build_pack.json', 'Build & Toolchains', ['Make & Ninja']);
+      return bundledPackLibrarySelection('make_ninja_core', 'Make Ninja structured build pack', 'build_pack.json', 'Build & Toolchains', ['Make, Ninja & Compilation Databases']);
+    case 'meson_core':
+      return bundledPackLibrarySelection('meson_core', 'Meson structured build pack', 'build_pack.json', 'Build & Toolchains', ['Meson Build System']);
     case 'deps_core':
       return bundledPackLibrarySelection('deps_core', 'C C++ dependency managers structured pack', 'build_pack.json', 'Build & Toolchains', ['C/C++ Dependency Managers']);
     case 'cross_toolchain_core':
@@ -8252,7 +8338,7 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
     case 'build_quality_core':
       return bundledPackLibrarySelection('build_quality_core', 'Debugging coverage documentation and CI pack', 'build_pack.json', 'Build & Toolchains', ['Debugging, Coverage & Documentation']);
     case 'build_all':
-      return combinePreservingLibraries('build_all', 'All build pack', ['cmake_core', 'gcc_core', 'clang_core', 'mingw_core', 'msvc_core', 'make_ninja_core', 'deps_core', 'cross_toolchain_core', 'build_quality_core']);
+      return combinePreservingLibraries('build_all', 'All build pack', ['cmake_core', 'gcc_core', 'clang_core', 'mingw_core', 'msvc_core', 'make_ninja_core', 'meson_core', 'deps_core', 'cross_toolchain_core', 'build_quality_core']);
     case 'system_automation_core':
       return bundledPackLibrarySelection('system_automation_core', 'Cross-platform automation pack', 'system_scripting_pack.json', 'Scripting / System', ['Cross-Platform Automation']);
     case 'powershell_core':
@@ -8264,47 +8350,73 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
     case 'linux_admin_core':
       return bundledPackLibrarySelection('linux_admin_core', 'Linux systemd and administration pack', 'system_scripting_pack.json', 'Scripting / System', ['Linux systemd & Administration']);
     case 'devops_core':
-      return bundledPackLibrarySelection('devops_core', 'Git SSH Docker and DevOps pack', 'system_scripting_pack.json', 'Scripting / System', ['Git, SSH, Docker & DevOps']);
+      return bundledPackLibrarySelection('devops_core', 'Git SSH Docker and DevOps pack', 'system_scripting_pack.json', 'Scripting / System', ['Git Version Control', 'OpenSSH & Secure Remote Access', 'Docker & Containers', 'DevOps, CI & Release Automation']);
     case 'scripting_all':
       return combinePreservingLibraries('scripting_all', 'All scripting and system pack', ['system_automation_core', 'powershell_core', 'batch_core', 'bash_core', 'linux_admin_core', 'devops_core']);
     case 'additional_all':
-      return combinePreservingLibraries('additional_all', 'All additional language packs', ['python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core']);
+      return combinePreservingLibraries('additional_all', 'All additional language packs', ['python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'vba_core']);
+    case 'assembly_core':
+      return bundledPackFileSelection('assembly_core', 'Assembly complete structured pack', 'assembly_language_pack.json', ['Assembly']);
+    case 'assembly_fundamentals':
+      return bundledPackLibrarySelection('assembly_fundamentals', 'Assembly fundamentals and toolchains pack', 'assembly_language_pack.json', 'Assembly', ['Assembly Fundamentals & Toolchains']);
+    case 'x86_asm_core':
+      return bundledPackLibrarySelection('x86_asm_core', 'x86 and x86-64 assembly pack', 'assembly_language_pack.json', 'Assembly', ['x86 / x86-64 Assembly']);
+    case 'arm_asm_core':
+      return bundledPackLibrarySelection('arm_asm_core', 'ARM Cortex-M and Thumb assembly pack', 'assembly_language_pack.json', 'Assembly', ['ARM Cortex-M / Thumb Assembly']);
+    case 'avr_asm_core':
+      return bundledPackLibrarySelection('avr_asm_core', 'AVR 8-bit assembly pack', 'assembly_language_pack.json', 'Assembly', ['AVR 8-bit Assembly (ATmega328P / ATmega2560)']);
+    case 'riscv_asm_core':
+      return bundledPackLibrarySelection('riscv_asm_core', 'RISC-V assembly pack', 'assembly_language_pack.json', 'Assembly', ['RISC-V Assembly']);
+    case 'mcu_asm_core':
+      return bundledPackLibrarySelection('mcu_asm_core', 'Microcontroller assembly workflows pack', 'assembly_language_pack.json', 'Assembly', ['Microcontroller Assembly Workflows']);
+    case 'assembly_all':
+      return bundledPackFileSelection('assembly_all', 'All assembly pack', 'assembly_language_pack.json', ['Assembly']);
     case 'embedded_core':
       return bundledPackLibrarySelection('embedded_core', 'Embedded systems patterns pack', 'embedded_language_pack.json', 'Embedded', ['Embedded Systems']);
     case 'arduino_core':
       return bundledPackLibrarySelection('arduino_core', 'Arduino AVR UNO Nano ATmega328P pack', 'embedded_language_pack.json', 'Embedded', ['Arduino AVR (UNO / Nano ATmega328P)']);
+    case 'arduino_mega_core':
+      return bundledPackLibrarySelection('arduino_mega_core', 'Arduino Mega 2560 ATmega2560 pack', 'embedded_language_pack.json', 'Embedded', ['Arduino Mega 2560 (ATmega2560)']);
     case 'esp32_core':
       return bundledPackLibrarySelection('esp32_core', 'ESP32 Arduino pack', 'embedded_language_pack.json', 'Embedded', ['ESP32 Arduino']);
     case 'raspi_core':
       return bundledPackLibrarySelection('raspi_core', 'Raspberry Pi Linux embedded pack', 'embedded_language_pack.json', 'Embedded', ['Raspberry Pi Linux Embedded']);
     case 'stm32_core':
       return bundledPackLibrarySelection('stm32_core', 'STM32 HAL and CubeProgrammer pack', 'embedded_language_pack.json', 'Embedded', ['STM32 HAL & CubeProgrammer']);
+    case 'pic_core':
+      return bundledPackLibrarySelection('pic_core', 'Microchip PIC embedded pack', 'embedded_language_pack.json', 'Embedded', ['PIC XC8 / XC16 / XC32 Bare Metal', 'MPLAB X / Microchip Toolchain']);
+    case 'msp_core':
+      return bundledPackLibrarySelection('msp_core', 'Texas Instruments MSP embedded pack', 'embedded_language_pack.json', 'Embedded', ['MSP430 Bare Metal / DriverLib', 'TI MSP Toolchain & Flashing']);
     case 'embedded_all':
-      return combinePreservingLibraries('embedded_all', 'All embedded pack', ['embedded_core', 'arduino_core', 'esp32_core', 'stm32_core', 'raspi_core']);
+      return bundledPackFileSelection('embedded_all', 'All embedded pack', 'embedded_language_pack.json', ['Embedded']);
     case 'sdl_all':
-      return bundledPackFileSelection('sdl_all', 'SDL structured pack', 'sdl_pack.json', ['SDL']);
+      return bundledPackFileSelection('sdl_all', 'SDL2 / SDL3 structured pack', 'sdl_pack.json', ['SDL']);
+    case 'sdl2_all':
+      return bundledPackFileSelection('sdl2_all', 'SDL2 structured pack', 'sdl2_language_pack.json', ['SDL']);
+    case 'sdl3_all':
+      return bundledPackFileSelection('sdl3_all', 'SDL3 structured pack', 'sdl3_language_pack.json', ['SDL']);
     case 'win32_gui_all':
-      return bundledPackFileSelection('win32_gui_all', 'Win32 GUI structured pack', 'windows_api_device_pack.json', ['Win32']);
+      return bundledPackLibrarySelection('win32_gui_all', 'Win32 GUI structured pack', 'windows_api_device_pack.json', 'Windows API / Devices', ['User32', 'GDI32', 'Comdlg32', 'Comctl32', 'Kernel32', 'Shell32', 'Wtsapi32', 'Advapi32', 'DbgHelp', 'Winsock2', 'Iphlpapi', 'Psapi']);
     case 'windows_devices_all':
-      return bundledPackFileSelection('windows_devices_all', 'Windows Devices structured pack', 'windows_api_device_pack.json', ['Windows Devices']);
+      return bundledPackLibrarySelection('windows_devices_all', 'Windows Devices structured pack', 'windows_api_device_pack.json', 'Windows API / Devices', ['WinMM', 'Core Audio', 'XInput', 'Raw Input', 'Media Foundation', 'DirectShow', 'HID & SetupAPI', 'Bluetooth', 'Serial Ports', 'WinUSB', 'SetupAPI Advanced', 'Bluetooth LE', 'Media Foundation Advanced']);
     case 'windows_all':
-      return bundledPackFileSelection('windows_all', 'Windows API / Devices structured pack', 'windows_api_device_pack.json', ['Win32', 'Windows Devices']);
+      return bundledPackFileSelection('windows_all', 'Windows API / Devices structured pack', 'windows_api_device_pack.json', ['Windows API / Devices']);
     case 'lua_all':
       return bundledPackFileSelection('lua_all', 'Lua pack', 'lua_pack.json');
     case 'lua_standard':
-      return bundledPackFileSelection('lua_standard', 'Lua standard 5.4 pack', 'lua_pack.json', ['Lua standard 5.4']);
+      return bundledPackLibraryEnvironmentSelection('lua_standard', 'Lua standard 5.4 pack', 'lua_pack.json', 'Lua', ['Lua standard 5.4']);
     case 'lua_industrial':
-      return bundledPackFileSelection('lua_industrial', 'Lua industriel / banc de test pack', 'lua_pack.json', ['Lua industriel / banc de test']);
+      return bundledPackLibraryEnvironmentSelection('lua_industrial', 'Lua industriel / banc de test pack', 'lua_pack.json', 'Lua', ['Lua industriel / banc de test']);
     case 'lua_mpt':
-      return bundledPackFileSelection('lua_mpt', 'MPT Studio / MPTLua pack', 'lua_pack.json', ['MPT Studio / MPTLua (Lua 5.2.4)']);
+      return bundledPackLibraryEnvironmentSelection('lua_mpt', 'MPT Studio / MPTLua pack', 'lua_pack.json', 'Lua', ['MPT Studio / MPTLua (Lua 5.2.4)']);
     case 'lua_stormworks':
-      return bundledPackFileSelection('lua_stormworks', 'Stormworks Lua microcontroller pack', 'lua_pack.json', ['Stormworks Lua microcontroller']);
+      return bundledPackLibraryEnvironmentSelection('lua_stormworks', 'Stormworks Lua microcontroller pack', 'lua_pack.json', 'Lua', ['Stormworks Lua microcontroller']);
     case 'tnt_exec_all':
-      return bundledPackFileSelection('tnt_exec_all', 'TNT_EXEC / HNF sequencer pack', 'tnt_exec_pack.json', ['Sequencer']);
+      return bundledPackFileSelection('tnt_exec_all', 'TNT_EXEC / HNF sequencer pack', 'tnt_exec_pack.json', ['CVI - TNT_EXEC Sequencer']);
     case 'examples_all':
       return combinePreservingLibraries('examples_all', 'All example packs', ['opencv_robotics_example', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
     case 'all_packs':
-      return combinePreservingLibraries('all_packs', 'All packs', ['c_all', 'cpp_all', 'preprocessor_core', 'qt_all', 'opencv_all', 'build_all', 'scripting_all', 'python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'database_all', 'embedded_all', 'lua_all', 'sdl_all', 'windows_all', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
+      return combinePreservingLibraries('all_packs', 'All packs', ['c_all', 'cpp_all', 'preprocessor_core', 'qt_all', 'opencv_all', 'build_all', 'scripting_all', 'python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'vba_core', 'database_all', 'embedded_all', 'assembly_all', 'lua_all', 'sdl_all', 'windows_all', 'tnt_exec_all', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
     default:
       return direct(id as LanguagePackMode);
   }
@@ -8319,7 +8431,7 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
     { label: 'Qt pack', description: 'Structured Qt C++ pack loaded from qt_pack.json, plus Qt for Python / PySide6, editable declarative QML templates, multimedia, SQL, and tests', value: 'qt' },
     { label: 'OpenCV pack', description: 'OpenCV language pack merged with Vision Premium, plus robotics/camera examples', value: 'opencv' },
     { label: 'Build pack', description: 'CMake, CTest, CPack, GCC, G++, Clang, LLVM, MinGW, MSVC, Make, Ninja, and C/C++ dependency helpers', value: 'build' },
-    { label: 'SDL pack', description: 'Audited SDL2, SDL_image, SDL_ttf, SDL_mixer, and SDL2_net structured content with documented advanced pickers', value: 'sdl' },
+    { label: 'SDL pack', description: 'Audited SDL2 and SDL3 structured content with documented advanced pickers and migration helpers', value: 'sdl' },
     { label: 'Windows API / Devices pack', description: 'Win32 GUI plus Windows device APIs including audio, input, camera, HID, Bluetooth, serial, and USB helpers', value: 'windows' },
     { label: 'Scripting / System pack', description: 'Cross-platform automation, PowerShell 7, Windows CMD/Batch, Bash/POSIX shell, Linux systemd administration, Git, SSH, Docker, and DevOps helpers', value: 'scripting' },
     { label: 'Python language pack', description: 'Complete structured Python pack: language, typing, collections, files/configuration, persistence, asyncio, HTTP/FastAPI, Linux, serial, USB, BLE, scientific computing, AI, GUI, automation, and robotics', value: 'python_core' },
@@ -8329,6 +8441,8 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
     { label: 'PHP language pack', description: 'Complete structured PHP 8.5 pack: language, callables, OOP, SPL, files/configuration, PDO, security, HTTP, Composer, PHPUnit, Twig, Laravel, Symfony, WordPress, workers, and Linux deployment', value: 'php_core' },
     { label: 'Kotlin language pack', description: 'Structured Kotlin 2.4 pack: language, null safety, OOP, extensions, collections, coroutines, Flow, serialization, databases, Ktor, Spring Boot, Android Compose, desktop Compose, Kotlin Multiplatform, Java interop, native integration, testing, Gradle, and device-I/O notes', value: 'kotlin_core' },
     { label: 'TypeScript language pack', description: 'Structured TypeScript pack: declarations, narrowing, generics, modules, typed DOM, frameworks, Node.js, validation, tests, TSConfig, desktop bridges and device I/O', value: 'typescript_core' },
+    { label: 'Visual Basic / VBA pack', description: 'Structured Visual Basic for Applications pack: VBA syntax, modules, errors, files, COM, Excel Application/Workbook/Worksheet/Range APIs, Excel events, UserForms, and Office automation', value: 'vba_core' },
+    { label: 'Assembly pack', description: 'Structured assembly pack: x86/x64, ARM Cortex-M/Thumb, AVR 8-bit, RISC-V, toolchain commands, startup, ISR, ABI, linker and microcontroller workflows', value: 'assembly' },
     { label: 'Database pack', description: 'Structured SQL, NoSQL, client C APIs, ODBC, SQLAlchemy/Alembic, hiredis and operations pack with parameterized direct cards and retained recipes', value: 'database' },
     { label: 'Lua pack', description: 'Lua standard, industrial/test-bench Lua, MPTLua, and Stormworks microcontroller Lua content', value: 'lua' },
     { label: 'Embedded pack', description: 'Embedded-specific patterns, Arduino AVR registers and ISR vectors, ESP32 Arduino peripherals/connectivity, and Raspberry Pi Linux hardware interfaces', value: 'embedded' },
@@ -8344,7 +8458,7 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
   if (family.value === 'all') {
     return buildStarterPackSelection('all_packs');
   }
-  if (['python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core'].includes(family.value)) {
+  if (['python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'vba_core'].includes(family.value)) {
     return buildStarterPackSelection(family.value);
   }
 
@@ -8383,12 +8497,15 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'MinGW build pack', description: 'Structured Windows GCC, G++, DLL, import-library, and windres cards', value: 'mingw_core' },
       { label: 'MSVC Build Tools pack', description: 'Structured cl.exe, MSBuild, DLL, object, and dumpbin cards', value: 'msvc_core' },
       { label: 'Make and Ninja pack', description: 'Structured GNU Make, mingw32-make, Ninja, clean, and compilation-database cards', value: 'make_ninja_core' },
+      { label: 'Meson build system pack', description: 'Structured Meson setup, configure, compile, test, install, introspection, cross-file, wrap dependency, and Ninja backend cards', value: 'meson_core' },
       { label: 'C/C++ dependency managers pack', description: 'Structured pkg-config, vcpkg manifest-mode, and Conan cards', value: 'deps_core' },
       { label: 'Cross-compilation and binary utilities pack', description: 'CMake toolchain files, linker scripts, objcopy, readelf, objdump, size, strip, addr2line, strings, archives, and Arm GNU toolchain helpers', value: 'cross_toolchain_core' },
       { label: 'Debugging, coverage, documentation and CI pack', description: 'GDB, LLDB, gcov, gcovr, LCOV, LLVM coverage, sanitizers, cppcheck, Doxygen, MSBuild diagnostics, and CI skeletons', value: 'build_quality_core' }
     ],
     sdl: [
-      { label: 'SDL complete pack', description: 'Add the audited SDL environment with SDL2, SDL_image, SDL_ttf, SDL_mixer, and SDL2_net content', value: 'sdl_all' }
+      { label: 'Add all SDL2 / SDL3 pack', description: 'Add both SDL2 extension libraries and the SDL3 modern API pack', value: 'sdl_all' },
+      { label: 'SDL2 complete pack', description: 'Add SDL2, SDL2_image, SDL2_ttf, SDL2_mixer and SDL2_net structured content', value: 'sdl2_all' },
+      { label: 'SDL3 complete pack', description: 'Add SDL3 windowing, renderer, events, properties, snippets and SDL2-to-SDL3 migration helpers', value: 'sdl3_all' }
     ],
     windows: [
       { label: 'Add Windows API / Devices structured pack', description: 'Add both Win32 GUI and Windows Devices with documented multi-select flag pickers', value: 'windows_all' },
@@ -8405,14 +8522,15 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'Git, SSH, Docker & DevOps pack', description: 'Git daily workflows and recovery, OpenSSH keys and forwarding, Docker CLI, Dockerfiles, Compose, CI, environment files, and release automation helpers', value: 'devops_core' }
     ],
     additional: [
-      { label: 'Add all additional language packs', description: 'Add Python, Java, JavaScript/HTML/CSS, C#, PHP, Kotlin, and TypeScript packs together', value: 'additional_all' },
+      { label: 'Add all additional language packs', description: 'Add Python, Java, JavaScript/HTML/CSS, C#, PHP, Kotlin, TypeScript, and Visual Basic / VBA packs together', value: 'additional_all' },
       { label: 'Python language pack', description: 'Complete structured Python pack: language, typing, collections, files/config, persistence, asyncio, processes, HTTP/FastAPI, Linux, serial, USB, BLE, native DLL interop, testing, packaging, scientific computing, DSP, AI, GUI, automation, and robotics', value: 'python_core' },
       { label: 'Java language pack', description: 'Complete structured Java pack: modern language syntax, OOP, records, sealed types, generics, reflection, collections, streams, NIO, JSON, JDBC, virtual threads, networking, serial/USB/BLE notes, JNI/JNA/FFM, JUnit, Maven, Gradle, jpackage, Swing, JavaFX, Spring Boot, Linux services, and automation patterns', value: 'java_core' },
       { label: 'JavaScript / HTML / CSS pack', description: 'Curated structured JavaScript / HTML / CSS pack: organized operators, objects, arrays, strings, RegExp, DOM, Fetch, storage, Service Workers, IndexedDB, Canvas, WebGL, HTML, CSS, frameworks, desktop bridges, Node.js, Express and retained architectural recipes', value: 'web_core' },
       { label: 'C# language pack', description: 'Complete structured C#/.NET pack: C# 14 language syntax, nullable types, records, patterns, delegates, LINQ, files, JSON, EF Core, timers, async/tasks, networking, serial/USB notes, P/Invoke, Linux services, WPF, WinForms, MAUI, WebView2, ASP.NET Core, Razor Pages, MVC, .cshtml, Minimal APIs, Identity, Blazor, SignalR, testing, NuGet, and deployment', value: 'csharp_core' },
       { label: 'PHP language pack', description: 'Complete structured PHP 8.5 pack: modern syntax, callables, OOP, enums, attributes, SPL, streams, JSON, PDO, web security, sessions, cURL, Composer, PHPUnit, Twig, Laravel, Symfony, WordPress, workers, FPM, Docker, and Linux deployment', value: 'php_core' },
       { label: 'Kotlin language pack', description: 'Structured Kotlin 2.4 pack: syntax, null safety, OOP, DSLs, collections, coroutines, Flow, JSON, JDBC, Ktor, Spring Boot, Android Compose, desktop Compose, Kotlin Multiplatform, JVM/native interop, testing, Gradle, Linux deployment, and hardware integration notes', value: 'kotlin_core' },
-      { label: 'TypeScript language pack', description: 'Structured TypeScript pack: type system, narrowing, classes, generics, modules, typed browser APIs, frameworks, Node.js, backend validation, build tools, desktop bridges and protocol helpers', value: 'typescript_core' }
+      { label: 'TypeScript language pack', description: 'Structured TypeScript pack: type system, narrowing, classes, generics, modules, typed browser APIs, frameworks, Node.js, backend validation, build tools, desktop bridges and protocol helpers', value: 'typescript_core' },
+      { label: 'Visual Basic / VBA pack', description: 'Structured VBA and Excel macro pack with parameterized event procedures, Range helpers, Workbook/Worksheet APIs, UserForms, and Office automation', value: 'vba_core' }
     ],
     database: [
       { label: 'Add all database pack', description: 'Add structured SQL, NoSQL, C client APIs, ODBC, SQLAlchemy/Alembic, hiredis and database operations libraries together', value: 'database_all' },
@@ -8433,22 +8551,34 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'Database operations, backup and replication', description: 'PostgreSQL, MySQL, SQLite, MongoDB and Redis operational backup, health-check and replication helpers', value: 'dbops_core' }
     ],
     lua: [
-      { label: 'Add all Lua pack', description: 'Add Lua standard 5.4, industrial/test-bench Lua, MPTLua, and Stormworks environments', value: 'lua_all' },
+      { label: 'Add all Lua pack', description: 'Add one Lua environment containing Lua standard 5.4, industrial/test-bench Lua, MPTLua, and Stormworks libraries', value: 'lua_all' },
       { label: 'Lua standard 5.4', description: 'Syntax, tables, functions, modules, errors, strings, patterns, math, IO, coroutines, versions, and pitfalls', value: 'lua_standard' },
       { label: 'Lua industriel / banc de test', description: 'External communication references and test-sequence/logging patterns', value: 'lua_industrial' },
       { label: 'MPT Studio / MPTLua', description: 'MPTLua Lua 5.2.4 environment, operator prompts, reporting, persistence, switching, measurements, and advanced MPT patterns', value: 'lua_mpt' },
       { label: 'Stormworks Lua microcontroller', description: 'onTick/onDraw lifecycle, composite I/O, screen drawing, map conversion, properties, async HTTP, and practical Stormworks snippets', value: 'lua_stormworks' }
     ],
+    assembly: [
+      { label: 'Add all assembly pack', description: 'Add x86/x64, ARM Cortex-M/Thumb, AVR, RISC-V and microcontroller assembly workflows together', value: 'assembly_all' },
+      { label: 'Assembly fundamentals and toolchains', description: 'Common syntax, sections, directives, ABI notes, stack frames and toolchain commands', value: 'assembly_fundamentals' },
+      { label: 'x86 / x86-64 assembly', description: 'Intel-syntax registers, addressing, instructions, SysV ABI, Windows x64 ABI, Linux syscalls and SIMD snippets', value: 'x86_asm_core' },
+      { label: 'ARM Cortex-M / Thumb assembly', description: 'Cortex-M registers, Thumb instructions, vector table, Reset_Handler, exceptions, barriers and arm-none-eabi commands', value: 'arm_asm_core' },
+      { label: 'AVR 8-bit assembly', description: 'AVR registers, I/O bit operations, vectors, ISR skeletons, bootloader jump and avr-gcc/avr-objcopy/avrdude workflows', value: 'avr_asm_core' },
+      { label: 'RISC-V assembly', description: 'RISC-V ABI registers, instructions, CSRs, trap vectors, startup and riscv-none-elf workflows', value: 'riscv_asm_core' },
+      { label: 'Microcontroller assembly workflows', description: 'ATmega328P and STM32 Cortex-M assembly recipes for GPIO, startup and low-level register work', value: 'mcu_asm_core' }
+    ],
     tnt_exec: [
       { label: 'TNT_EXEC / HNF sequencer complete pack', description: 'TNT_EXEC prototypes, DLL entry templates, sequence context, PASS/FAIL reporting, logging, RS232, loop/multi-UUT helpers and constants', value: 'tnt_exec_all' }
     ],
     embedded: [
-      { label: 'Add all embedded pack', description: 'Add embedded architecture patterns, Arduino AVR, ESP32 Arduino, STM32 HAL / CubeProgrammer, and Raspberry Pi Linux embedded helpers together', value: 'embedded_all' },
-      { label: 'Embedded systems patterns', description: 'Bare-metal architecture plus structured FreeRTOS task, queue, semaphore, notification and event-group APIs', value: 'embedded_core' },
-      { label: 'Arduino AVR UNO / Nano pack', description: 'Structured Arduino Core, Serial, Wire, SPI, EEPROM, watchdog, sleep and arduino-cli cards plus ATmega328P register examples', value: 'arduino_core' },
+      { label: 'Add all embedded pack', description: 'Add embedded architecture patterns, Arduino AVR registers, linker and bootloader templates, ESP32, STM32, Raspberry Pi, Microchip PIC, and Texas Instruments MSP helpers together', value: 'embedded_all' },
+      { label: 'Embedded systems patterns', description: 'Bare-metal architecture plus structured FreeRTOS APIs, linker scripts, memory maps and bootloader workflows', value: 'embedded_core' },
+      { label: 'Arduino AVR UNO / Nano pack', description: 'Structured Arduino Core plus complete ATmega328P register-configuration blocks, timers, GPIO, ADC, USART, SPI, TWI, EEPROM, watchdog, sleep and arduino-cli cards', value: 'arduino_core' },
+      { label: 'Arduino Mega 2560 pack', description: 'Structured Arduino Mega pack with ATmega2560 board mapping, GPIO ports, Timer0/1/2/3/4/5, USART0..3, ADC, SPI, TWI, linker and bootloader cards', value: 'arduino_mega_core' },
       { label: 'ESP32 Arduino pack', description: 'Structured ESP32 Arduino LEDC, timer, Preferences, Wi-Fi, ESP-NOW, RMT, I2S, native USB CDC, ESP-Modbus v2, ESP-IDF TWAI, esptool, UART, I2C and deep-sleep cards', value: 'esp32_core' },
       { label: 'STM32 HAL and CubeProgrammer pack', description: 'Structured STM32 HAL GPIO, UART, I2C, SPI, DMA, bxCAN, FDCAN, USB CDC/HID, STM32CubeProgrammer, OpenOCD, dfu-util and stm32flash cards', value: 'stm32_core' },
-      { label: 'Raspberry Pi Linux embedded pack', description: 'Structured libgpiod 2.x GPIO, i2c-tools, UART, libmodbus RTU and rpicam-apps commands plus Raspberry Pi deployment and MCU-coordination notes', value: 'raspi_core' }
+      { label: 'Raspberry Pi Linux embedded pack', description: 'Structured libgpiod 2.x GPIO, i2c-tools, UART, libmodbus RTU and rpicam-apps commands plus Raspberry Pi deployment and MCU-coordination notes', value: 'raspi_core' },
+      { label: 'Microchip PIC pack', description: 'PIC16/PIC18/PIC24/dsPIC33/PIC32 helpers for XC8/XC16/XC32 config bits, oscillator, GPIO, PPS, interrupts, peripherals, linker memory and bootloader workflows', value: 'pic_core' },
+      { label: 'Texas Instruments MSP pack', description: 'MSP430 and MSP432-oriented helpers for watchdog, clocks, GPIO, Timer_A, ADC, USCI/eUSCI, interrupts, low-power modes, linker command files, BSL and flashing workflows', value: 'msp_core' }
     ],
     examples: [
       { label: 'Add all example packs', description: 'Add every premium example pack in one operation', value: 'examples_all' },

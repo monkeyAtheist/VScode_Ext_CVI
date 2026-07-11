@@ -1,5 +1,36 @@
 {
     "cpm.libraries": [
         "ws2_32"
-    ]
+    ],
+    "cpm.cCompilerPath": "C:\\Program Files (x86)\\mingw32\\bin\\gcc.exe",
+    "cpm.cppCompilerPath": "C:\\Program Files (x86)\\mingw32\\bin\\g++.exe",
+    "cpm.archiverPath": "C:\\Program Files (x86)\\mingw32\\bin\\ar.exe",
+    "cpm.debuggerPath": "C:\\Program Files (x86)\\mingw32\\bin\\gdb.exe",
+    "cpm.outputDirectory": "build",
+    "cpm.cStandard": "auto",
+    "cpm.cppStandard": "c++17",
+    "cpm.warningLevel": "wall-extra",
+    "cpm.optimizationLevel": "mode-default",
+    "cpm.debugInformation": "mode-default",
+    "cpm.architectureMode": "auto",
+    "cpm.runtimeDependencyMode": "static-link",
+    "cpm.sdlEnabled": "on",
+    "cpm.sdlVersion": "SDL2",
+    "cpm.sdlRootPath": "c:\\Program Files (x86)\\SDL2",
+    "cpm.sdlRuntimeMode": "static-link",
+    "cpm.sdlSubsystem": "windows",
+    "cpm.compilerFlags": [],
+    "cpm.cCompilerFlags": [],
+    "cpm.cppCompilerFlags": [],
+    "cpm.linkerFlags": [],
+    "cpm.includePaths": [],
+    "cpm.libraryPaths": [],
+    "cpm.defineSymbols": [],
+    "cpm.sdlPackages": [
+        "SDL2"
+    ],
+    "cpm.useBuildModeArchitectureFlags": false,
+    "cpm.cleanRuntimeDllsOnDeploy": true,
+    "cpm.deployRuntimeDlls": "never",
+    "cpm.sdlCopyAllRuntimeDlls": true
 }

@@ -31,7 +31,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Mat",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::UMat",
@@ -45,7 +46,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::UMat",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Size",
@@ -59,7 +61,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Size",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Point",
@@ -73,7 +76,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Point",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Point2f",
@@ -87,7 +91,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Point2f",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Point3f",
@@ -101,7 +106,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Point3f",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Rect",
@@ -115,7 +121,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Rect",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Scalar",
@@ -129,7 +136,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Scalar",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Vec3b",
@@ -143,7 +151,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Vec3b",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::RotatedRect",
@@ -157,7 +166,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::RotatedRect",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::TermCriteria",
@@ -171,7 +181,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::TermCriteria",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Ptr<T>",
@@ -185,7 +196,8 @@
                       "symbolKind": "keyword",
                       "declaration": "cv::Ptr<T>",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     }
                   ]
                 },
@@ -326,7 +338,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::Mat(rows, cols, type)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat constructor size type fill",
@@ -461,7 +474,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::Mat(size, type, scalar)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::zeros",
@@ -596,7 +610,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::Mat::zeros(rows, cols, type)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::ones",
@@ -731,7 +746,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::Mat::ones(rows, cols, type)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::clone",
@@ -758,7 +774,8 @@
                       "symbolKind": "method",
                       "declaration": "mat.clone()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::copyTo",
@@ -785,7 +802,8 @@
                       "symbolKind": "method",
                       "declaration": "mat.copyTo(dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat ROI view",
@@ -818,7 +836,8 @@
                       "symbolKind": "operator",
                       "declaration": "mat(rect)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::empty",
@@ -845,7 +864,8 @@
                       "symbolKind": "method",
                       "declaration": "mat.empty()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::Mat::convertTo",
@@ -986,7 +1006,8 @@
                       "symbolKind": "method",
                       "declaration": "mat.convertTo(dst, rtype, alpha, beta)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::split",
@@ -1013,7 +1034,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::split(src, mv)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::merge",
@@ -1040,7 +1062,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::merge(mv, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::minMaxLoc",
@@ -1085,7 +1108,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::minMaxLoc(src, minVal, maxVal, minLoc, maxLoc)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::norm",
@@ -1190,7 +1214,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::norm(src1, src2, normType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::absdiff",
@@ -1223,7 +1248,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::absdiff(src1, src2, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::addWeighted",
@@ -1274,7 +1300,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::addWeighted(src1, alpha, src2, beta, gamma, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::bitwise_and",
@@ -1313,7 +1340,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::bitwise_and(src1, src2, dst, mask)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::mean",
@@ -1346,7 +1374,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::mean(src, mask)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::countNonZero",
@@ -1373,7 +1402,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::countNonZero(src)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::normalize",
@@ -1484,7 +1514,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::normalize(src, dst, alpha, beta, normType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::transpose",
@@ -1511,7 +1542,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::transpose(src, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::flip",
@@ -1600,7 +1632,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::flip(src, dst, flipCode)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     },
                     {
                       "name": "cv::rotate",
@@ -1689,7 +1722,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::rotate(src, dst, rotateCode)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Core Matrices, Types & Array Operations"
                     }
                   ]
                 }
@@ -1811,7 +1845,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imread(filename, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::imwrite",
@@ -1852,7 +1887,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imwrite(filename, img, params)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::imdecode",
@@ -1961,7 +1997,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imdecode(buf, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::imencode",
@@ -2006,7 +2043,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imencode(ext, img, buf, params)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::haveImageReader",
@@ -2035,7 +2073,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::haveImageReader(filename)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::haveImageWriter",
@@ -2064,7 +2103,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::haveImageWriter(filename)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::imreadmulti",
@@ -2180,7 +2220,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imreadmulti(filename, mats, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgcodecs.hpp>"
+                      "header": "#include <opencv2/imgcodecs.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     }
                   ]
                 },
@@ -2286,7 +2327,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::FileStorage(filename, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/persistence.hpp>"
+                      "header": "#include <opencv2/core/persistence.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::FileStorage write matrix",
@@ -2319,7 +2361,8 @@
                       "symbolKind": "operator",
                       "declaration": "storage << key << mat",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/persistence.hpp>"
+                      "header": "#include <opencv2/core/persistence.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::FileNode read matrix",
@@ -2352,7 +2395,8 @@
                       "symbolKind": "operator",
                       "declaration": "storage[key] >> mat",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/persistence.hpp>"
+                      "header": "#include <opencv2/core/persistence.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     },
                     {
                       "name": "cv::FileStorage::release",
@@ -2373,7 +2417,8 @@
                       "symbolKind": "method",
                       "declaration": "storage.release()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/persistence.hpp>"
+                      "header": "#include <opencv2/core/persistence.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     }
                   ]
                 },
@@ -2393,7 +2438,8 @@
                       "symbolKind": "snippet",
                       "declaration": "imread + imshow",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Image Codecs, File Storage & Persistence"
                     }
                   ]
                 }
@@ -2543,7 +2589,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::cvtColor(src, dst, code)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::resize",
@@ -2670,7 +2717,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::resize(src, dst, dsize, fx, fy, interpolation)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::warpPerspective",
@@ -2879,7 +2927,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::warpPerspective(src, dst, M, dsize, flags, borderMode, borderValue)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::getPerspectiveTransform",
@@ -2912,7 +2961,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getPerspectiveTransform(src, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::warpAffine",
@@ -3121,7 +3171,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::warpAffine(src, dst, M, dsize, flags, borderMode, borderValue)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::getRotationMatrix2D",
@@ -3160,7 +3211,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getRotationMatrix2D(center, angle, scale)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::copyMakeBorder",
@@ -3299,7 +3351,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::copyMakeBorder(src, dst, top, bottom, left, right, borderType, value)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::remap",
@@ -3508,7 +3561,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::remap(src, dst, map1, map2, interpolation, borderMode, borderValue)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     }
                   ]
                 },
@@ -3641,7 +3695,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::GaussianBlur(src, dst, ksize, sigmaX, sigmaY, borderType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::medianBlur",
@@ -3674,7 +3729,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::medianBlur(src, dst, ksize)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::bilateralFilter",
@@ -3801,7 +3857,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::bilateralFilter(src, dst, d, sigmaColor, sigmaSpace, borderType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::threshold",
@@ -3948,7 +4005,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::threshold(src, dst, thresh, maxval, type)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::adaptiveThreshold",
@@ -4097,7 +4155,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::adaptiveThreshold(src, dst, maxValue, adaptiveMethod, thresholdType, blockSize, C)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::inRange",
@@ -4136,7 +4195,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::inRange(src, lowerb, upperb, dst)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::getStructuringElement",
@@ -4231,7 +4291,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getStructuringElement(shape, ksize, anchor)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::morphologyEx",
@@ -4466,7 +4527,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::morphologyEx(src, dst, op, kernel, anchor, iterations, borderType, borderValue)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::erode",
@@ -4511,7 +4573,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::erode(src, dst, kernel, anchor, iterations)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::dilate",
@@ -4556,7 +4619,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::dilate(src, dst, kernel, anchor, iterations)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::Canny",
@@ -4664,7 +4728,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::Canny(image, edges, threshold1, threshold2, apertureSize, L2gradient)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::Sobel",
@@ -4905,7 +4970,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::Sobel(src, dst, ddepth, dx, dy, ksize, scale, delta, borderType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::Laplacian",
@@ -5134,7 +5200,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::Laplacian(src, dst, ddepth, ksize, scale, delta, borderType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     }
                   ]
                 },
@@ -5317,7 +5384,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::findContours(image, contours, hierarchy, mode, method)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::drawContours",
@@ -5424,7 +5492,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::drawContours(image, contours, contourIdx, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::contourArea",
@@ -5458,7 +5527,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::contourArea(contour, oriented)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::arcLength",
@@ -5492,7 +5562,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::arcLength(curve, closed)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::approxPolyDP",
@@ -5532,7 +5603,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::approxPolyDP(curve, approxCurve, epsilon, closed)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::boundingRect",
@@ -5559,7 +5631,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::boundingRect(array)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::minAreaRect",
@@ -5586,7 +5659,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::minAreaRect(points)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::minEnclosingCircle",
@@ -5619,7 +5693,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::minEnclosingCircle(points, center, radius)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::moments",
@@ -5653,7 +5728,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::moments(array, binaryImage)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::connectedComponentsWithStats",
@@ -5802,7 +5878,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::connectedComponentsWithStats(image, labels, stats, centroids, connectivity, ltype)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::HoughLinesP",
@@ -5859,7 +5936,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::HoughLinesP(image, lines, rho, theta, threshold, minLineLength, maxLineGap)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::HoughCircles",
@@ -5974,7 +6052,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::HoughCircles(image, circles, method, dp, minDist, param1, param2, minRadius, maxRadius)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "cv::matchTemplate",
@@ -6099,7 +6178,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::matchTemplate(image, templ, result, method)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Image Processing"
                     }
                   ]
                 },
@@ -6119,7 +6199,8 @@
                       "symbolKind": "snippet",
                       "declaration": "cvtColor + threshold",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "GaussianBlur + Canny",
@@ -6133,7 +6214,8 @@
                       "symbolKind": "snippet",
                       "declaration": "GaussianBlur + Canny",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Image Processing"
                     }
                   ]
                 },
@@ -6153,7 +6235,8 @@
                       "symbolKind": "snippet",
                       "declaration": "resize + letterbox",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Image Processing"
                     },
                     {
                       "name": "perspective transform",
@@ -6167,7 +6250,8 @@
                       "symbolKind": "snippet",
                       "declaration": "perspective transform",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Image Processing"
                     }
                   ]
                 }
@@ -6285,7 +6369,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::line(img, pt1, pt2, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::rectangle",
@@ -6386,7 +6471,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::rectangle(img, rect, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::circle",
@@ -6493,7 +6579,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::circle(img, center, radius, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::drawMarker",
@@ -6692,7 +6779,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::drawMarker(img, position, color, markerType, markerSize, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::putText",
@@ -6887,7 +6975,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::putText(img, text, org, fontFace, fontScale, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::polylines",
@@ -6995,7 +7084,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::polylines(img, pts, isClosed, color, thickness, lineType)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     }
                   ]
                 },
@@ -7114,7 +7204,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::namedWindow(winname, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::imshow",
@@ -7141,7 +7232,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::imshow(winname, mat)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::waitKey",
@@ -7168,7 +7260,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::waitKey(delay)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::destroyWindow",
@@ -7189,7 +7282,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::destroyWindow(winname)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::destroyAllWindows",
@@ -7203,7 +7297,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::destroyAllWindows()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::createTrackbar",
@@ -7260,7 +7355,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::createTrackbar(trackbarname, winname, value, count, onChange, userdata)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "cv::setMouseCallback",
@@ -7293,7 +7389,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::setMouseCallback(winname, onMouse, userdata)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/highgui.hpp>"
+                      "header": "#include <opencv2/highgui.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     }
                   ]
                 },
@@ -7313,7 +7410,8 @@
                       "symbolKind": "snippet",
                       "declaration": "mouse callback",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "mouse callback with object context",
@@ -7327,7 +7425,8 @@
                       "symbolKind": "snippet",
                       "declaration": "mouse callback with object context",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     },
                     {
                       "name": "trackbar callback with userdata",
@@ -7341,7 +7440,8 @@
                       "symbolKind": "snippet",
                       "declaration": "trackbar callback with userdata",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Drawing, Windows & Interaction"
                     }
                   ]
                 }
@@ -7481,7 +7581,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::VideoCapture(index, apiPreference)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture constructor file",
@@ -7611,7 +7712,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::VideoCapture(filename, apiPreference)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::open camera",
@@ -7746,7 +7848,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.open(index, apiPreference)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::isOpened",
@@ -7773,7 +7876,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.isOpened()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::read",
@@ -7806,7 +7910,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.read(image)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::grab",
@@ -7833,7 +7938,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.grab()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::retrieve",
@@ -7872,7 +7978,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.retrieve(image, flag)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::get",
@@ -8021,7 +8128,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.get(propId)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::set",
@@ -8176,7 +8284,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.set(propId, value)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::getBackendName",
@@ -8203,7 +8312,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.getBackendName()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoCapture::release",
@@ -8224,7 +8334,8 @@
                       "symbolKind": "method",
                       "declaration": "capture.release()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     }
                   ]
                 },
@@ -8275,7 +8386,8 @@
                       "symbolKind": "method",
                       "declaration": "cv::VideoWriter::fourcc(c1, c2, c3, c4)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoWriter constructor",
@@ -8328,7 +8440,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::VideoWriter(filename, fourcc, fps, frameSize, isColor)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoWriter::isOpened",
@@ -8355,7 +8468,8 @@
                       "symbolKind": "method",
                       "declaration": "writer.isOpened()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoWriter::write",
@@ -8382,7 +8496,8 @@
                       "symbolKind": "method",
                       "declaration": "writer.write(image)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::VideoWriter::release",
@@ -8403,7 +8518,8 @@
                       "symbolKind": "method",
                       "declaration": "writer.release()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/videoio.hpp>"
+                      "header": "#include <opencv2/videoio.hpp>",
+                      "category": "Video, Camera & Motion"
                     }
                   ]
                 },
@@ -8449,7 +8565,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::createBackgroundSubtractorMOG2(history, varThreshold, detectShadows)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/background_segm.hpp>"
+                      "header": "#include <opencv2/video/background_segm.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::BackgroundSubtractor::apply",
@@ -8488,7 +8605,8 @@
                       "symbolKind": "method",
                       "declaration": "subtractor.apply(image, fgmask, learningRate)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/background_segm.hpp>"
+                      "header": "#include <opencv2/video/background_segm.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::calcOpticalFlowPyrLK",
@@ -8539,7 +8657,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::calcOpticalFlowPyrLK(prevImg, nextImg, prevPts, nextPts, status, err)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/tracking.hpp>"
+                      "header": "#include <opencv2/video/tracking.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::KalmanFilter constructor",
@@ -8630,7 +8749,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::KalmanFilter(dynamParams, measureParams, controlParams, type)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/tracking.hpp>"
+                      "header": "#include <opencv2/video/tracking.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::KalmanFilter::predict",
@@ -8663,7 +8783,8 @@
                       "symbolKind": "method",
                       "declaration": "filter.predict(control)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/tracking.hpp>"
+                      "header": "#include <opencv2/video/tracking.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "cv::KalmanFilter::correct",
@@ -8696,7 +8817,8 @@
                       "symbolKind": "method",
                       "declaration": "filter.correct(measurement)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/video/tracking.hpp>"
+                      "header": "#include <opencv2/video/tracking.hpp>",
+                      "category": "Video, Camera & Motion"
                     }
                   ]
                 },
@@ -8716,7 +8838,8 @@
                       "symbolKind": "snippet",
                       "declaration": "VideoCapture camera loop",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Video, Camera & Motion"
                     }
                   ]
                 },
@@ -8736,7 +8859,8 @@
                       "symbolKind": "snippet",
                       "declaration": "background subtractor MOG2",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Video, Camera & Motion"
                     },
                     {
                       "name": "Kalman filter 2D",
@@ -8750,7 +8874,8 @@
                       "symbolKind": "snippet",
                       "declaration": "Kalman filter 2D",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Video, Camera & Motion"
                     }
                   ]
                 }
@@ -8800,7 +8925,8 @@
                       "symbolKind": "method",
                       "declaration": "cv::ORB::create(nfeatures, scaleFactor, nlevels)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::Feature2D::detectAndCompute",
@@ -8845,7 +8971,8 @@
                       "symbolKind": "method",
                       "declaration": "feature.detectAndCompute(image, mask, keypoints, descriptors)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::BFMatcher constructor",
@@ -8945,7 +9072,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::BFMatcher(normType, crossCheck)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::DescriptorMatcher::match",
@@ -8984,7 +9112,8 @@
                       "symbolKind": "method",
                       "declaration": "matcher.match(queryDescriptors, trainDescriptors, matches)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::DescriptorMatcher::knnMatch",
@@ -9029,7 +9158,8 @@
                       "symbolKind": "method",
                       "declaration": "matcher.knnMatch(queryDescriptors, trainDescriptors, matches, k)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::drawKeypoints",
@@ -9140,7 +9270,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::drawKeypoints(image, keypoints, outImage, color, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::drawMatches",
@@ -9191,7 +9322,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::drawMatches(img1, keypoints1, img2, keypoints2, matches1to2, outImg)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/features2d.hpp>"
+                      "header": "#include <opencv2/features2d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::findHomography",
@@ -9308,7 +9440,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::findHomography(srcPoints, dstPoints, method, ransacReprojThreshold, mask)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Features, Matching & Geometry"
                     },
                     {
                       "name": "cv::perspectiveTransform",
@@ -9341,7 +9474,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::perspectiveTransform(src, dst, m)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core.hpp>"
+                      "header": "#include <opencv2/core.hpp>",
+                      "category": "Features, Matching & Geometry"
                     }
                   ]
                 },
@@ -9361,7 +9495,8 @@
                       "symbolKind": "snippet",
                       "declaration": "ORB detectAndCompute",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Features, Matching & Geometry"
                     }
                   ]
                 }
@@ -9435,7 +9570,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::solvePnP",
@@ -9591,7 +9727,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec, useExtrinsicGuess, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::projectPoints",
@@ -9642,7 +9779,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::drawFrameAxes",
@@ -9699,7 +9837,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::drawFrameAxes(image, cameraMatrix, distCoeffs, rvec, tvec, length, thickness)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::undistort",
@@ -9744,7 +9883,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::undistort(src, dst, cameraMatrix, distCoeffs, newCameraMatrix)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::findChessboardCorners",
@@ -9855,7 +9995,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::findChessboardCorners(image, patternSize, corners, flags)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/calib3d.hpp>"
+                      "header": "#include <opencv2/calib3d.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::cornerSubPix",
@@ -9900,7 +10041,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::cornerSubPix(image, corners, winSize, zeroZone, criteria)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/imgproc.hpp>"
+                      "header": "#include <opencv2/imgproc.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     }
                   ]
                 },
@@ -10009,7 +10151,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::aruco::getPredefinedDictionary(name)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_dictionary.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_dictionary.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::DetectorParameters constructor",
@@ -10030,7 +10173,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::aruco::DetectorParameters()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::ArucoDetector constructor",
@@ -10063,7 +10207,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::aruco::ArucoDetector(dictionary, detectorParams)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::ArucoDetector::detectMarkers",
@@ -10108,7 +10253,8 @@
                       "symbolKind": "method",
                       "declaration": "detector.detectMarkers(image, corners, ids, rejectedImgPoints)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::drawDetectedMarkers",
@@ -10147,7 +10293,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::aruco::drawDetectedMarkers(image, corners, ids, borderColor)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::CharucoBoard constructor",
@@ -10192,7 +10339,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::aruco::CharucoBoard(size, squareLength, markerLength, dictionary)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_board.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_board.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::CharucoDetector constructor",
@@ -10219,7 +10367,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::aruco::CharucoDetector(board)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     },
                     {
                       "name": "cv::aruco::CharucoDetector::detectBoard",
@@ -10270,7 +10419,8 @@
                       "symbolKind": "method",
                       "declaration": "detector.detectBoard(image, charucoCorners, charucoIds, markerCorners, markerIds)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>"
+                      "header": "#include <opencv2/objdetect/aruco_detector.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     }
                   ]
                 },
@@ -10290,7 +10440,8 @@
                       "symbolKind": "snippet",
                       "declaration": "calibrateCamera skeleton",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Calibration, Pose & Fiducials"
                     }
                   ]
                 }
@@ -10329,7 +10480,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::CascadeClassifier(filename)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect.hpp>"
+                      "header": "#include <opencv2/objdetect.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::CascadeClassifier::load",
@@ -10363,7 +10515,8 @@
                       "symbolKind": "method",
                       "declaration": "classifier.load(filename)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect.hpp>"
+                      "header": "#include <opencv2/objdetect.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::CascadeClassifier::detectMultiScale",
@@ -10426,7 +10579,8 @@
                       "symbolKind": "method",
                       "declaration": "classifier.detectMultiScale(image, objects, scaleFactor, minNeighbors, flags, minSize, maxSize)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect.hpp>"
+                      "header": "#include <opencv2/objdetect.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::QRCodeDetector constructor",
@@ -10447,7 +10601,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::QRCodeDetector()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect.hpp>"
+                      "header": "#include <opencv2/objdetect.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::QRCodeDetector::detectAndDecode",
@@ -10492,7 +10647,8 @@
                       "symbolKind": "method",
                       "declaration": "detector.detectAndDecode(img, points, straight_qrcode)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/objdetect.hpp>"
+                      "header": "#include <opencv2/objdetect.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     }
                   ]
                 },
@@ -10526,7 +10682,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::dnn::readNetFromONNX(onnxFile)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::readNet",
@@ -10567,7 +10724,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::dnn::readNet(model, config, framework)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::blobFromImage",
@@ -10678,7 +10836,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::dnn::blobFromImage(image, scalefactor, size, mean, swapRB, crop, ddepth)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::Net::setInput",
@@ -10723,7 +10882,8 @@
                       "symbolKind": "method",
                       "declaration": "net.setInput(blob, name, scalefactor, mean)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::Net::forward",
@@ -10756,7 +10916,8 @@
                       "symbolKind": "method",
                       "declaration": "net.forward(outputName)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::Net::getUnconnectedOutLayersNames",
@@ -10783,7 +10944,8 @@
                       "symbolKind": "method",
                       "declaration": "net.getUnconnectedOutLayersNames()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::Net::setPreferableBackend",
@@ -10876,7 +11038,8 @@
                       "symbolKind": "method",
                       "declaration": "net.setPreferableBackend(backendId)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::Net::setPreferableTarget",
@@ -10979,7 +11142,8 @@
                       "symbolKind": "method",
                       "declaration": "net.setPreferableTarget(targetId)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::NMSBoxes",
@@ -11024,7 +11188,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::dnn::NMSBoxes(bboxes, scores, scoreThreshold, nmsThreshold, indices)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::DetectionModel constructor",
@@ -11051,7 +11216,8 @@
                       "symbolKind": "constructor",
                       "declaration": "cv::dnn::DetectionModel(net)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::DetectionModel::setInputParams",
@@ -11104,7 +11270,8 @@
                       "symbolKind": "method",
                       "declaration": "model.setInputParams(scale, size, mean, swapRB, crop)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     },
                     {
                       "name": "cv::dnn::DetectionModel::detect",
@@ -11161,7 +11328,8 @@
                       "symbolKind": "method",
                       "declaration": "model.detect(frame, classIds, confidences, boxes, confThreshold, nmsThreshold)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/dnn/dnn.hpp>"
+                      "header": "#include <opencv2/dnn/dnn.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     }
                   ]
                 },
@@ -11181,7 +11349,8 @@
                       "symbolKind": "snippet",
                       "declaration": "blobFromImage + forward",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Object Detection, DNN & QR"
                     }
                   ]
                 }
@@ -11345,7 +11514,8 @@
                       "symbolKind": "command",
                       "declaration": "find_package(OpenCV REQUIRED COMPONENTS components)",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "CMake configure OpenCV_DIR",
@@ -11381,7 +11551,8 @@
                       "symbolKind": "command",
                       "declaration": "cmake -S source -B build -DOpenCV_DIR=path",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "CMake build OpenCV project",
@@ -11481,7 +11652,8 @@
                       "symbolKind": "command",
                       "declaration": "cmake --build build --parallel",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "pkg-config OpenCV4 flags",
@@ -11495,7 +11667,8 @@
                       "symbolKind": "command",
                       "declaration": "pkg-config --cflags --libs opencv4",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "vcpkg install OpenCV",
@@ -11694,7 +11867,8 @@
                       "symbolKind": "command",
                       "declaration": "vcpkg install opencv[features]:triplet",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     }
                   ]
                 },
@@ -11721,7 +11895,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getVersionString()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/utility.hpp>"
+                      "header": "#include <opencv2/core/utility.hpp>",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "cv::getBuildInformation",
@@ -11742,7 +11917,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getBuildInformation()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/utility.hpp>"
+                      "header": "#include <opencv2/core/utility.hpp>",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "cv::getNumThreads",
@@ -11763,7 +11939,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::getNumThreads()",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/utility.hpp>"
+                      "header": "#include <opencv2/core/utility.hpp>",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "cv::setNumThreads",
@@ -11784,7 +11961,8 @@
                       "symbolKind": "function",
                       "declaration": "cv::setNumThreads(nthreads)",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/core/utility.hpp>"
+                      "header": "#include <opencv2/core/utility.hpp>",
+                      "category": "Build, Deployment & Diagnostics"
                     }
                   ]
                 },
@@ -11804,7 +11982,8 @@
                       "symbolKind": "reference",
                       "declaration": "OpenCV module map",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "OpenCV BGR channel ordering note",
@@ -11818,7 +11997,8 @@
                       "symbolKind": "reference",
                       "declaration": "OpenCV BGR channel ordering note",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "OpenCV Mat shallow copy note",
@@ -11832,7 +12012,8 @@
                       "symbolKind": "reference",
                       "declaration": "OpenCV Mat shallow copy note",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "VideoCapture backend caveat",
@@ -11846,7 +12027,8 @@
                       "symbolKind": "reference",
                       "declaration": "VideoCapture backend caveat",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "ArUco modern detector migration",
@@ -11860,7 +12042,8 @@
                       "symbolKind": "reference",
                       "declaration": "ArUco modern detector migration",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "OpenCV contrib module note",
@@ -11874,7 +12057,8 @@
                       "symbolKind": "reference",
                       "declaration": "OpenCV contrib module note",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     },
                     {
                       "name": "DNN preprocessing contract note",
@@ -11888,7 +12072,8 @@
                       "symbolKind": "reference",
                       "declaration": "DNN preprocessing contract note",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "Build, Deployment & Diagnostics"
                     }
                   ]
                 }
@@ -11913,7 +12098,8 @@
                       "symbolKind": "snippet",
                       "declaration": "matchTemplate",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "Contours, Shapes & Segmentation"
                     }
                   ]
                 }
@@ -11943,7 +12129,8 @@
                       "symbolKind": "snippet",
                       "declaration": "camera capture + overlay",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "HSV target mask",
@@ -11957,7 +12144,8 @@
                       "symbolKind": "snippet",
                       "declaration": "HSV target mask",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "distance estimate from bounding box",
@@ -11971,7 +12159,8 @@
                       "symbolKind": "snippet",
                       "declaration": "distance estimate from bounding box",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "vision decision to command",
@@ -11985,7 +12174,8 @@
                       "symbolKind": "snippet",
                       "declaration": "vision decision to command",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "camera reopen watchdog",
@@ -11999,7 +12189,8 @@
                       "symbolKind": "snippet",
                       "declaration": "camera reopen watchdog",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "search track act state machine",
@@ -12013,7 +12204,8 @@
                       "symbolKind": "snippet",
                       "declaration": "search track act state machine",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "HUD overlay with FPS and target status",
@@ -12027,7 +12219,8 @@
                       "symbolKind": "snippet",
                       "declaration": "HUD overlay with FPS and target status",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     },
                     {
                       "name": "steering command with deadband",
@@ -12041,7 +12234,8 @@
                       "symbolKind": "snippet",
                       "declaration": "steering command with deadband",
                       "environment": "OpenCV",
-                      "header": "#include <opencv2/opencv.hpp>"
+                      "header": "#include <opencv2/opencv.hpp>",
+                      "category": "OpenCV Robotics & Camera"
                     }
                   ]
                 },
@@ -12061,7 +12255,8 @@
                       "symbolKind": "reference",
                       "declaration": "Vision-to-command safety note",
                       "environment": "OpenCV",
-                      "header": ""
+                      "header": "",
+                      "category": "OpenCV Robotics & Camera"
                     }
                   ]
                 }

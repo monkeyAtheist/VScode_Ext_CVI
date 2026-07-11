@@ -7,10 +7,10 @@
   "description": "Structured LabWindows/CVI pack for TNT_EXEC test-sequencer DLL functions, reporting helpers, PASS/FAIL status management and logging patterns.",
   "environments": [
     {
-      "name": "Sequencer",
+      "name": "CVI - TNT_EXEC Sequencer",
       "libraries": [
         {
-          "name": "TNT_EXEC",
+          "name": "TNT_EXEC Sequencer",
           "categories": [
             {
               "name": "Bootstrap & test DLL templates",
