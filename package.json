@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -84,7 +84,9 @@
     "onCommand:labwindowsCvi.context.convertSelectedNumbersToText",
     "onCommand:labwindowsCvi.context.openNumberConverter",
     "onCommand:labwindowsCvi.context.openTruthTableDesigner",
-    "onCommand:labwindowsCvi.context.openDigitalFilterDesigner"
+    "onCommand:labwindowsCvi.context.openDigitalFilterDesigner",
+    "onCommand:labwindowsCvi.showBuildProblems",
+    "onCommand:labwindowsCvi.showFullBuildTrace"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -766,6 +768,18 @@
         "command": "labwindowsCvi.context.openDigitalFilterDesigner",
         "title": "Open digital filter designer",
         "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.showBuildProblems",
+        "title": "LabWindows/CVI: Show Build Problems",
+        "category": "LabWindows/CVI",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "labwindowsCvi.showFullBuildTrace",
+        "title": "LabWindows/CVI: Show Full Build Trace",
+        "category": "LabWindows/CVI",
+        "icon": "$(output)"
       }
     ],
     "menus": {
@@ -1753,6 +1767,21 @@
           "default": 1500,
           "minimum": 500,
           "description": "Polling interval used after a native debug launch to detect natural program completion without altering the persistent DDE control session."
+        },
+        "labwindowsCvi.buildLogDetail": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "compact",
+            "normal",
+            "verbose"
+          ],
+          "enumDescriptions": [
+            "Show phase summaries, warnings, errors and final status only.",
+            "Show phases, projects, timings, structured diagnostics, hints and final status without full compile.exe logs.",
+            "Show normal report plus compile.exe commands and captured raw output in the main output channel."
+          ],
+          "description": "Controls how much information the structured LabWindows/CVI build report shows in the main output channel. Full raw output is always preserved in LabWindows/CVI - Build Trace."
         }
       }
     },

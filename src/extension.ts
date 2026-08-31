@@ -24,6 +24,8 @@ import { CviContextToolsService } from './services/cviContextToolsService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
+  const buildTraceOutput = vscode.window.createOutputChannel('LabWindows/CVI - Build Trace');
+  const buildDiagnostics = vscode.languages.createDiagnosticCollection('labwindowsCviBuild');
   const parser = new CviParser();
   const installations = new CviInstallationService(output);
   const cppTools = new CviCppToolsService(installations, parser, output);
@@ -34,7 +36,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
   const colorValues = new CviColorValueService();
   const contextTools = new CviContextToolsService(context);
-  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output);
+  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output, buildTraceOutput, buildDiagnostics);
   const treeProvider = new CviTreeProvider(workspaces);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
   const symbols = new CviSymbolService(context.extensionPath, workspaces);
@@ -134,6 +136,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     output,
+    buildTraceOutput,
+    buildDiagnostics,
     nativeCommands,
     workspaces,
     home,
@@ -216,6 +220,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.build', () => builds.build(false)),
     register('labwindowsCvi.rebuild', () => builds.build(true)),
     register('labwindowsCvi.clean', () => builds.clean()),
+    register('labwindowsCvi.showBuildProblems', () => builds.showBuildProblems()),
+    register('labwindowsCvi.showFullBuildTrace', () => builds.showFullBuildTrace()),
     register('labwindowsCvi.run', () => builds.buildAndRun()),
     register('labwindowsCvi.chooseRunAction', () => builds.chooseRunAction()),
     register('labwindowsCvi.runWithoutBuild', () => builds.runWithoutBuild()),
