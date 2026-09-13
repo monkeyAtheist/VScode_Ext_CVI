@@ -487,6 +487,67 @@ export class CviWorkspaceService implements vscode.Disposable {
     this.refresh();
   }
 
+  async moveFileToFolder(projectRef: CviWorkspaceProjectRef, file: CviProjectFile): Promise<void> {
+    const project = this.getProject(projectRef);
+    if (!project) {
+      vscode.window.showErrorMessage('The selected CVI project cannot be read.');
+      return;
+    }
+
+    const currentFolder = normalizeLogicalFolder(file.folder);
+    const folders = collectLogicalFolders(project);
+    const items: Array<vscode.QuickPickItem & { targetFolder?: string; createNew?: boolean }> = [
+      { label: '$(root-folder) Project root', description: 'No logical folder', targetFolder: '' },
+      ...folders.map((folder) => ({ label: folder, description: folder.toLowerCase() === currentFolder.toLowerCase() ? 'current folder' : 'CVI logical folder', targetFolder: folder })),
+      { label: '$(new-folder) Create new folder...', description: 'Create a CVI logical folder and move the file into it', createNew: true }
+    ];
+
+    const picked = await vscode.window.showQuickPick(items, {
+      title: 'Move File To Folder',
+      placeHolder: `Move ${path.basename(file.absolutePath)} to another CVI logical folder`
+    });
+    if (!picked) {
+      return;
+    }
+
+    let targetFolder = picked.targetFolder ?? '';
+    if (picked.createNew) {
+      const name = await vscode.window.showInputBox({
+        title: 'Create Target Folder',
+        prompt: 'New CVI logical folder. Nested folders can use /.',
+        validateInput: validateLogicalFolder
+      });
+      if (!name) {
+        return;
+      }
+      targetFolder = normalizeLogicalFolder(name);
+    }
+
+    await this.moveFilesToFolder(projectRef, [file.sectionName], targetFolder);
+  }
+
+  async moveFilesToFolder(projectRef: CviWorkspaceProjectRef, sectionNames: string[], targetFolder: string, options: { silent?: boolean } = {}): Promise<void> {
+    if (!projectRef.exists) {
+      vscode.window.showErrorMessage('The selected CVI project file does not exist.');
+      return;
+    }
+
+    const normalizedTarget = normalizeLogicalFolder(targetFolder);
+    const moved = this.parser.moveFilesToFolderInProject(projectRef.absolutePath, sectionNames, normalizedTarget);
+    if (moved === 0) {
+      if (!options.silent) {
+        vscode.window.showInformationMessage('The selected file is already in this CVI logical folder.');
+      }
+      return;
+    }
+
+    this.refresh();
+    if (!options.silent) {
+      const destination = normalizedTarget || 'project root';
+      vscode.window.showInformationMessage(`${moved} file reference(s) moved to ${destination}.`);
+    }
+  }
+
   async saveFile(filePath: string): Promise<void> {
     const document = vscode.workspace.textDocuments.find((candidate) => path.normalize(candidate.uri.fsPath) === path.normalize(filePath));
     if (document?.isDirty) {
@@ -623,6 +684,31 @@ function validateBaseName(value: string): string | undefined {
     return 'The name contains a character that is not permitted in a Windows file name.';
   }
   return undefined;
+}
+
+function collectLogicalFolders(project: CviProject): string[] {
+  const seen = new Set<string>();
+  const addFolder = (value: string): void => {
+    const normalized = normalizeLogicalFolder(value);
+    if (normalized) {
+      seen.add(normalized);
+      let current = normalized;
+      while (current.includes('/')) {
+        current = current.slice(0, current.lastIndexOf('/'));
+        if (current) {
+          seen.add(current);
+        }
+      }
+    }
+  };
+
+  for (const folder of project.folders) {
+    addFolder(folder);
+  }
+  for (const file of project.files) {
+    addFolder(file.folder);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
 function validateLogicalFolder(value: string): string | undefined {

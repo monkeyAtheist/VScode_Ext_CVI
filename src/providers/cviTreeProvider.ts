@@ -12,7 +12,11 @@ export interface FolderNode { kind: 'folder'; ref: CviWorkspaceProjectRef; proje
 export interface FileNode { kind: 'file'; ref: CviWorkspaceProjectRef; file: CviProjectFile; }
 export interface PlaceholderNode { kind: 'placeholder'; label: string; }
 
-export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
+export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode>, vscode.TreeDragAndDropController<CviTreeNode> {
+  private static readonly dragMimeType = 'application/vnd.code.tree.labwindows-cvi.workspaceexplorer';
+
+  readonly dragMimeTypes = [CviTreeProvider.dragMimeType];
+  readonly dropMimeTypes = [CviTreeProvider.dragMimeType];
   private readonly changeEmitter = new vscode.EventEmitter<CviTreeNode | undefined | null | void>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
 
@@ -22,6 +26,89 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode> {
 
   refresh(): void {
     this.changeEmitter.fire();
+  }
+
+  handleDrag(source: readonly CviTreeNode[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): void {
+    const files = source
+      .filter((node): node is FileNode => node.kind === 'file')
+      .map((node) => ({
+        projectPath: node.ref.absolutePath,
+        projectIndex: node.ref.index,
+        sectionName: node.file.sectionName,
+        filePath: node.file.absolutePath,
+        fileName: path.basename(node.file.absolutePath)
+      }));
+
+    if (files.length === 0) {
+      return;
+    }
+
+    dataTransfer.set(CviTreeProvider.dragMimeType, new vscode.DataTransferItem(JSON.stringify({ files })));
+  }
+
+  async handleDrop(target: CviTreeNode | undefined, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken): Promise<void> {
+    if (token.isCancellationRequested) {
+      return;
+    }
+
+    const transfer = dataTransfer.get(CviTreeProvider.dragMimeType);
+    if (!transfer) {
+      return;
+    }
+
+    const dropTarget = this.dropTargetForNode(target);
+    if (!dropTarget) {
+      vscode.window.showInformationMessage('Drop project files onto a CVI folder or onto a project root to move them.');
+      return;
+    }
+
+    const payload = this.parseDragPayload(transfer.value);
+    const matchingFiles = payload.files.filter((file) => path.normalize(file.projectPath).toLowerCase() === path.normalize(dropTarget.ref.absolutePath).toLowerCase());
+    if (matchingFiles.length === 0) {
+      vscode.window.showWarningMessage('Files can only be moved inside their own CVI project.');
+      return;
+    }
+
+    await this.workspaces.moveFilesToFolder(
+      dropTarget.ref,
+      matchingFiles.map((file) => file.sectionName),
+      dropTarget.folderPath,
+      { silent: true }
+    );
+  }
+
+  private dropTargetForNode(node: CviTreeNode | undefined): { ref: CviWorkspaceProjectRef; folderPath: string } | undefined {
+    if (!node) {
+      return undefined;
+    }
+    if (node.kind === 'folder') {
+      return { ref: node.ref, folderPath: node.folderPath };
+    }
+    if (node.kind === 'project') {
+      return { ref: node.ref, folderPath: '' };
+    }
+    return undefined;
+  }
+
+  private parseDragPayload(value: unknown): { files: Array<{ projectPath: string; projectIndex: number; sectionName: string; filePath: string; fileName: string }> } {
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && Array.isArray(parsed.files)) {
+          return { files: parsed.files.filter((file: unknown): file is { projectPath: string; projectIndex: number; sectionName: string; filePath: string; fileName: string } => {
+            const candidate = file as { projectPath?: unknown; projectIndex?: unknown; sectionName?: unknown; filePath?: unknown; fileName?: unknown };
+            return typeof candidate.projectPath === 'string'
+              && typeof candidate.projectIndex === 'number'
+              && typeof candidate.sectionName === 'string'
+              && typeof candidate.filePath === 'string'
+              && typeof candidate.fileName === 'string';
+          }) };
+        }
+      } catch {
+        return { files: [] };
+      }
+    }
+    return { files: [] };
   }
 
   getTreeItem(element: CviTreeNode): vscode.TreeItem {

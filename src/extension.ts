@@ -38,7 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const contextTools = new CviContextToolsService(context);
   const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output, buildTraceOutput, buildDiagnostics);
   const treeProvider = new CviTreeProvider(workspaces);
-  const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, showCollapseAll: true });
+  const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, dragAndDropController: treeProvider, showCollapseAll: true, canSelectMany: true });
   const symbols = new CviSymbolService(context.extensionPath, workspaces);
   const fileSymbolsProvider = new CviFileSymbolsProvider(symbols);
   const fileSymbolsView = vscode.window.createTreeView('labwindowsCvi.fileSymbols', { treeDataProvider: fileSymbolsProvider });
@@ -269,6 +269,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.includeFile', (node?: FileNode) => node ? workspaces.setFileExcluded(node.ref, node.file, false) : undefined),
     register('labwindowsCvi.toggleObjOption', (node?: FileNode) => node ? workspaces.toggleCompileIntoObjectFile(node.ref, node.file) : undefined),
     register('labwindowsCvi.replaceFile', (node?: FileNode) => node ? workspaces.replaceFile(node.ref, node.file) : undefined),
+    register('labwindowsCvi.moveFileToFolder', (node?: FileNode) => node ? workspaces.moveFileToFolder(node.ref, node.file) : undefined),
     register('labwindowsCvi.compileFile', (node?: FileNode) => node ? builds.compileFile(node.file.absolutePath, node.ref) : undefined),
     register('labwindowsCvi.generatePrototypes', (node?: FileNode) => node ? workspaces.generatePrototypes(node.ref, node.file) : undefined),
     register('labwindowsCvi.prepareDllImportLibraryGeneration', (node?: FileNode) => node ? builds.prepareDllImportLibraryGeneration(node.file.absolutePath) : undefined),

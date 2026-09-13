@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.5",
+  "version": "0.7.8",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -86,7 +86,8 @@
     "onCommand:labwindowsCvi.context.openTruthTableDesigner",
     "onCommand:labwindowsCvi.context.openDigitalFilterDesigner",
     "onCommand:labwindowsCvi.showBuildProblems",
-    "onCommand:labwindowsCvi.showFullBuildTrace"
+    "onCommand:labwindowsCvi.showFullBuildTrace",
+    "onCommand:labwindowsCvi.moveFileToFolder"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -291,6 +292,11 @@
       {
         "command": "labwindowsCvi.toggleObjOption",
         "title": "Toggle .Obj Option"
+      },
+      {
+        "command": "labwindowsCvi.moveFileToFolder",
+        "title": "Move File To Folder...",
+        "icon": "$(move)"
       },
       {
         "command": "labwindowsCvi.replaceFile",
@@ -539,7 +545,7 @@
       },
       {
         "command": "labwindowsCvi.editBuildSettingsSafeMode",
-        "title": "Project Build Settings (Safe Mode)…",
+        "title": "Project Build Settings (Safe Mode)\u2026",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
@@ -1087,9 +1093,14 @@
           "group": "modification@1"
         },
         {
-          "command": "labwindowsCvi.removeFile",
+          "command": "labwindowsCvi.moveFileToFolder",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
           "group": "modification@2"
+        },
+        {
+          "command": "labwindowsCvi.removeFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "modification@3"
         },
         {
           "command": "labwindowsCvi.compileFile",
@@ -1397,6 +1408,10 @@
         },
         {
           "command": "labwindowsCvi.context.openDigitalFilterDesigner",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.moveFileToFolder",
           "when": "false"
         }
       ],
