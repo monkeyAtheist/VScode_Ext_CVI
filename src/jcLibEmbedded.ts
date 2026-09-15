@@ -8301,6 +8301,14 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
       return bundledPackLibrarySelection('dbops_core', 'Database operations backup and replication pack', 'database_pack.json', 'Databases', ["Database Operations, Backup & Replication"]);
     case 'database_all':
       return combinePreservingLibraries('database_all', 'All database pack', ['database_core', 'sqlite_core', 'postgres_core', 'mysql_core', 'sqlserver_core', 'duckdb_core', 'mongodb_core', 'redis_core', 'sqlite_c_core', 'libpq_core', 'mysql_capi_core', 'odbc_core', 'sqlalchemy_core', 'hiredis_core', 'dbops_core']);
+    case 'qt_cpp_core':
+      return bundledPackLibrarySelection('qt_cpp_core', 'Qt C++ language and framework structured pack', 'qt_pack.json', 'QT', ['Qt Language']);
+    case 'qml_core':
+      return bundledPackLibrarySelection('qml_core', 'Qt QML and Qt Quick structured pack', 'qt_pack.json', 'QT', ['Qt QML']);
+    case 'qt_multimedia_core':
+      return bundledPackLibrarySelection('qt_multimedia_core', 'Qt Multimedia structured pack', 'qt_pack.json', 'QT', ['Qt Multimedia']);
+    case 'qt_sql_test_core':
+      return bundledPackLibrarySelection('qt_sql_test_core', 'Qt SQL and Qt Test structured pack', 'qt_pack.json', 'QT', ['Qt SQL & Test']);
     case 'qt_full':
       return bundledPackLibrarySelection('qt_full', 'Qt C++ complete structured pack', 'qt_pack.json', 'QT', ['Qt Language', 'Qt QML', 'Qt Multimedia', 'Qt SQL & Test']);
     case 'qt_pyside_core':
@@ -8478,10 +8486,13 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'C/C++ preprocessor pack', description: 'Macros, variadic macros, conditional compilation, pragmas, #, ##, and X-macros', value: 'preprocessor_core' }
     ],
     qt: [
-      { label: 'Add all Qt pack', description: 'Add Qt C++ libraries and the complete Qt for Python / PySide6 library together', value: 'qt_all' },
-      { label: 'Qt C++ pack', description: 'Structured Qt C++ pack loaded from qt_pack.json: QObject, signals, timers, Widgets dialogs, declarative QML templates, multimedia, SQL, tests, plugins, CMake, networking, serial, and threading', value: 'qt_full' },
-      { label: 'Qt for Python / PySide6 pack', description: 'Structured PySide6 pack: QObject, Signal, Slot, event loop, processEvents, QTimer, widgets, Designer, models, files, settings, processes, serial, networking, QThread, thread pool, painting, QLibrary, plugins, QML, and deployment tools', value: 'qt_pyside_core' },
-      { label: 'Qt QML pack', description: 'Qt Quick, bindings, loaders, Connections, and C++ backend integration', value: 'qml_core' },
+      { label: 'Add all Qt pack', description: 'Add the complete Qt C++/QML/Multimedia/SQL/Test pack together with Qt for Python / PySide6', value: 'qt_all' },
+      { label: 'Qt complete C++ pack', description: 'Add Qt Language, Qt QML, Qt Multimedia, and Qt SQL & Test', value: 'qt_full' },
+      { label: 'Qt Language', description: 'Qt 6 C++ APIs: Core, Widgets, networking/REST/TLS, concurrency, graphics, build/deployment, and modern Qt 6 porting', value: 'qt_cpp_core' },
+      { label: 'Qt QML / Qt Quick', description: 'QML language, bindings, components, Qt Quick, Controls, models/views, input, animations, services, and C++ integration', value: 'qml_core' },
+      { label: 'Qt Multimedia', description: 'Playback, capture, audio streams, video frames, custom media pipelines, formats/devices, and Spatial Audio', value: 'qt_multimedia_core' },
+      { label: 'Qt SQL & Test', description: 'Database connections/queries/models plus Qt Test, QSignalSpy, model testing, async tests, and benchmarks', value: 'qt_sql_test_core' },
+      { label: 'Qt for Python / PySide6 pack', description: 'Structured PySide6 pack: QObject, Signal, Slot, event loop, widgets, Designer, models, files, networking, QThread, painting, QML, and deployment tools', value: 'qt_pyside_core' },
     ],
     opencv: [
       { label: 'Add all OpenCV pack', description: 'Add OpenCV language content and the camera/robotics example pack together', value: 'opencv_all' },
@@ -10419,16 +10430,20 @@ function starterNestedDestinationForEntry(sourceLibraryName: string | undefined,
 const QT_STRUCTURED_CATEGORY_ORDER = [
   'Meta-Object & Core',
   'Signals, Slots & Events',
-  'Event Loop, Refresh & Timers',
+  'Timers, Delays & Scheduling',
+  'Event Loop & UI Responsiveness',
   'Widgets & Windows',
   'Designer & UI Forms',
   'Models, Views & Delegates',
   'Files, Settings & Processes',
+  'Text, Conversion & Internationalization',
   'Serial, Bus & Device I/O',
-  'Networking, Web & IPC',
-  'Threads, Concurrency & Async',
+  'Networking, REST, TLS & IPC',
+  'Threads, Futures & Concurrency',
   'Painting, Graphics & Imaging',
-  'Application Utilities, Plugins & Build'
+  'Application Services, Plugins & Permissions',
+  'Build, Deployment & Tooling',
+  'Qt 6 Modern APIs & Porting'
 ] as const;
 
 function qtLegacyRoute(categoryName: string, fn: CviFunction): { categoryName: string; groupPath: string[] } {
@@ -10437,18 +10452,18 @@ function qtLegacyRoute(categoryName: string, fn: CviFunction): { categoryName: s
   if (categoryName === 'Signals & Slots') return { categoryName: 'Signals, Slots & Events', groupPath: [name.includes('event') ? 'Events & filters' : 'Typed connections'] };
   if (categoryName === 'Qt Plugins & Dynamic Libraries') {
     if (name.includes('qpluginloader') || name.includes('plugin interface') || name.includes('qlibrary versus')) {
-      return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['Qt plugins with QPluginLoader'] };
+      return { categoryName: 'Application Services, Plugins & Permissions', groupPath: ['Qt plugins with QPluginLoader'] };
     }
-    return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['Dynamic libraries with QLibrary'] };
+    return { categoryName: 'Application Services, Plugins & Permissions', groupPath: ['Dynamic libraries with QLibrary'] };
   }
   if (categoryName === 'Qt CMake & Deployment') {
     if (['copy runtime', 'sidecar', 'install runtime', 'deploy qt runtime'].some((token) => name.includes(token))) {
-      return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['Runtime DLL deployment'] };
+      return { categoryName: 'Build, Deployment & Tooling', groupPath: ['Runtime DLL deployment'] };
     }
     if (['prefix path', 'configure build', 'cmakepresets'].some((token) => name.includes(token))) {
-      return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['Build commands & Qt discovery'] };
+      return { categoryName: 'Build, Deployment & Tooling', groupPath: ['Build commands & Qt discovery'] };
     }
-    return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['CMake project skeletons'] };
+    return { categoryName: 'Build, Deployment & Tooling', groupPath: ['CMake project skeletons'] };
   }
     if (categoryName === 'Qt Object Creation & Wiring') return { categoryName: 'Widgets & Windows', groupPath: ['Runtime creation & wiring'] };
   if (categoryName === 'Qt Designer / UIR Wiring') return { categoryName: 'Designer & UI Forms', groupPath: ['Designer setupUi & wiring'] };
@@ -10470,12 +10485,12 @@ function qtLegacyRoute(categoryName: string, fn: CviFunction): { categoryName: s
     if (name.includes('settings')) return { categoryName: 'Files, Settings & Processes', groupPath: ['Settings & paths'] };
     return { categoryName: 'Files, Settings & Processes', groupPath: ['QFile & streams'] };
   }
-  if (categoryName === 'Qt I/O & Concurrency') return { categoryName: 'Threads, Concurrency & Async', groupPath: ['Worker objects & QThread'] };
+  if (categoryName === 'Qt I/O & Concurrency') return { categoryName: 'Threads, Futures & Concurrency', groupPath: ['Worker objects & QThread'] };
   if (categoryName === 'Qt Networking') {
-    if (name.includes('local')) return { categoryName: 'Networking, Web & IPC', groupPath: ['Local IPC'] };
-    if (name.includes('udp')) return { categoryName: 'Networking, Web & IPC', groupPath: ['UDP'] };
-    if (name.includes('tcp')) return { categoryName: 'Networking, Web & IPC', groupPath: ['TCP'] };
-    return { categoryName: 'Networking, Web & IPC', groupPath: ['HTTP & REST'] };
+    if (name.includes('local')) return { categoryName: 'Networking, REST, TLS & IPC', groupPath: ['Local IPC'] };
+    if (name.includes('udp')) return { categoryName: 'Networking, REST, TLS & IPC', groupPath: ['UDP'] };
+    if (name.includes('tcp')) return { categoryName: 'Networking, REST, TLS & IPC', groupPath: ['TCP'] };
+    return { categoryName: 'Networking, REST, TLS & IPC', groupPath: ['HTTP & REST'] };
   }
   if (categoryName === 'Qt Painting, Graphics & Imaging') {
     if (name.includes('graphics')) return { categoryName: 'Painting, Graphics & Imaging', groupPath: ['Graphics View framework'] };
@@ -10489,11 +10504,12 @@ function qtLegacyRoute(categoryName: string, fn: CviFunction): { categoryName: s
     return { categoryName: 'Widgets & Windows', groupPath: ['State & UI patterns'] };
   }
   if (categoryName === 'Qt Core') {
-    if (['timer', 'elapsed', 'deadline', 'processevents', 'refresh', 'update', 'repaint'].some((token) => name.includes(token))) return { categoryName: 'Event Loop, Refresh & Timers', groupPath: ['Timers & pacing'] };
+    if (['timer', 'elapsed', 'deadline', 'chronotimer'].some((token) => name.includes(token))) return { categoryName: 'Timers, Delays & Scheduling', groupPath: ['QTimer essentials'] };
+    if (['processevents', 'refresh', 'update', 'repaint', 'queued'].some((token) => name.includes(token))) return { categoryName: 'Event Loop & UI Responsiveness', groupPath: ['Queued execution & refresh'] };
     if (['settings', 'savefile', 'standardpaths', 'process'].some((token) => name.includes(token))) return { categoryName: 'Files, Settings & Processes', groupPath: ['Settings & paths'] };
-    if (['concurrent', 'future', 'invokemethod'].some((token) => name.includes(token))) return { categoryName: 'Threads, Concurrency & Async', groupPath: ['Queued invocation & futures'] };
+    if (['concurrent', 'future', 'promise', 'invokemethod'].some((token) => name.includes(token))) return { categoryName: 'Threads, Futures & Concurrency', groupPath: ['Queued invocation & futures'] };
     if (name.includes('eventfilter')) return { categoryName: 'Signals, Slots & Events', groupPath: ['Events & filters'] };
-    if (name.includes('commandline')) return { categoryName: 'Application Utilities, Plugins & Build', groupPath: ['CLI & application metadata'] };
+    if (name.includes('commandline')) return { categoryName: 'Application Services, Plugins & Permissions', groupPath: ['CLI & application metadata'] };
     return { categoryName: 'Meta-Object & Core', groupPath: ['Qt value types & utilities'] };
   }
   return { categoryName, groupPath: [] };

@@ -1,4 +1,4 @@
-# LabWindows/CVI Project Manager
+# LabWindows/CVI Project Manager 0.7.10
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
@@ -539,3 +539,13 @@ labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug
 labwindowsCvi.nativeDapPollIntervalMs
 labwindowsCvi.nativeDapPollTimeoutMs
 ```
+
+## 0.7.9 - Embedded JC Lib Qt synchronization
+
+- Synchronizes the embedded Qt library pack from JC Lib 0.8.36 when available in the CVI embedded library manager.
+- Updates `qt_pack.json` to the Qt 6.11-era structured pack with separate Qt Language, Qt QML, Qt Multimedia, and Qt SQL & Test libraries.
+- Updates embedded routing so each Qt sub-library can be added independently from the pack manager.
+- Synchronizes the Qt environment embedded in `default_pack.json` while preserving CVI-specific packs such as TNT_EXEC.
+
+Other JC Lib update notes included in the supplied archive for C, C++, Git, and system scripting were audit/validation documents only; no complete JSON source or patch for those packs was present in the archive, so those packs were left unchanged rather than reconstructed from summaries.
+

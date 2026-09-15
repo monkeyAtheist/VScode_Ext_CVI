@@ -1,4 +1,24 @@
+
+## 0.7.10
+
+- Synchronise la librairie embarquée CVI avec l’archive complète JC Lib 0.8.36.
+- Met à jour les packs C, C++, Scripting / System et le default pack embarqué.
+- Conserve les éléments spécifiques CVI, notamment le pack TNT_EXEC / HNF Sequencer.
+- Ajoute les entrées issues des audits C/C++ modernes, PowerShell/CMD/Git et garde les packs déjà alignés inchangés.
+
 # 0.7.4
+## 0.7.9
+
+### Changed
+
+- Updated the embedded Qt library pack from JC Lib 0.8.36.
+- Added independent embedded Qt starters: Qt Language, Qt QML / Qt Quick, Qt Multimedia, and Qt SQL & Test.
+- Updated the Qt structured category routing used by embedded pack import/merge/save operations.
+- Synchronized the Qt environment in the default embedded pack and retained CVI-specific content, including TNT_EXEC.
+
+### Not changed
+
+- C, C++, Git and system scripting packs were not modified because the supplied JC_LIB archive only contained summary/validation material for those areas, not full pack JSON or an applicable patch.
 
 - Synchronisation des structures de packs embarqués depuis JC Lib 0.8.27.
 - Mise à jour des packs structurés C, C++, Lua, SDL, Embedded, OpenCV, Web, Windows API / Devices et default pack.
