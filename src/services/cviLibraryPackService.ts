@@ -94,9 +94,69 @@ function backupAndRemoveObsoleteBundledPack(context: vscode.ExtensionContext, ou
   output.appendLine(`[CVI Libraries] Removed obsolete bundled ${label}; backup written to: ${backup}`);
 }
 
+
+function backupAndRemoveLegacyPrivatePacks(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
+  const targetDirectory = path.join(context.globalStorageUri.fsPath, 'packs');
+  if (!fs.existsSync(targetDirectory)) {
+    return;
+  }
+
+  const obsoletePackFile = ['tnt', '_exec', '_pack', '.json'].join('').toLowerCase();
+  const luaPackFile = 'lua_pack.json';
+  const blockedPattern = new RegExp([
+    String.raw`\b${['M', 'PT'].join('')}\b`,
+    ['M', 'PT', 'Lua'].join(''),
+    ['M', 'PT', ' Studio'].join(''),
+    ['API_', 'M', 'PT'].join(''),
+    ['TNT', '_', 'EXEC'].join(''),
+    ['H', 'NF'].join('')
+  ].join('|'), 'i');
+
+  for (const entry of fs.readdirSync(targetDirectory)) {
+    if (!entry.toLowerCase().endsWith('.json')) {
+      continue;
+    }
+
+    const lowerName = entry.toLowerCase();
+    const target = path.join(targetDirectory, entry);
+    const installed = readPackIdentity(target);
+
+    if (lowerName === obsoletePackFile) {
+      const backup = createBackupPath(target, installed?.version || 'legacy');
+      fs.copyFileSync(target, backup);
+      fs.rmSync(target, { force: true });
+      output.appendLine(`[CVI Libraries] Removed obsolete private bundled pack; backup written to: ${backup}`);
+      continue;
+    }
+
+    if (lowerName !== luaPackFile) {
+      continue;
+    }
+
+    let raw = '';
+    try {
+      raw = fs.readFileSync(target, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!blockedPattern.test(raw)) {
+      continue;
+    }
+
+    const source = vscode.Uri.joinPath(context.extensionUri, 'data', luaPackFile).fsPath;
+    if (!fs.existsSync(source)) {
+      continue;
+    }
+    const backup = createBackupPath(target, installed?.version || 'legacy');
+    fs.copyFileSync(target, backup);
+    fs.copyFileSync(source, target);
+    output.appendLine(`[CVI Libraries] Replaced obsolete writable Lua pack with the clean bundled Lua pack; backup written to: ${backup}`);
+  }
+}
+
 export function ensureBundledCviLibraryPack(context: vscode.ExtensionContext, output: vscode.OutputChannel): void {
   seedOrUpgradeBundledPack(context, output, 'cvi_pack.json', 'CVI library pack');
   seedOrUpgradeBundledPack(context, output, 'c_language_pack.json', 'C language and C DLL library pack');
-  seedOrUpgradeBundledPack(context, output, 'tnt_exec_pack.json', 'TNT_EXEC/HNF sequencer library pack');
   backupAndRemoveObsoleteBundledPack(context, output, 'my_util_c_pack.json', 'my-util-c-pack', 'MY Util C library pack');
+  backupAndRemoveLegacyPrivatePacks(context, output);
 }

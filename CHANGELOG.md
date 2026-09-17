@@ -1,10 +1,9 @@
+## 0.7.11
 
-## 0.7.10
-
-- Synchronise la librairie embarquée CVI avec l’archive complète JC Lib 0.8.36.
-- Met à jour les packs C, C++, Scripting / System et le default pack embarqué.
-- Conserve les éléments spécifiques CVI, notamment le pack TNT_EXEC / HNF Sequencer.
-- Ajoute les entrées issues des audits C/C++ modernes, PowerShell/CMD/Git et garde les packs déjà alignés inchangés.
+- Supprime les packs internes liés à un environnement Lua propriétaire et à un ancien séquenceur privé.
+- Nettoie le menu d’ajout des packs embarqués : Lua ne propose plus que Lua standard, Lua industriel/banc de test et Stormworks.
+- Ajoute un nettoyage automatique des copies obsolètes déjà déployées dans le stockage global VS Code.
+- Met à jour les références historiques du README et du changelog pour éviter d’exposer ces packs retirés.
 
 # 0.7.4
 ## 0.7.9
@@ -14,7 +13,7 @@
 - Updated the embedded Qt library pack from JC Lib 0.8.36.
 - Added independent embedded Qt starters: Qt Language, Qt QML / Qt Quick, Qt Multimedia, and Qt SQL & Test.
 - Updated the Qt structured category routing used by embedded pack import/merge/save operations.
-- Synchronized the Qt environment in the default embedded pack and retained CVI-specific content, including TNT_EXEC.
+- Synchronized the Qt environment in the default embedded pack.
 
 ### Not changed
 
@@ -24,14 +23,7 @@
 - Mise à jour des packs structurés C, C++, Lua, SDL, Embedded, OpenCV, Web, Windows API / Devices et default pack.
 - Ajout des nouveaux packs embarqués Assembly, Visual Basic / VBA, SDL2 séparé et SDL3 séparé.
 - Mise à jour du menu d’ajout de packs : SDL2/SDL3, Assembly, VBA, Meson, Arduino Mega 2560, Microchip PIC, Texas Instruments MSP, et Windows API / Devices unifié.
-- Conservation et réintégration du pack CVI spécifique `TNT_EXEC / HNF Sequencer Pack` dans le menu de packs embarqués et dans l’action `Add all packs`.
 
-# 0.7.3
-
-- Ajout du pack embarqué `TNT_EXEC / HNF Sequencer Pack` dans le gestionnaire de librairies.
-- Le pack couvre les templates de DLL de tests, l’accès aux paramètres de séquence, le pilotage du statut, le reporting PASS/FAIL, la configuration des logs, les fonctions multi-UUT, les helpers RS232, les utilitaires et les constantes du séquenceur.
-- Les fonctions qui modifient le statut ou alimentent les rapports/logs sont annotées explicitement, notamment `exec_Return_Result`, `exec_Return_Comp`, `exec_Return_Meas`, les variantes multi-UUT et `exec_Init_SQL_Logging`.
-- Les paramètres utilisent les éditeurs modernes du gestionnaire embarqué : listes enum structurées, booléens, chemins de fichiers/dossiers, aides de sélection et descriptions longues.
 
 ## 0.6.39
 

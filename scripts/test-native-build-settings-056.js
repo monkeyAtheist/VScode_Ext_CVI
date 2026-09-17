@@ -6,11 +6,11 @@ const { CviParser } = require('../out/model/cviParser');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cvi-native-056-'));
 const sourceRoot = process.argv[2];
 if (!sourceRoot) throw new Error('Pass extracted PrjCVI folder');
-for (const name of ['HNF_version_list.prj', 'HNF_version_list.cws']) {
+for (const name of ['native_version_list.prj', 'native_version_list.cws']) {
   fs.copyFileSync(path.join(sourceRoot, name), path.join(root, name));
 }
-const prj = path.join(root, 'HNF_version_list.prj');
-const cws = path.join(root, 'HNF_version_list.cws');
+const prj = path.join(root, 'native_version_list.prj');
+const cws = path.join(root, 'native_version_list.cws');
 const parser = new CviParser();
 
 const debugActions = parser.getProjectBuildActions(prj, 'debug');

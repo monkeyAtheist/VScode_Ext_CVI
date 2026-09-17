@@ -329043,5 +329043,5 @@
       ]
     }
   ],
-  "description": "Bundled environments with documented advanced parameter pickers. Lua / MPTLua now includes audited standard-library, MPT operator-interface, switching and Stormworks parameter metadata. Includes a structured Visual Basic / VBA pack for Excel macros and Office automation."
+  "description": "Bundled environments with documented advanced parameter pickers. Includes structured CVI, C, C++, Qt, SDL, Windows, embedded, scripting and productivity packs."
 }

@@ -7913,7 +7913,7 @@ async function addContentIntoPackFile(pack: LoadedPack, target?: { environmentNa
   options.push(
     { label: 'Add function', description: 'Create a function through a guided wizard', value: 'addFunction' },
     { label: 'Import source/header', description: 'Parse prototypes, functions, structs, typedefs, enums, and classes from a source or header file', value: 'importSymbols' },
-    { label: 'Add language pack / DLL helpers', description: 'Add grouped C, C++, Lua, SDL2/SDL3, Qt, OpenCV, Win32, Windows Devices, build, platform, embedded, assembly, VBA, TNT_EXEC, and example packs, with family-level Add all actions', value: 'starter' },
+    { label: 'Add language pack / DLL helpers', description: 'Add grouped C, C++, Lua, SDL2/SDL3, Qt, OpenCV, Win32, Windows Devices, build, platform, embedded, assembly, VBA, and example packs, with family-level Add all actions', value: 'starter' },
     { label: 'Import file as snippet', description: 'Import a code or text file directly as a reusable snippet symbol', value: 'snippet' }
   );
 
@@ -8415,16 +8415,12 @@ function buildStarterPackSelection(id: string): StarterPackSelection {
       return bundledPackLibraryEnvironmentSelection('lua_standard', 'Lua standard 5.4 pack', 'lua_pack.json', 'Lua', ['Lua standard 5.4']);
     case 'lua_industrial':
       return bundledPackLibraryEnvironmentSelection('lua_industrial', 'Lua industriel / banc de test pack', 'lua_pack.json', 'Lua', ['Lua industriel / banc de test']);
-    case 'lua_mpt':
-      return bundledPackLibraryEnvironmentSelection('lua_mpt', 'MPT Studio / MPTLua pack', 'lua_pack.json', 'Lua', ['MPT Studio / MPTLua (Lua 5.2.4)']);
     case 'lua_stormworks':
       return bundledPackLibraryEnvironmentSelection('lua_stormworks', 'Stormworks Lua microcontroller pack', 'lua_pack.json', 'Lua', ['Stormworks Lua microcontroller']);
-    case 'tnt_exec_all':
-      return bundledPackFileSelection('tnt_exec_all', 'TNT_EXEC / HNF sequencer pack', 'tnt_exec_pack.json', ['CVI - TNT_EXEC Sequencer']);
     case 'examples_all':
       return combinePreservingLibraries('examples_all', 'All example packs', ['opencv_robotics_example', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
     case 'all_packs':
-      return combinePreservingLibraries('all_packs', 'All packs', ['c_all', 'cpp_all', 'preprocessor_core', 'qt_all', 'opencv_all', 'build_all', 'scripting_all', 'python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'vba_core', 'database_all', 'embedded_all', 'assembly_all', 'lua_all', 'sdl_all', 'windows_all', 'tnt_exec_all', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
+      return combinePreservingLibraries('all_packs', 'All packs', ['c_all', 'cpp_all', 'preprocessor_core', 'qt_all', 'opencv_all', 'build_all', 'scripting_all', 'python_core', 'java_core', 'web_core', 'csharp_core', 'php_core', 'kotlin_core', 'typescript_core', 'vba_core', 'database_all', 'embedded_all', 'assembly_all', 'lua_all', 'sdl_all', 'windows_all', 'win32_hooks_example', 'uart_protocol_example', 'instrumentation_example']);
     default:
       return direct(id as LanguagePackMode);
   }
@@ -8452,9 +8448,8 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
     { label: 'Visual Basic / VBA pack', description: 'Structured Visual Basic for Applications pack: VBA syntax, modules, errors, files, COM, Excel Application/Workbook/Worksheet/Range APIs, Excel events, UserForms, and Office automation', value: 'vba_core' },
     { label: 'Assembly pack', description: 'Structured assembly pack: x86/x64, ARM Cortex-M/Thumb, AVR 8-bit, RISC-V, toolchain commands, startup, ISR, ABI, linker and microcontroller workflows', value: 'assembly' },
     { label: 'Database pack', description: 'Structured SQL, NoSQL, client C APIs, ODBC, SQLAlchemy/Alembic, hiredis and operations pack with parameterized direct cards and retained recipes', value: 'database' },
-    { label: 'Lua pack', description: 'Lua standard, industrial/test-bench Lua, MPTLua, and Stormworks microcontroller Lua content', value: 'lua' },
+    { label: 'Lua pack', description: 'Lua standard, industrial/test-bench Lua, and Stormworks microcontroller Lua content', value: 'lua' },
     { label: 'Embedded pack', description: 'Embedded-specific patterns, Arduino AVR registers and ISR vectors, ESP32 Arduino peripherals/connectivity, and Raspberry Pi Linux hardware interfaces', value: 'embedded' },
-    { label: 'TNT_EXEC / HNF sequencer pack', description: 'LabWindows/CVI TNT_EXEC test-DLL templates, sequence parameters, PASS/FAIL reporting, logs, multi-UUT helpers and constants', value: 'tnt_exec' },
     { label: 'Example packs', description: 'Real-world examples for robotics, hooks/input, UART protocols, and test benches', value: 'examples' }
   ];
 
@@ -8562,10 +8557,9 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'Database operations, backup and replication', description: 'PostgreSQL, MySQL, SQLite, MongoDB and Redis operational backup, health-check and replication helpers', value: 'dbops_core' }
     ],
     lua: [
-      { label: 'Add all Lua pack', description: 'Add one Lua environment containing Lua standard 5.4, industrial/test-bench Lua, MPTLua, and Stormworks libraries', value: 'lua_all' },
+      { label: 'Add all Lua pack', description: 'Add one Lua environment containing Lua standard 5.4, industrial/test-bench Lua, and Stormworks libraries', value: 'lua_all' },
       { label: 'Lua standard 5.4', description: 'Syntax, tables, functions, modules, errors, strings, patterns, math, IO, coroutines, versions, and pitfalls', value: 'lua_standard' },
       { label: 'Lua industriel / banc de test', description: 'External communication references and test-sequence/logging patterns', value: 'lua_industrial' },
-      { label: 'MPT Studio / MPTLua', description: 'MPTLua Lua 5.2.4 environment, operator prompts, reporting, persistence, switching, measurements, and advanced MPT patterns', value: 'lua_mpt' },
       { label: 'Stormworks Lua microcontroller', description: 'onTick/onDraw lifecycle, composite I/O, screen drawing, map conversion, properties, async HTTP, and practical Stormworks snippets', value: 'lua_stormworks' }
     ],
     assembly: [
@@ -8576,9 +8570,6 @@ async function chooseGroupedStarterPack(packName: string): Promise<StarterPackSe
       { label: 'AVR 8-bit assembly', description: 'AVR registers, I/O bit operations, vectors, ISR skeletons, bootloader jump and avr-gcc/avr-objcopy/avrdude workflows', value: 'avr_asm_core' },
       { label: 'RISC-V assembly', description: 'RISC-V ABI registers, instructions, CSRs, trap vectors, startup and riscv-none-elf workflows', value: 'riscv_asm_core' },
       { label: 'Microcontroller assembly workflows', description: 'ATmega328P and STM32 Cortex-M assembly recipes for GPIO, startup and low-level register work', value: 'mcu_asm_core' }
-    ],
-    tnt_exec: [
-      { label: 'TNT_EXEC / HNF sequencer complete pack', description: 'TNT_EXEC prototypes, DLL entry templates, sequence context, PASS/FAIL reporting, logging, RS232, loop/multi-UUT helpers and constants', value: 'tnt_exec_all' }
     ],
     embedded: [
       { label: 'Add all embedded pack', description: 'Add embedded architecture patterns, Arduino AVR registers, linker and bootloader templates, ESP32, STM32, Raspberry Pi, Microchip PIC, and Texas Instruments MSP helpers together', value: 'embedded_all' },
