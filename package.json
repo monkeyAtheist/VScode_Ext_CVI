@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.11",
+  "version": "0.7.15",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -87,7 +87,18 @@
     "onCommand:labwindowsCvi.context.openDigitalFilterDesigner",
     "onCommand:labwindowsCvi.showBuildProblems",
     "onCommand:labwindowsCvi.showFullBuildTrace",
-    "onCommand:labwindowsCvi.moveFileToFolder"
+    "onCommand:labwindowsCvi.moveFileToFolder",
+    "onCommand:labwindowsCvi.library.createPack",
+    "onCommand:labwindowsCvi.library.importPack",
+    "onCommand:labwindowsCvi.library.openVisualEditor",
+    "onCommand:labwindowsCvi.library.generateHeader",
+    "onCommand:labwindowsCvi.library.importSymbols",
+    "onCommand:labwindowsCvi.library.importPrototypes",
+    "onCommand:labwindowsCvi.library.importSnippetFile",
+    "onCommand:labwindowsCvi.library.addLanguageStarter",
+    "onCommand:labwindowsCvi.library.addContent",
+    "onCommand:labwindowsCvi.library.deleteContent",
+    "onCommand:labwindowsCvi.library.exportContent"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -899,6 +910,16 @@
           "command": "labwindowsCvi.diagnoseNativeCommandBridge",
           "when": "view == labwindowsCvi.debugControls",
           "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.library.createPack",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.library.importPack",
+          "when": "view == labwindowsCvi.libraryExplorer",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

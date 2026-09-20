@@ -9132,6 +9132,11 @@ function getGlobalPacksDirectory(context: vscode.ExtensionContext): string {
   return path.join(context.globalStorageUri.fsPath, 'packs');
 }
 
+function isPackBackupFileName(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return lower.includes('.backup-') || lower.endsWith('.bak') || lower.endsWith('.backup.json');
+}
+
 
 function stripSnippetPlaceholders(text: string | undefined | null): string {
   let value = String(text ?? '');
@@ -11056,7 +11061,7 @@ function loadExtensionData(context: vscode.ExtensionContext): ExtensionData {
 
   const globalDir = ensureDirectory(getGlobalPacksDirectory(context));
   if (globalDir && fs.existsSync(globalDir)) {
-    for (const entry of fs.readdirSync(globalDir).filter((name) => name.toLowerCase().endsWith('.json')).sort()) {
+    for (const entry of fs.readdirSync(globalDir).filter((name: string) => name.toLowerCase().endsWith('.json') && !isPackBackupFileName(name)).sort()) {
       const pack = loadPackFromFile(path.join(globalDir, entry), 'global', true, path.basename(entry, '.json'));
       if (pack) {
         packs.push(pack);
@@ -11066,7 +11071,7 @@ function loadExtensionData(context: vscode.ExtensionContext): ExtensionData {
 
   const workspaceDir = ensureDirectory(getWorkspacePacksDirectory());
   if (workspaceDir && fs.existsSync(workspaceDir)) {
-    for (const entry of fs.readdirSync(workspaceDir).filter((name) => name.toLowerCase().endsWith('.json')).sort()) {
+    for (const entry of fs.readdirSync(workspaceDir).filter((name: string) => name.toLowerCase().endsWith('.json') && !isPackBackupFileName(name)).sort()) {
       const pack = loadPackFromFile(path.join(workspaceDir, entry), 'workspace', true, path.basename(entry, '.json'));
       if (pack) {
         packs.push(pack);

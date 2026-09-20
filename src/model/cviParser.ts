@@ -129,7 +129,7 @@ function createNativeBackup(filePath: string, content: string): string {
   fs.writeFileSync(backupPath, content, 'utf8');
   const prefix = `${path.basename(filePath)}.`;
   const backups = fs.readdirSync(backupDirectory)
-    .filter((name) => name.startsWith(prefix) && name.endsWith('.bak'))
+    .filter((name: string) => name.startsWith(prefix) && name.endsWith('.bak'))
     .sort();
   while (backups.length > 20) {
     const oldest = backups.shift();
