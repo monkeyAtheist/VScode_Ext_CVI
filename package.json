@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.15",
+  "version": "0.7.16",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -98,7 +98,14 @@
     "onCommand:labwindowsCvi.library.addLanguageStarter",
     "onCommand:labwindowsCvi.library.addContent",
     "onCommand:labwindowsCvi.library.deleteContent",
-    "onCommand:labwindowsCvi.library.exportContent"
+    "onCommand:labwindowsCvi.library.exportContent",
+    "onCommand:labwindowsCvi.copyFileSymbol",
+    "onCommand:labwindowsCvi.copyFileSymbolDeclaration",
+    "onCommand:labwindowsCvi.copyFileSymbols",
+    "onCommand:labwindowsCvi.copyFileSymbolDeclarations",
+    "onCommand:labwindowsCvi.exportFileSymbols",
+    "onCommand:labwindowsCvi.generateFileSymbolsHeader",
+    "onCommand:labwindowsCvi.generateFileSymbolsSource"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -797,6 +804,46 @@
         "title": "LabWindows/CVI: Show Full Build Trace",
         "category": "LabWindows/CVI",
         "icon": "$(output)"
+      },
+      {
+        "command": "labwindowsCvi.copyFileSymbol",
+        "title": "Copy File Symbol Signature",
+        "category": "LabWindows/CVI",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "labwindowsCvi.copyFileSymbolDeclaration",
+        "title": "Copy File Symbol Declaration",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.copyFileSymbols",
+        "title": "Copy File Symbols",
+        "category": "LabWindows/CVI",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "labwindowsCvi.copyFileSymbolDeclarations",
+        "title": "Copy File Symbol Declarations",
+        "category": "LabWindows/CVI"
+      },
+      {
+        "command": "labwindowsCvi.exportFileSymbols",
+        "title": "Export File Symbols...",
+        "category": "LabWindows/CVI",
+        "icon": "$(export)"
+      },
+      {
+        "command": "labwindowsCvi.generateFileSymbolsHeader",
+        "title": "Generate Header From File Symbols...",
+        "category": "LabWindows/CVI",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "labwindowsCvi.generateFileSymbolsSource",
+        "title": "Generate Source From File Symbols...",
+        "category": "LabWindows/CVI",
+        "icon": "$(new-file)"
       }
     ],
     "menus": {
@@ -920,6 +967,26 @@
           "command": "labwindowsCvi.library.importPack",
           "when": "view == labwindowsCvi.libraryExplorer",
           "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.copyFileSymbols",
+          "when": "view == labwindowsCvi.fileSymbols",
+          "group": "navigation@2"
+        },
+        {
+          "command": "labwindowsCvi.exportFileSymbols",
+          "when": "view == labwindowsCvi.fileSymbols",
+          "group": "navigation@3"
+        },
+        {
+          "command": "labwindowsCvi.generateFileSymbolsHeader",
+          "when": "view == labwindowsCvi.fileSymbols",
+          "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.generateFileSymbolsSource",
+          "when": "view == labwindowsCvi.fileSymbols",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
@@ -1212,6 +1279,16 @@
           "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
           "group": "build@5"
+        },
+        {
+          "command": "labwindowsCvi.copyFileSymbol",
+          "when": "view == labwindowsCvi.fileSymbols && viewItem == cviFileSymbol",
+          "group": "clipboard@1"
+        },
+        {
+          "command": "labwindowsCvi.copyFileSymbolDeclaration",
+          "when": "view == labwindowsCvi.fileSymbols && viewItem == cviFileSymbol",
+          "group": "clipboard@2"
         }
       ],
       "commandPalette": [
