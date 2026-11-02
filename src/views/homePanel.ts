@@ -101,24 +101,36 @@ function renderHtml(state: HomeState): string {
   const targetType = escapeHtml(state.targetType ?? 'No target');
   const projectCountLabel = `${state.projectCount} project${state.projectCount === 1 ? '' : 's'}`;
 
-  const emptyState = !hasProject ? `
+  const emptyState = !hasProject ? (hasWorkspace ? `
       <div class="empty-state">
         <div class="empty-icon">CVI</div>
         <div>
-          <h3>No project loaded</h3>
-          <p>Open an existing LabWindows/CVI workspace or create a starter project. The selected folder will also be added to the standard VS Code Explorer for IntelliSense.</p>
+          <h3>Workspace ready — no project yet</h3>
+          <p>The workspace is valid and can remain empty. Create a new project only when needed, or attach an existing .prj file.</p>
+          <div class="actions primary-row">
+            <button data-command="labwindowsCvi.createProjectInWorkspace">Create project</button>
+            <button class="secondary" data-command="labwindowsCvi.addExistingProject">Add existing project</button>
+            <button class="secondary" data-command="labwindowsCvi.openWorkspaceInCvi">Open workspace in CVI</button>
+          </div>
+        </div>
+      </div>` : `
+      <div class="empty-state">
+        <div class="empty-icon">CVI</div>
+        <div>
+          <h3>No workspace loaded</h3>
+          <p>Open an existing LabWindows/CVI workspace/project or create an empty workspace. Projects can then be created or added independently from the workspace tree.</p>
           <div class="actions primary-row">
             <button data-command="labwindowsCvi.openWorkspace">Open workspace</button>
-            <button data-command="labwindowsCvi.createWorkspaceProject">Create workspace and project</button>
+            <button data-command="labwindowsCvi.createWorkspace">Create workspace</button>
             <button data-command="labwindowsCvi.configureInstallation">Select CVI installation</button>
           </div>
         </div>
-      </div>` : '';
+      </div>`) : '';
 
   const workspaceActions = hasWorkspace ? `
         <div class="actions">
           <button data-command="labwindowsCvi.openWorkspace">Open another workspace</button>
-          <button class="secondary" data-command="labwindowsCvi.createWorkspaceProject">Create</button>
+          <button class="secondary" data-command="labwindowsCvi.createWorkspace">Create workspace</button>
           <button class="secondary" data-command="labwindowsCvi.openWorkspaceInCvi">Open in CVI</button>
         </div>` : '';
 

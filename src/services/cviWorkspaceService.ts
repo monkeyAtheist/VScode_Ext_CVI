@@ -165,7 +165,7 @@ export class CviWorkspaceService implements vscode.Disposable {
     this.changeEmitter.fire();
   }
 
-  async createWorkspaceProject(): Promise<void> {
+  async createWorkspace(): Promise<void> {
     const folder = await vscode.window.showOpenDialog({
       title: 'Select the directory for the new CVI workspace',
       canSelectFolders: true,
@@ -178,7 +178,7 @@ export class CviWorkspaceService implements vscode.Disposable {
 
     const workspaceName = await vscode.window.showInputBox({
       title: 'Create a CVI workspace',
-      prompt: 'Workspace file name without the .cws extension',
+      prompt: 'Workspace file name without the .cws extension. Projects can be created or added afterwards.',
       value: 'CVI_Workspace',
       validateInput: validateBaseName
     });
@@ -186,33 +186,16 @@ export class CviWorkspaceService implements vscode.Disposable {
       return;
     }
 
-    const projectName = await vscode.window.showInputBox({
-      title: 'Create a CVI project',
-      prompt: 'Project file name without the .prj extension',
-      value: 'CVI_Project',
-      validateInput: validateBaseName
-    });
-    if (!projectName) {
-      return;
-    }
-
-    const target = await vscode.window.showQuickPick([
-      { label: 'Executable', value: 'Executable', description: 'Generate an .exe target' },
-      { label: 'Dynamic Link Library', value: 'Dynamic Link Library', description: 'Generate a .dll target' },
-      { label: 'Static Library', value: 'Static Library', description: 'Generate a .lib target' }
-    ], { title: 'Select the CVI target type' });
-    if (!target) {
-      return;
-    }
-
-    let installation = this.installations.getActiveInstallation();
-    if (!installation) {
-      installation = await this.installations.selectInstallation();
-    }
+    const installation = this.installations.getActiveInstallation();
     const formatVersion = vscode.workspace.getConfiguration('labwindowsCvi').get<number>('projectFormatVersion', 1200);
-    const result = this.parser.createWorkspaceAndProject(folder[0].fsPath, workspaceName, projectName, target.value, installation?.root, formatVersion);
-    await this.load(result.workspacePath);
-    vscode.window.showInformationMessage(`Created ${path.basename(result.workspacePath)} and ${path.basename(result.projectPath)}.`);
+    const workspacePath = this.parser.createWorkspace(folder[0].fsPath, workspaceName, installation?.root, formatVersion);
+    await this.load(workspacePath);
+    vscode.window.showInformationMessage(`Created ${path.basename(workspacePath)}. Add or create projects from the workspace tree when needed.`);
+  }
+
+  /** Backward-compatible command kept for older keybindings and links. */
+  async createWorkspaceProject(): Promise<void> {
+    await this.createWorkspace();
   }
 
   async setActiveProject(projectRef?: CviWorkspaceProjectRef): Promise<void> {
@@ -308,6 +291,138 @@ export class CviWorkspaceService implements vscode.Disposable {
     this.parser.setWorkspaceActiveProject(workspace.path, projectIndex);
     this.refresh();
     vscode.window.showInformationMessage(`Created ${path.basename(projectPath)} and added it to ${path.basename(workspace.path)} as the active project.`);
+  }
+
+  async renameWorkspace(): Promise<void> {
+    const workspace = this.workspace;
+    if (!workspace) {
+      return;
+    }
+    if (path.extname(workspace.path).toLowerCase() === '.prj') {
+      const ref = this.activeProjectRef;
+      if (ref) {
+        await this.renameProject(ref);
+      }
+      return;
+    }
+
+    const currentPath = workspace.path;
+    const currentName = path.basename(currentPath, path.extname(currentPath));
+    const nextName = await vscode.window.showInputBox({
+      title: 'Rename CVI workspace',
+      prompt: 'Workspace file name without the .cws extension',
+      value: currentName,
+      validateInput: validateBaseName
+    });
+    if (!nextName || nextName === currentName) {
+      return;
+    }
+
+    const nextPath = path.join(path.dirname(currentPath), `${nextName}.cws`);
+    this.ensureRenameTargetAvailable(currentPath, nextPath);
+    await this.saveDocumentIfOpen(currentPath);
+    const originalText = fs.readFileSync(currentPath, 'utf8');
+
+    try {
+      await this.renamePathOnDisk(currentPath, nextPath);
+      this.parser.updateWorkspacePathAfterRename(nextPath);
+      await this.load(nextPath);
+      vscode.window.showInformationMessage(`Workspace renamed to ${path.basename(nextPath)}.`);
+    } catch (error) {
+      await this.rollbackRenamedPath(currentPath, nextPath, originalText);
+      throw error;
+    }
+  }
+
+  async renameProject(projectRef: CviWorkspaceProjectRef): Promise<void> {
+    if (!projectRef.exists || !fs.existsSync(projectRef.absolutePath)) {
+      vscode.window.showErrorMessage('The selected CVI project file does not exist.');
+      return;
+    }
+
+    const currentPath = projectRef.absolutePath;
+    const currentName = path.basename(currentPath, path.extname(currentPath));
+    const nextName = await vscode.window.showInputBox({
+      title: 'Rename CVI project',
+      prompt: 'Project file name without the .prj extension. Workspace references are updated automatically.',
+      value: currentName,
+      validateInput: validateBaseName
+    });
+    if (!nextName || nextName === currentName) {
+      return;
+    }
+
+    const nextPath = path.join(path.dirname(currentPath), `${nextName}.prj`);
+    this.ensureRenameTargetAvailable(currentPath, nextPath);
+    await this.saveDocumentIfOpen(currentPath);
+
+    const workspacePath = this.workspace?.path;
+    const workspaceIsCws = Boolean(workspacePath && path.extname(workspacePath).toLowerCase() === '.cws');
+    const originalProjectText = fs.readFileSync(currentPath, 'utf8');
+    const originalWorkspaceText = workspaceIsCws && workspacePath ? fs.readFileSync(workspacePath, 'utf8') : undefined;
+
+    try {
+      await this.renamePathOnDisk(currentPath, nextPath);
+      this.parser.updateProjectPathAfterRename(nextPath, currentPath);
+      if (workspaceIsCws && workspacePath) {
+        this.parser.updateWorkspaceProjectPath(workspacePath, projectRef.index, nextPath);
+        this.parser.updateWorkspaceReferencedFilePath(workspacePath, currentPath, nextPath);
+        await this.load(workspacePath);
+      } else {
+        await this.load(nextPath);
+      }
+      vscode.window.showInformationMessage(`Project renamed to ${path.basename(nextPath)}.`);
+    } catch (error) {
+      await this.rollbackRenamedPath(currentPath, nextPath, originalProjectText);
+      if (workspaceIsCws && workspacePath && originalWorkspaceText !== undefined) {
+        try { fs.writeFileSync(workspacePath, originalWorkspaceText, 'utf8'); } catch { /* best effort rollback */ }
+      }
+      throw error;
+    }
+  }
+
+  async renameFile(projectRef: CviWorkspaceProjectRef, file: CviProjectFile): Promise<void> {
+    const currentPath = file.absolutePath;
+    if (!fs.existsSync(currentPath)) {
+      vscode.window.showErrorMessage(`File not found: ${currentPath}`);
+      return;
+    }
+
+    const currentName = path.basename(currentPath);
+    const nextName = await vscode.window.showInputBox({
+      title: 'Rename CVI project file',
+      prompt: 'File name including extension. The .prj reference is updated automatically.',
+      value: currentName,
+      validateInput: validateFileName
+    });
+    if (!nextName || nextName === currentName) {
+      return;
+    }
+
+    const nextPath = path.join(path.dirname(currentPath), nextName);
+    this.ensureRenameTargetAvailable(currentPath, nextPath);
+    await this.saveDocumentIfOpen(currentPath);
+    const originalProjectText = fs.readFileSync(projectRef.absolutePath, 'utf8');
+    const workspacePath = this.workspace?.path;
+    const workspaceIsCws = Boolean(workspacePath && path.extname(workspacePath).toLowerCase() === '.cws');
+    const originalWorkspaceText = workspaceIsCws && workspacePath ? fs.readFileSync(workspacePath, 'utf8') : undefined;
+
+    try {
+      await this.renamePathOnDisk(currentPath, nextPath);
+      this.parser.replaceFileInProject(projectRef.absolutePath, file.sectionName, nextPath);
+      if (workspaceIsCws && workspacePath) {
+        this.parser.updateWorkspaceReferencedFilePath(workspacePath, currentPath, nextPath);
+      }
+      this.refresh();
+      vscode.window.showInformationMessage(`${currentName} renamed to ${nextName}.`);
+    } catch (error) {
+      await this.rollbackRenamedPath(currentPath, nextPath);
+      try { fs.writeFileSync(projectRef.absolutePath, originalProjectText, 'utf8'); } catch { /* best effort rollback */ }
+      if (workspaceIsCws && workspacePath && originalWorkspaceText !== undefined) {
+        try { fs.writeFileSync(workspacePath, originalWorkspaceText, 'utf8'); } catch { /* best effort rollback */ }
+      }
+      throw error;
+    }
   }
 
   async removeProject(projectRef: CviWorkspaceProjectRef): Promise<void> {
@@ -459,6 +574,73 @@ export class CviWorkspaceService implements vscode.Disposable {
     }
     this.parser.removeFileFromProject(projectRef.absolutePath, sectionName);
     this.refresh();
+  }
+
+  async deleteFile(projectRef: CviWorkspaceProjectRef, sectionName: string, filePath: string): Promise<void> {
+    const resolvedFilePath = path.resolve(filePath);
+    const resolvedProjectPath = path.resolve(projectRef.absolutePath);
+    if (resolvedFilePath.toLowerCase() === resolvedProjectPath.toLowerCase()) {
+      vscode.window.showErrorMessage('The CVI project file cannot be deleted through Delete File. Use the project actions instead.');
+      return;
+    }
+
+    if (!fs.existsSync(resolvedFilePath)) {
+      vscode.window.showWarningMessage(
+        `${path.basename(filePath)} no longer exists on disk. Use Remove File to remove the stale reference from ${projectRef.name}.`
+      );
+      return;
+    }
+
+    const stat = fs.statSync(resolvedFilePath);
+    if (!stat.isFile()) {
+      vscode.window.showErrorMessage('Delete File can only delete regular files.');
+      return;
+    }
+
+    const normalized = path.normalize(resolvedFilePath).toLowerCase();
+    const dirtyDocument = vscode.workspace.textDocuments.find(
+      (candidate) => path.normalize(candidate.uri.fsPath).toLowerCase() === normalized && candidate.isDirty
+    );
+    if (dirtyDocument) {
+      vscode.window.showWarningMessage(
+        `${path.basename(filePath)} has unsaved changes. Save or discard those changes before deleting the file.`
+      );
+      return;
+    }
+
+    const answer = await vscode.window.showWarningMessage(
+      `Delete ${path.basename(filePath)} from disk and remove it from ${projectRef.name}?`,
+      {
+        modal: true,
+        detail: `The file will be moved to the operating system Recycle Bin / Trash.\n\n${resolvedFilePath}\n\nUse Remove File instead if you only want to detach the file from the CVI project.`
+      },
+      'Delete File'
+    );
+    if (answer !== 'Delete File') {
+      return;
+    }
+
+    const originalProjectContents = fs.readFileSync(projectRef.absolutePath, 'utf8');
+    let projectReferenceRemoved = false;
+    try {
+      this.parser.removeFileFromProject(projectRef.absolutePath, sectionName);
+      projectReferenceRemoved = true;
+      await vscode.workspace.fs.delete(vscode.Uri.file(resolvedFilePath), { recursive: false, useTrash: true });
+      this.refresh();
+      vscode.window.showInformationMessage(`${path.basename(filePath)} was removed from ${projectRef.name} and moved to the Recycle Bin / Trash.`);
+    } catch (error) {
+      if (projectReferenceRemoved) {
+        try {
+          fs.writeFileSync(projectRef.absolutePath, originalProjectContents, 'utf8');
+        } catch (rollbackError) {
+          this.output.appendLine(`[CVI] Cannot restore ${projectRef.absolutePath} after file deletion failure: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+        }
+      }
+      this.refresh();
+      vscode.window.showErrorMessage(
+        `Unable to delete ${path.basename(filePath)}. The CVI project reference was restored when possible: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   setFileExcluded(projectRef: CviWorkspaceProjectRef, file: CviProjectFile, excluded: boolean): void {
@@ -656,6 +838,59 @@ export class CviWorkspaceService implements vscode.Disposable {
     vscode.window.showInformationMessage(`Generated ${path.basename(headerPath)}. Review the prototypes before using the header as a public API.`);
   }
 
+  private ensureRenameTargetAvailable(currentPath: string, nextPath: string): void {
+    if (path.resolve(currentPath) === path.resolve(nextPath)) {
+      return;
+    }
+    const sameIgnoringCase = path.resolve(currentPath).toLowerCase() === path.resolve(nextPath).toLowerCase();
+    if (!sameIgnoringCase && fs.existsSync(nextPath)) {
+      throw new Error(`Cannot rename because the target already exists: ${nextPath}`);
+    }
+  }
+
+  private async saveDocumentIfOpen(filePath: string): Promise<void> {
+    const normalized = path.normalize(filePath).toLowerCase();
+    const document = vscode.workspace.textDocuments.find((candidate) => path.normalize(candidate.uri.fsPath).toLowerCase() === normalized);
+    if (document?.isDirty) {
+      await document.save();
+    }
+  }
+
+  private async renamePathOnDisk(currentPath: string, nextPath: string): Promise<void> {
+    const currentResolved = path.resolve(currentPath);
+    const nextResolved = path.resolve(nextPath);
+    if (currentResolved === nextResolved) {
+      return;
+    }
+    const caseOnlyRename = currentResolved.toLowerCase() === nextResolved.toLowerCase();
+    if (!caseOnlyRename) {
+      await vscode.workspace.fs.rename(vscode.Uri.file(currentPath), vscode.Uri.file(nextPath), { overwrite: false });
+      return;
+    }
+
+    const temporaryPath = `${currentPath}.vscode-cvi-rename-${process.pid}-${Date.now()}`;
+    await vscode.workspace.fs.rename(vscode.Uri.file(currentPath), vscode.Uri.file(temporaryPath), { overwrite: false });
+    try {
+      await vscode.workspace.fs.rename(vscode.Uri.file(temporaryPath), vscode.Uri.file(nextPath), { overwrite: false });
+    } catch (error) {
+      try { await vscode.workspace.fs.rename(vscode.Uri.file(temporaryPath), vscode.Uri.file(currentPath), { overwrite: false }); } catch { /* best effort rollback */ }
+      throw error;
+    }
+  }
+
+  private async rollbackRenamedPath(currentPath: string, nextPath: string, originalText?: string): Promise<void> {
+    try {
+      if (fs.existsSync(nextPath) && !fs.existsSync(currentPath)) {
+        await this.renamePathOnDisk(nextPath, currentPath);
+      }
+      if (originalText !== undefined) {
+        fs.writeFileSync(currentPath, originalText, 'utf8');
+      }
+    } catch (rollbackError) {
+      this.output.appendLine(`[CVI] Rename rollback failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+    }
+  }
+
   private findFilesAtLimitedDepth(directory: string, extension: string, depth: number): string[] {
     if (depth < 0 || !fs.existsSync(directory)) {
       return [];
@@ -682,6 +917,17 @@ function validateBaseName(value: string): string | undefined {
   }
   if (/[<>:"/\\|?*]/.test(value)) {
     return 'The name contains a character that is not permitted in a Windows file name.';
+  }
+  return undefined;
+}
+
+function validateFileName(value: string): string | undefined {
+  const error = validateBaseName(value);
+  if (error) {
+    return error;
+  }
+  if (value === '.' || value === '..') {
+    return 'Enter a valid file name.';
   }
   return undefined;
 }

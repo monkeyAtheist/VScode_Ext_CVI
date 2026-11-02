@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.16",
+  "version": "0.7.19",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -162,7 +162,7 @@
     "viewsWelcome": [
       {
         "view": "labwindowsCvi.workspaceExplorer",
-        "contents": "No LabWindows/CVI workspace is currently loaded.\n[Open a workspace](command:labwindowsCvi.openWorkspace)\n[Create a workspace and project](command:labwindowsCvi.createWorkspaceProject)\n[Open the CVI home page](command:labwindowsCvi.openHome)"
+        "contents": "No LabWindows/CVI workspace is currently loaded.\n[Open a workspace](command:labwindowsCvi.openWorkspace)\n[Create a workspace](command:labwindowsCvi.createWorkspace)\n[Open the CVI home page](command:labwindowsCvi.openHome)"
       }
     ],
     "commands": [
@@ -178,7 +178,7 @@
       },
       {
         "command": "labwindowsCvi.createWorkspaceProject",
-        "title": "LabWindows/CVI: Create Workspace and Project"
+        "title": "LabWindows/CVI: Create Workspace (legacy alias)"
       },
       {
         "command": "labwindowsCvi.refresh",
@@ -298,6 +298,10 @@
       {
         "command": "labwindowsCvi.removeFile",
         "title": "Remove File"
+      },
+      {
+        "command": "labwindowsCvi.deleteFile",
+        "title": "Delete File from Disk..."
       },
       {
         "command": "labwindowsCvi.excludeFile",
@@ -844,6 +848,26 @@
         "title": "Generate Source From File Symbols...",
         "category": "LabWindows/CVI",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "labwindowsCvi.createWorkspace",
+        "title": "LabWindows/CVI: Create Workspace",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "labwindowsCvi.renameWorkspace",
+        "title": "Rename Workspace...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "labwindowsCvi.renameProject",
+        "title": "Rename Project...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "labwindowsCvi.renameFile",
+        "title": "Rename File...",
+        "icon": "$(edit)"
       }
     ],
     "menus": {
@@ -1191,6 +1215,11 @@
           "group": "modification@3"
         },
         {
+          "command": "labwindowsCvi.deleteFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "modification@4"
+        },
+        {
           "command": "labwindowsCvi.compileFile",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.source\\./",
           "group": "build@3"
@@ -1289,6 +1318,21 @@
           "command": "labwindowsCvi.copyFileSymbolDeclaration",
           "when": "view == labwindowsCvi.fileSymbols && viewItem == cviFileSymbol",
           "group": "clipboard@2"
+        },
+        {
+          "command": "labwindowsCvi.renameWorkspace",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "modification@0"
+        },
+        {
+          "command": "labwindowsCvi.renameProject",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
+          "group": "modification@0"
+        },
+        {
+          "command": "labwindowsCvi.renameFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
+          "group": "modification@0"
         }
       ],
       "commandPalette": [
@@ -1338,6 +1382,10 @@
         },
         {
           "command": "labwindowsCvi.removeFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.deleteFile",
           "when": "false"
         },
         {
@@ -1510,6 +1558,22 @@
         },
         {
           "command": "labwindowsCvi.moveFileToFolder",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.renameWorkspace",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.renameProject",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.renameFile",
+          "when": "false"
+        },
+        {
+          "command": "labwindowsCvi.createWorkspaceProject",
           "when": "false"
         }
       ],

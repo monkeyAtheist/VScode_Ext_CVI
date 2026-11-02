@@ -74,13 +74,15 @@ export class QuickActionsView implements vscode.TreeDataProvider<QuickActionNode
       return [
         info('No workspace loaded', 'Open or create a CVI workspace to display the active target summary.', 'info'),
         action('Open workspace or project…', 'labwindowsCvi.openWorkspace', 'folder-opened'),
-        action('Create workspace and project…', 'labwindowsCvi.createWorkspaceProject', 'new-folder')
+        action('Create workspace…', 'labwindowsCvi.createWorkspace', 'new-folder')
       ];
     }
     if (!ref?.exists) {
       return [
-        info('No active project', 'Select an existing project in the workspace tree.', 'info'),
-        action('Open workspace or project…', 'labwindowsCvi.openWorkspace', 'folder-opened')
+        info('Workspace ready — no active project', 'The workspace can remain empty. Create or add a project when needed.', 'info'),
+        action('Create project in workspace…', 'labwindowsCvi.createProjectInWorkspace', 'new-folder'),
+        action('Add existing project…', 'labwindowsCvi.addExistingProject', 'folder-opened'),
+        action('Open another workspace or project…', 'labwindowsCvi.openWorkspace', 'folder-opened')
       ];
     }
 

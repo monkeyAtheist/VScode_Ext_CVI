@@ -185,6 +185,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     register('labwindowsCvi.openHome', () => home.show()),
     register('labwindowsCvi.openWorkspace', () => workspaces.openWorkspace()),
+    register('labwindowsCvi.createWorkspace', () => workspaces.createWorkspace()),
     register('labwindowsCvi.createWorkspaceProject', () => workspaces.createWorkspaceProject()),
     register('labwindowsCvi.refresh', () => workspaces.refresh()),
     register('labwindowsCvi.configureInstallation', async () => {
@@ -243,6 +244,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.openProjectFile', (node?: ProjectNode) => node ? workspaces.openPath(node.ref.absolutePath) : undefined),
     register('labwindowsCvi.createProjectInWorkspace', () => workspaces.createProjectInWorkspace()),
     register('labwindowsCvi.addExistingProject', () => workspaces.addExistingProject()),
+    register('labwindowsCvi.renameWorkspace', () => workspaces.renameWorkspace()),
+    register('labwindowsCvi.renameProject', (node?: ProjectNode) => node ? workspaces.renameProject(node.ref) : undefined),
     register('labwindowsCvi.removeProject', (node?: ProjectNode) => node ? workspaces.removeProject(node.ref) : undefined),
     register('labwindowsCvi.addFiles', (node?: ProjectNode | FolderNode) => {
       if (node?.kind === 'folder') {
@@ -264,7 +267,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     register('labwindowsCvi.renameFolder', (node?: FolderNode) => node ? workspaces.renameFolder(node.ref, node.folderPath) : undefined),
     register('labwindowsCvi.removeFolder', (node?: FolderNode) => node ? workspaces.removeFolder(node.ref, node.folderPath) : undefined),
+    register('labwindowsCvi.renameFile', (node?: FileNode) => node ? workspaces.renameFile(node.ref, node.file) : undefined),
     register('labwindowsCvi.removeFile', (node?: FileNode) => node ? workspaces.removeFile(node.ref, node.file.sectionName, node.file.absolutePath) : undefined),
+    register('labwindowsCvi.deleteFile', (node?: FileNode) => node ? workspaces.deleteFile(node.ref, node.file.sectionName, node.file.absolutePath) : undefined),
     register('labwindowsCvi.excludeFile', (node?: FileNode) => node ? workspaces.setFileExcluded(node.ref, node.file, true) : undefined),
     register('labwindowsCvi.includeFile', (node?: FileNode) => node ? workspaces.setFileExcluded(node.ref, node.file, false) : undefined),
     register('labwindowsCvi.toggleObjOption', (node?: FileNode) => node ? workspaces.toggleCompileIntoObjectFile(node.ref, node.file) : undefined),

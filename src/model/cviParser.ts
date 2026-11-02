@@ -115,9 +115,33 @@ function validateNativeDocument(filePath: string, content: string): void {
     return;
   }
   const document = IniDocument.parse(content);
-  const requiredSection = path.extname(filePath).toLowerCase() === '.cws' ? 'Workspace Header' : 'Project Header';
-  if (!document.getSection(requiredSection)) {
+  const extension = path.extname(filePath).toLowerCase();
+  const requiredSection = extension === '.cws' ? 'Workspace Header' : 'Project Header';
+  const header = document.getSection(requiredSection);
+  if (!header) {
     throw new Error(`Refusing to overwrite ${path.basename(filePath)}: generated content is missing [${requiredSection}].`);
+  }
+
+  for (const section of document.sections) {
+    for (const { key, value } of section.entries()) {
+      if (!/Rel Path(?: Line\d{4})?$/i.test(key)) {
+        continue;
+      }
+      const stored = unquote(value) ?? '';
+      if (/^[A-Za-z]:[\\/]/.test(stored) || /^\/[A-Za-z]\//.test(stored)) {
+        throw new Error(`Refusing to overwrite ${path.basename(filePath)}: ${section.name}/${key} contains an absolute path in a relative-path field (${stored}).`);
+      }
+    }
+  }
+
+  if (extension === '.cws') {
+    const projectCount = Number(header.get('Number of Projects') ?? '0');
+    for (let index = 1; index <= projectCount; index += 1) {
+      const projectKey = `Project ${String(index).padStart(4, '0')}`;
+      if (!(unquote(header.get(projectKey)) ?? '').trim()) {
+        throw new Error(`Refusing to overwrite ${path.basename(filePath)}: ${projectKey} is empty while Number of Projects=${projectCount}.`);
+      }
+    }
   }
 }
 
@@ -236,6 +260,42 @@ function resolveStoredPath(section: IniSection, key: string): string {
   return value ? fromCviPath(value) : '';
 }
 
+function resolveProjectReferencedPath(projectDirectory: string, value: string): string {
+  const trimmed = value.trim();
+  if (path.win32.isAbsolute(trimmed)) {
+    return path.win32.normalize(trimmed.replace(/\//g, '\\'));
+  }
+  if (/^\/[A-Za-z]\//.test(trimmed)) {
+    return fromCviPath(trimmed);
+  }
+  if (path.isAbsolute(trimmed)) {
+    return path.normalize(trimmed);
+  }
+  return path.resolve(projectDirectory, trimmed);
+}
+
+function projectRelativePath(projectDirectory: string, absolutePath: string): string | undefined {
+  const baseIsWindows = path.win32.isAbsolute(projectDirectory);
+  const targetIsWindows = path.win32.isAbsolute(absolutePath);
+  if (baseIsWindows || targetIsWindows) {
+    if (!baseIsWindows || !targetIsWindows) {
+      return undefined;
+    }
+    const baseRoot = path.win32.parse(projectDirectory).root.toLowerCase();
+    const targetRoot = path.win32.parse(absolutePath).root.toLowerCase();
+    if (!baseRoot || baseRoot !== targetRoot) {
+      return undefined;
+    }
+    const relative = path.win32.relative(projectDirectory, absolutePath).replace(/\\/g, '/');
+    return relative || path.win32.basename(absolutePath);
+  }
+
+  if (path.parse(projectDirectory).root !== path.parse(absolutePath).root) {
+    return undefined;
+  }
+  return normalizeRelativePath(projectDirectory, absolutePath);
+}
+
 function setProjectReferencedPath(section: IniSection, key: string, projectPath: string, value: string): void {
   const trimmed = value.trim();
   deletePossiblyLongValue(section, `${key} Rel Path`);
@@ -246,11 +306,15 @@ function setProjectReferencedPath(section: IniSection, key: string, projectPath:
     return;
   }
   const projectDirectory = path.dirname(projectPath);
-  const absolutePath = path.isAbsolute(trimmed) ? trimmed : path.resolve(projectDirectory, trimmed);
-  const relativePath = normalizeRelativePath(projectDirectory, absolutePath);
-  section.set(`${key} Is Rel`, 'True');
-  section.set(`${key} Rel To`, quote('Project'));
-  setPossiblyLongStringValue(section, `${key} Rel Path`, relativePath);
+  const absolutePath = resolveProjectReferencedPath(projectDirectory, trimmed);
+  const relativePath = projectRelativePath(projectDirectory, absolutePath);
+  if (relativePath !== undefined) {
+    section.set(`${key} Is Rel`, 'True');
+    section.set(`${key} Rel To`, quote('Project'));
+    setPossiblyLongStringValue(section, `${key} Rel Path`, relativePath);
+  } else {
+    section.set(`${key} Is Rel`, 'False');
+  }
   setPossiblyLongValue(section, key, absolutePath);
 }
 
@@ -262,10 +326,17 @@ function setOutputPath(section: IniSection, mode: CviBuildMode, projectPath: str
     throw new Error('The target output path cannot be empty.');
   }
   const projectDirectory = path.dirname(projectPath);
-  const absolutePath = path.isAbsolute(trimmed) ? trimmed : path.resolve(projectDirectory, trimmed);
-  section.set(`${key} Is Rel`, 'True');
-  section.set(`${key} Rel To`, quote('Project'));
-  setPossiblyLongStringValue(section, `${key} Rel Path`, normalizeRelativePath(projectDirectory, absolutePath));
+  const absolutePath = resolveProjectReferencedPath(projectDirectory, trimmed);
+  const relativePath = projectRelativePath(projectDirectory, absolutePath);
+  deletePossiblyLongValue(section, `${key} Rel Path`);
+  section.delete(`${key} Rel To`);
+  if (relativePath !== undefined) {
+    section.set(`${key} Is Rel`, 'True');
+    section.set(`${key} Rel To`, quote('Project'));
+    setPossiblyLongStringValue(section, `${key} Rel Path`, relativePath);
+  } else {
+    section.set(`${key} Is Rel`, 'False');
+  }
   setPossiblyLongValue(section, key, absolutePath);
 }
 
@@ -1154,6 +1225,97 @@ export class CviParser {
     writeText(projectPath, document.toString());
   }
 
+  updateWorkspacePathAfterRename(workspacePath: string): void {
+    const document = IniDocument.parse(readText(workspacePath));
+    const header = document.getSection('Workspace Header');
+    if (!header) {
+      throw new Error('Invalid CVI workspace: missing [Workspace Header].');
+    }
+    setPossiblyLongValue(header, 'Pathname', workspacePath);
+    writeText(workspacePath, document.toString());
+  }
+
+  updateProjectPathAfterRename(projectPath: string, previousProjectPath: string): void {
+    const document = IniDocument.parse(readText(projectPath));
+    const header = document.getSection('Project Header');
+    if (!header) {
+      throw new Error('Invalid CVI project: missing [Project Header].');
+    }
+
+    setPossiblyLongValue(header, 'Pathname', projectPath);
+
+    const previousBaseName = path.basename(previousProjectPath, path.extname(previousProjectPath));
+    const nextBaseName = path.basename(projectPath, path.extname(projectPath));
+    const createExecutable = document.getSection('Create Executable');
+    if (createExecutable && previousBaseName.toLowerCase() !== nextBaseName.toLowerCase()) {
+      for (const mode of ['Debug', 'Release', 'Debug64', 'Release64']) {
+        const relativeKey = `Executable File_${mode} Rel Path`;
+        const relativeValue = unquote(createExecutable.get(relativeKey));
+        if (relativeValue) {
+          const relativeExtension = path.extname(relativeValue);
+          const relativeBaseName = path.basename(relativeValue, relativeExtension);
+          if (relativeBaseName.toLowerCase() === previousBaseName.toLowerCase()) {
+            createExecutable.set(relativeKey, quote(`${nextBaseName}${relativeExtension}`));
+          }
+        }
+
+        const absoluteKey = `Executable File_${mode}`;
+        const absoluteValue = reconstructValue(createExecutable, absoluteKey);
+        if (absoluteValue) {
+          const nativeAbsolute = fromCviPath(absoluteValue);
+          const absoluteExtension = path.extname(nativeAbsolute);
+          const absoluteBaseName = path.basename(nativeAbsolute, absoluteExtension);
+          if (absoluteBaseName.toLowerCase() === previousBaseName.toLowerCase()) {
+            setPossiblyLongValue(createExecutable, absoluteKey, path.join(path.dirname(projectPath), `${nextBaseName}${absoluteExtension}`));
+          }
+        }
+      }
+    }
+
+    writeText(projectPath, document.toString());
+  }
+
+  updateWorkspaceProjectPath(workspacePath: string, projectIndex: number, projectPath: string): void {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws') {
+      return;
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    const header = document.getSection('Workspace Header');
+    if (!header) {
+      throw new Error('Invalid CVI workspace: missing [Workspace Header].');
+    }
+    const key = `Project ${workspaceProjectSuffix(projectIndex)}`;
+    if (!header.has(key)) {
+      throw new Error(`CVI workspace project entry not found: ${key}.`);
+    }
+    header.set(key, quote(normalizeRelativePath(path.dirname(workspacePath), projectPath)));
+    writeText(workspacePath, document.toString());
+  }
+
+  updateWorkspaceReferencedFilePath(workspacePath: string, previousPath: string, nextPath: string): void {
+    if (path.extname(workspacePath).toLowerCase() !== '.cws' || !fs.existsSync(workspacePath)) {
+      return;
+    }
+    const document = IniDocument.parse(readText(workspacePath));
+    let changed = false;
+    const previousNormalized = path.normalize(previousPath).toLowerCase();
+    for (const section of document.sections.filter((candidate) => /^File \d{4}$/i.test(candidate.name))) {
+      const stored = reconstructValue(section, 'Path');
+      if (!stored) {
+        continue;
+      }
+      const storedNative = fromCviPath(stored);
+      if (path.normalize(storedNative).toLowerCase() !== previousNormalized) {
+        continue;
+      }
+      section.set('Path', quote(toCviPath(nextPath)));
+      changed = true;
+    }
+    if (changed) {
+      writeText(workspacePath, document.toString());
+    }
+  }
+
   setWorkspaceActiveProject(workspacePath: string, projectIndex: number): void {
     if (path.extname(workspacePath).toLowerCase() !== '.cws') {
       return;
@@ -1568,6 +1730,16 @@ export class CviParser {
     };
   }
 
+  createWorkspace(rootDirectory: string, workspaceName: string, cviDir: string | undefined, formatVersion: number): string {
+    fs.mkdirSync(rootDirectory, { recursive: true });
+    const workspacePath = path.join(rootDirectory, `${workspaceName}.cws`);
+    if (fs.existsSync(workspacePath)) {
+      throw new Error(`The CVI workspace already exists: ${workspacePath}`);
+    }
+    writeText(workspacePath, this.createMinimalWorkspaceText(workspacePath, undefined, cviDir, formatVersion));
+    return workspacePath;
+  }
+
   createWorkspaceAndProject(rootDirectory: string, workspaceName: string, projectName: string, targetType: string, cviDir: string | undefined, formatVersion: number): { workspacePath: string; projectPath: string } {
     fs.mkdirSync(rootDirectory, { recursive: true });
     const projectPath = path.join(rootDirectory, `${projectName}.prj`);
@@ -1623,7 +1795,7 @@ export class CviParser {
     folders.lines.push('');
   }
 
-  private createMinimalWorkspaceText(workspacePath: string, projectFileName: string, cviDir: string | undefined, version: number): string {
+  private createMinimalWorkspaceText(workspacePath: string, projectFileName: string | undefined, cviDir: string | undefined, version: number): string {
     const document = new IniDocument();
     const header = new IniSection('Workspace Header', []);
     header.set('Version', String(version));
@@ -1631,16 +1803,21 @@ export class CviParser {
     if (cviDir) {
       setPossiblyLongValue(header, 'CVI Dir', cviDir);
     }
-    header.set('Number of Projects', '1');
-    header.set('Active Project', '1');
-    header.set('Project 0001', quote(projectFileName));
+    const hasProject = Boolean(projectFileName);
+    header.set('Number of Projects', hasProject ? '1' : '0');
+    header.set('Active Project', hasProject ? '1' : '0');
+    if (projectFileName) {
+      header.set('Project 0001', quote(projectFileName));
+    }
     header.set('Save Changes Before Running', quote('Always'));
     header.set('Save Changes Before Compiling', quote('Always'));
     header.set('Sort Type', quote('File Name'));
     header.lines.push('');
     document.addSection(header);
 
-    ensureWorkspaceProjectSections(document, 1, version);
+    if (hasProject) {
+      ensureWorkspaceProjectSections(document, 1, version);
+    }
     return document.toString();
   }
 
