@@ -12,13 +12,18 @@ import {
 
 type FileSymbolNode = CviSourceSymbol | { kind: 'placeholder'; label: string };
 
-export class CviFileSymbolsProvider implements vscode.TreeDataProvider<FileSymbolNode> {
+export class CviFileSymbolsProvider implements vscode.TreeDataProvider<FileSymbolNode>, vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<FileSymbolNode | undefined | null | void>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
   private selectedFile?: string;
   private view?: vscode.TreeView<FileSymbolNode>;
 
   constructor(private readonly symbols: CviSymbolService) {}
+
+  dispose(): void {
+    this.view = undefined;
+    this.changeEmitter.dispose();
+  }
 
   attachView(view: vscode.TreeView<FileSymbolNode>): void {
     this.view = view;

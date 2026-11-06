@@ -3,6 +3,99 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { CviWorkspaceService } from './cviWorkspaceService';
 
+export type CviAutocompleteProfile = 'hybrid' | 'native' | 'nativeSignature' | 'cviApi' | 'custom';
+
+export interface CviAutocompleteSettings {
+  profile: CviAutocompleteProfile;
+  completionEnabled: boolean;
+  includeProjectCompletion: boolean;
+  includeCviApiCompletion: boolean;
+  signatureHelpEnabled: boolean;
+}
+
+export interface CviAutocompleteCustomSettings {
+  completionEnabled?: boolean;
+  includeProjectCompletion?: boolean;
+  includeCviApiCompletion?: boolean;
+  signatureHelpEnabled?: boolean;
+}
+
+export function resolveAutocompleteProfile(
+  profile: CviAutocompleteProfile,
+  custom: CviAutocompleteCustomSettings = {}
+): CviAutocompleteSettings {
+  switch (profile) {
+    case 'native':
+      return { profile, completionEnabled: false, includeProjectCompletion: false, includeCviApiCompletion: false, signatureHelpEnabled: false };
+    case 'nativeSignature':
+      return { profile, completionEnabled: false, includeProjectCompletion: false, includeCviApiCompletion: false, signatureHelpEnabled: true };
+    case 'cviApi':
+      return { profile, completionEnabled: true, includeProjectCompletion: false, includeCviApiCompletion: true, signatureHelpEnabled: true };
+    case 'custom':
+      return {
+        profile,
+        completionEnabled: custom.completionEnabled ?? true,
+        includeProjectCompletion: custom.includeProjectCompletion ?? true,
+        includeCviApiCompletion: custom.includeCviApiCompletion ?? true,
+        signatureHelpEnabled: custom.signatureHelpEnabled ?? true
+      };
+    case 'hybrid':
+    default:
+      return { profile: 'hybrid', completionEnabled: true, includeProjectCompletion: true, includeCviApiCompletion: true, signatureHelpEnabled: true };
+  }
+}
+
+export function getCviAutocompleteSettings(): CviAutocompleteSettings {
+  const config = vscode.workspace.getConfiguration('labwindowsCvi');
+  const profile = configuredAutocompleteProfile(config);
+  return resolveAutocompleteProfile(profile, {
+    completionEnabled: config.get<boolean>('enableSupplementalCompletionProvider', true),
+    includeProjectCompletion: config.get<boolean>('enableSupplementalProjectCompletion', true),
+    includeCviApiCompletion: config.get<boolean>('enableSupplementalCviApiCompletion', true),
+    signatureHelpEnabled: config.get<boolean>('enableSupplementalSignatureHelp', true)
+  });
+}
+
+function configuredAutocompleteProfile(config: vscode.WorkspaceConfiguration): CviAutocompleteProfile {
+  const allowed = new Set<CviAutocompleteProfile>(['hybrid', 'native', 'nativeSignature', 'cviApi', 'custom']);
+  const configured = config.get<string>('autocompleteProfile', 'hybrid') as CviAutocompleteProfile;
+  const canInspect = typeof config.inspect === 'function';
+  const inspect = canInspect ? config.inspect<string>('autocompleteProfile') : undefined;
+  const profileExplicit = hasExplicitConfigurationValue(inspect) || (!canInspect && configured !== 'hybrid');
+
+  // Backward compatibility: before v0.7.41 these booleans were the only
+  // controls. If a user explicitly configured one of them and has not yet
+  // selected a profile, keep honoring the old fine-grained behaviour.
+  if (!profileExplicit) {
+    const legacyKeys = [
+      'enableSupplementalCompletionProvider',
+      'enableSupplementalProjectCompletion',
+      'enableSupplementalCviApiCompletion',
+      'enableSupplementalSignatureHelp'
+    ];
+    const legacyExplicit = canInspect
+      ? legacyKeys.some((key) => hasExplicitConfigurationValue(config.inspect(key)))
+      : config.get<boolean>('enableSupplementalCompletionProvider', true) !== true
+        || config.get<boolean>('enableSupplementalProjectCompletion', true) !== true
+        || config.get<boolean>('enableSupplementalCviApiCompletion', true) !== true
+        || config.get<boolean>('enableSupplementalSignatureHelp', true) !== true;
+    if (legacyExplicit) return 'custom';
+  }
+  return allowed.has(configured) ? configured : 'hybrid';
+}
+
+function hasExplicitConfigurationValue(inspect: any): boolean {
+  if (!inspect) return false;
+  return [
+    'globalValue',
+    'workspaceValue',
+    'workspaceFolderValue',
+    'globalLanguageValue',
+    'workspaceLanguageValue',
+    'workspaceFolderLanguageValue'
+  ].some((key) => inspect[key] !== undefined);
+}
+
 export interface CviSourceSymbol {
   name: string;
   qualifiedName?: string;
@@ -20,11 +113,13 @@ export interface CviCompletionSymbol {
   signature: string;
   description?: string;
   origin: 'project' | 'cvi';
+  filePath?: string;
 }
 
 export class CviSymbolService {
   private bundledCache?: CviCompletionSymbol[];
-  private projectCache?: { key: string; symbols: CviCompletionSymbol[] };
+  private bundledSignatureCache?: CviCompletionSymbol[];
+  private projectCache?: { key: string; symbols: CviCompletionSymbol[]; signatures: CviCompletionSymbol[] };
 
   constructor(
     private readonly extensionPath: string,
@@ -48,6 +143,17 @@ export class CviSymbolService {
       ...this.projectCompletionSymbols(),
       ...this.bundledCviCompletionSymbols()
     ]);
+  }
+
+  signatureSymbols(name: string): CviCompletionSymbol[] {
+    const normalized = String(name || '').trim().toLowerCase();
+    if (!normalized) return [];
+    const project = this.projectSignatureSymbols().filter((symbol) => symbol.name.toLowerCase() === normalized);
+    if (project.length) {
+      const headerDeclarations = project.filter((symbol) => symbol.filePath && isHeaderFile(symbol.filePath));
+      return headerDeclarations.length ? headerDeclarations : project;
+    }
+    return this.bundledCviSignatureSymbols().filter((symbol) => symbol.name.toLowerCase() === normalized);
   }
 
   isCviWorkspaceFile(filePath: string): boolean {
@@ -95,20 +201,30 @@ export class CviSymbolService {
       return this.projectCache.symbols;
     }
 
-    const symbols: CviCompletionSymbol[] = [];
+    const signatures: CviCompletionSymbol[] = [];
     for (const filePath of candidateFiles) {
       const parsed = scanCFunctions(fs.readFileSync(filePath, 'utf8'), filePath);
       for (const symbol of parsed) {
-        symbols.push({
+        signatures.push({
           name: symbol.name,
           signature: symbol.signature,
           description: `Project symbol · ${path.basename(filePath)}`,
-          origin: 'project'
+          origin: 'project',
+          filePath
         });
       }
     }
-    this.projectCache = { key, symbols: dedupeCompletionSymbols(symbols) };
+    this.projectCache = {
+      key,
+      symbols: dedupeCompletionSymbols(signatures),
+      signatures: dedupeSignatureSymbols(signatures)
+    };
     return this.projectCache.symbols;
+  }
+
+  private projectSignatureSymbols(): CviCompletionSymbol[] {
+    this.projectCompletionSymbols();
+    return this.projectCache?.signatures ?? [];
   }
 
   private bundledCviCompletionSymbols(): CviCompletionSymbol[] {
@@ -126,10 +242,17 @@ export class CviSymbolService {
       const collected: CviCompletionSymbol[] = [];
       collectPackFunctions(raw, collected);
       this.bundledCache = dedupeCompletionSymbols(collected);
+      this.bundledSignatureCache = dedupeSignatureSymbols(collected);
     } catch {
       this.bundledCache = [];
+      this.bundledSignatureCache = [];
     }
     return this.bundledCache;
+  }
+
+  private bundledCviSignatureSymbols(): CviCompletionSymbol[] {
+    this.bundledCviCompletionSymbols();
+    return this.bundledSignatureCache ?? [];
   }
 }
 
@@ -137,19 +260,160 @@ export class CviCompletionProvider implements vscode.CompletionItemProvider {
   constructor(private readonly symbols: CviSymbolService) {}
 
   provideCompletionItems(document: vscode.TextDocument): vscode.CompletionItem[] | undefined {
-    const enabled = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('enableSupplementalCompletionProvider', true);
-    if (!enabled || document.uri.scheme !== 'file' || !this.symbols.isCviWorkspaceFile(document.uri.fsPath)) {
+    const settings = getCviAutocompleteSettings();
+    if (!settings.completionEnabled || document.uri.scheme !== 'file' || !this.symbols.isCviWorkspaceFile(document.uri.fsPath)) {
       return undefined;
     }
-    return this.symbols.completionSymbols().map((symbol) => {
+    return this.symbols.completionSymbols().filter((symbol) =>
+      (symbol.origin === 'project' && settings.includeProjectCompletion) ||
+      (symbol.origin === 'cvi' && settings.includeCviApiCompletion)
+    ).map((symbol) => {
       const item = new vscode.CompletionItem(symbol.name, vscode.CompletionItemKind.Function);
       item.detail = symbol.signature;
       item.documentation = new vscode.MarkdownString(symbol.description || (symbol.origin === 'cvi' ? 'LabWindows/CVI API symbol.' : 'Project symbol.'));
       item.insertText = symbol.name;
+      item.commitCharacters = ['('];
       item.sortText = `${symbol.origin === 'project' ? '0' : '5'}_${symbol.name.toLowerCase()}`;
       return item;
     });
   }
+}
+
+
+export class CviSignatureHelpProvider implements vscode.SignatureHelpProvider {
+  constructor(private readonly symbols: CviSymbolService) {}
+
+  provideSignatureHelp(
+    document: vscode.TextDocument,
+    position: vscode.Position
+  ): vscode.SignatureHelp | undefined {
+    const settings = getCviAutocompleteSettings();
+    if (!settings.signatureHelpEnabled || document.uri.scheme !== 'file' || !this.symbols.isCviWorkspaceFile(document.uri.fsPath)) {
+      return undefined;
+    }
+
+    const prefix = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+    const context = findCviCallContext(prefix);
+    if (!context) return undefined;
+
+    const candidates = this.symbols.signatureSymbols(context.functionName);
+    if (!candidates.length) return undefined;
+
+    const help = new vscode.SignatureHelp();
+    help.signatures = candidates.map((candidate) => signatureInformation(candidate));
+    help.activeParameter = Math.max(0, context.activeParameter);
+    const compatible = help.signatures.findIndex((signature) => {
+      const count = signature.parameters.length;
+      return count === 0 ? context.activeParameter === 0 : context.activeParameter < count;
+    });
+    help.activeSignature = compatible >= 0 ? compatible : 0;
+    return help;
+  }
+}
+
+export interface CviCallContext {
+  functionName: string;
+  activeParameter: number;
+}
+
+export function findCviCallContext(sourceBeforeCursor: string): CviCallContext | undefined {
+  const masked = maskCommentsAndStrings(String(sourceBeforeCursor || ''));
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let commas = 0;
+
+  for (let index = masked.length - 1; index >= 0; index -= 1) {
+    const ch = masked[index];
+    if (ch === ')') { parenDepth += 1; continue; }
+    if (ch === '(') {
+      if (parenDepth > 0) { parenDepth -= 1; continue; }
+      const before = masked.slice(0, index);
+      const match = /((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*$/.exec(before);
+      if (!match) continue;
+      const qualified = match[1];
+      const functionName = qualified.split('::').pop() || qualified;
+      if (['if', 'for', 'while', 'switch', 'sizeof', 'catch', 'return'].includes(functionName)) continue;
+      return { functionName, activeParameter: commas };
+    }
+    if (ch === ']') { bracketDepth += 1; continue; }
+    if (ch === '[') { if (bracketDepth > 0) bracketDepth -= 1; continue; }
+    if (ch === '}') { braceDepth += 1; continue; }
+    if (ch === '{') { if (braceDepth > 0) braceDepth -= 1; continue; }
+    if (ch === ',' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) commas += 1;
+  }
+  return undefined;
+}
+
+function signatureInformation(symbol: CviCompletionSymbol): vscode.SignatureInformation {
+  const label = symbol.signature.trim().replace(/;\s*$/, '');
+  const information = new vscode.SignatureInformation(
+    label,
+    new vscode.MarkdownString(symbol.description || (symbol.origin === 'cvi' ? 'LabWindows/CVI API symbol.' : 'Project symbol.'))
+  );
+  information.parameters = extractSignatureParameters(label, symbol.name).map((parameter) => new vscode.ParameterInformation(parameter));
+  return information;
+}
+
+export function extractSignatureParameters(signature: string, functionName?: string): string[] {
+  const text = String(signature || '').trim();
+  const openParen = findSignatureOpenParen(text, functionName);
+  if (openParen < 0) return [];
+  const closeParen = findMatchingCloseParen(text, openParen);
+  if (closeParen < 0) return [];
+  const raw = text.slice(openParen + 1, closeParen).trim();
+  if (!raw || raw === 'void') return [];
+  return splitTopLevelParameters(raw);
+}
+
+function findSignatureOpenParen(signature: string, functionName?: string): number {
+  if (functionName) {
+    const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b${escaped}\\s*\\(`, 'g');
+    let match: RegExpExecArray | null;
+    let last = -1;
+    while ((match = pattern.exec(signature)) !== null) {
+      last = match.index + match[0].lastIndexOf('(');
+    }
+    if (last >= 0) return last;
+  }
+  return signature.indexOf('(');
+}
+
+function splitTopLevelParameters(parameters: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let paren = 0;
+  let bracket = 0;
+  let brace = 0;
+  let quote: string | undefined;
+  let escaped = false;
+  const flush = (): void => {
+    const value = current.trim();
+    if (value) result.push(value);
+    current = '';
+  };
+  for (let index = 0; index < parameters.length; index += 1) {
+    const ch = parameters[index];
+    if (quote) {
+      current += ch;
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quote) quote = undefined;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; current += ch; continue; }
+    if (ch === '(') paren += 1;
+    else if (ch === ')') paren = Math.max(0, paren - 1);
+    else if (ch === '[') bracket += 1;
+    else if (ch === ']') bracket = Math.max(0, bracket - 1);
+    else if (ch === '{') brace += 1;
+    else if (ch === '}') brace = Math.max(0, brace - 1);
+    if (ch === ',' && paren === 0 && bracket === 0 && brace === 0) { flush(); continue; }
+    current += ch;
+  }
+  flush();
+  return result;
 }
 
 function collectPackFunctions(value: unknown, result: CviCompletionSymbol[]): void {
@@ -644,12 +908,29 @@ function dedupeSourceSymbols(symbols: CviSourceSymbol[]): CviSourceSymbol[] {
   }).sort((left, right) => left.line - right.line || (left.qualifiedName || left.name).localeCompare(right.qualifiedName || right.name));
 }
 
+function dedupeSignatureSymbols(symbols: CviCompletionSymbol[]): CviCompletionSymbol[] {
+  const map = new Map<string, CviCompletionSymbol>();
+  for (const symbol of symbols) {
+    const normalizedSignature = symbol.signature.replace(/\s+/g, ' ').trim().replace(/;$/, '').toLowerCase();
+    const key = `${symbol.name.toLowerCase()}|${normalizedSignature}`;
+    const current = map.get(key);
+    const projectBeatsBundled = symbol.origin === 'project' && current?.origin !== 'project';
+    const headerBeatsSource = symbol.origin === 'project' && current?.origin === 'project' && !!symbol.filePath && !!current.filePath && isHeaderFile(symbol.filePath) && !isHeaderFile(current.filePath);
+    if (!current || projectBeatsBundled || headerBeatsSource) {
+      map.set(key, symbol);
+    }
+  }
+  return [...map.values()].sort((left, right) => left.name.localeCompare(right.name) || left.signature.localeCompare(right.signature));
+}
+
 function dedupeCompletionSymbols(symbols: CviCompletionSymbol[]): CviCompletionSymbol[] {
   const map = new Map<string, CviCompletionSymbol>();
   for (const symbol of symbols) {
     const key = symbol.name.toLowerCase();
     const current = map.get(key);
-    if (!current || (symbol.origin === 'project' && current.origin !== 'project')) {
+    const projectBeatsBundled = symbol.origin === 'project' && current?.origin !== 'project';
+    const headerBeatsSource = symbol.origin === 'project' && current?.origin === 'project' && !!symbol.filePath && !!current.filePath && isHeaderFile(symbol.filePath) && !isHeaderFile(current.filePath);
+    if (!current || projectBeatsBundled || headerBeatsSource) {
       map.set(key, symbol);
     }
   }
@@ -664,6 +945,10 @@ function isPathInside(candidate: string, parent: string): boolean {
 
 function safeMtime(filePath: string): number {
   try { return fs.statSync(filePath).mtimeMs; } catch { return 0; }
+}
+
+function isHeaderFile(filePath: string): boolean {
+  return ['.h', '.hpp', '.hh', '.hxx'].includes(path.extname(filePath).toLowerCase());
 }
 
 export function isSourceOrHeader(filePath: string): boolean {

@@ -132,6 +132,7 @@ function renderHtml(state: HomeState): string {
           <button data-command="labwindowsCvi.openWorkspace">Open another workspace</button>
           <button class="secondary" data-command="labwindowsCvi.createWorkspace">Create workspace</button>
           <button class="secondary" data-command="labwindowsCvi.openWorkspaceInCvi">Open in CVI</button>
+          <button class="secondary" data-command="labwindowsCvi.closeWorkspace">Close CVI workspace</button>
         </div>` : '';
 
   const projectActions = hasProject ? `

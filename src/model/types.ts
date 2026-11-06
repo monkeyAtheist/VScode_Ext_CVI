@@ -1,5 +1,14 @@
 export type CviBuildMode = 'debug' | 'release' | 'debug64' | 'release64';
 
+export interface CviBuildConfigurationDescriptor {
+  name: string;
+  sectionName: string;
+  is64Bit: boolean;
+  isRelease: boolean;
+  isCustom: boolean;
+  mode?: CviBuildMode;
+}
+
 export interface CviRunOptions {
   arguments: string;
   workingDirectory: string;
@@ -13,6 +22,10 @@ export interface CviWorkspaceProjectRef {
   absolutePath: string;
   name: string;
   exists: boolean;
+  /** Native CVI workspace configuration stored in [Project Header NNNN]. */
+  buildConfiguration?: string;
+  /** Standard CVI build mode when buildConfiguration is Debug/Release/Debug64/Release64. */
+  buildMode?: CviBuildMode;
 }
 
 export interface CviWorkspace {
@@ -32,6 +45,9 @@ export interface CviProjectFile {
   absolutePath: string;
   excluded: boolean;
   compileIntoObjectFile: boolean;
+  excludeEligible: boolean;
+  projectFlags: number;
+  pathForceAbsolute: boolean;
   exists: boolean;
 }
 

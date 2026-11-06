@@ -8776,7 +8776,7 @@ class CviItem extends vscode.TreeItem {
   }
 }
 
-class CviTreeProvider implements vscode.TreeDataProvider<CviItem> {
+class CviTreeProvider implements vscode.TreeDataProvider<CviItem>, vscode.Disposable {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<CviItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private filterTerm = '';
@@ -8798,6 +8798,10 @@ class CviTreeProvider implements vscode.TreeDataProvider<CviItem> {
   refresh(): void {
     this.rebuildFilter();
     this._onDidChangeTreeData.fire();
+  }
+
+  dispose(): void {
+    this._onDidChangeTreeData.dispose();
   }
 
   setFilter(term: string): number {
@@ -19332,6 +19336,25 @@ export function activate(context: vscode.ExtensionContext): void {
   let choicePickerPanel: vscode.WebviewPanel | undefined;
   let currentChoicePickerRequest: { targetIndex: number; defaultTargetIndex: number; values: string[]; applyDefaultIfEmpty: boolean; multiSelect?: boolean; valueSeparator?: string; emptyValue?: string } | undefined;
   const packEditorPanels = new Map<string, vscode.WebviewPanel>();
+  const libraryTimers = new Set<ReturnType<typeof setTimeout>>();
+  const scheduleLibraryTimer = (callback: () => void, delayMs: number): void => {
+    const timer = setTimeout(() => {
+      libraryTimers.delete(timer);
+      callback();
+    }, delayMs);
+    libraryTimers.add(timer);
+  };
+
+  context.subscriptions.push({
+    dispose: () => {
+      for (const timer of libraryTimers) clearTimeout(timer);
+      libraryTimers.clear();
+      choicePickerPanel?.dispose();
+      detailsPanel?.dispose();
+      for (const panel of [...packEditorPanels.values()]) panel.dispose();
+      packEditorPanels.clear();
+    }
+  });
 
   const refreshSearchData = (): void => {
     searchEntries = flattenFunctions(treeProvider.getDatabase());
@@ -19421,10 +19444,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     pendingDetailsRender = true;
-    setTimeout(() => {
+    scheduleLibraryTimer(() => {
       renderCurrentDetailsPanel();
       if (detailsPanel && currentPanelFunction) {
-        setTimeout(() => {
+        scheduleLibraryTimer(() => {
           if (detailsPanel && currentPanelFunction) {
             renderCurrentDetailsPanel();
           }
@@ -19556,7 +19579,7 @@ export function activate(context: vscode.ExtensionContext): void {
       detailsPanel.onDidChangeViewState(() => {
         if (detailsPanel?.visible && currentPanelFunction) {
           renderCurrentDetailsPanel();
-          setTimeout(() => {
+          scheduleLibraryTimer(() => {
             if (detailsPanel?.visible && currentPanelFunction) {
               renderCurrentDetailsPanel();
             }
@@ -19617,7 +19640,7 @@ export function activate(context: vscode.ExtensionContext): void {
     detailsPanel.webview.html = buildDetailsLoadingHtml(resolvedFunction);
     detailsPanel.reveal(revealColumn, options?.preserveFocus ?? false);
     renderCurrentDetailsPanel();
-    setTimeout(() => {
+    scheduleLibraryTimer(() => {
       if (detailsPanel && currentPanelFunction?.name === resolvedFunction.name) {
         renderCurrentDetailsPanel();
       }
@@ -19965,7 +19988,7 @@ export function activate(context: vscode.ExtensionContext): void {
     renderPackEditor();
   };
 
-  context.subscriptions.push(treeView);
+  context.subscriptions.push(treeProvider, treeView);
 
   const refreshView = async (): Promise<void> => {
     await reloadAllData();

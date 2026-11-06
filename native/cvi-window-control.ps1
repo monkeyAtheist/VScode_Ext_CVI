@@ -1,6 +1,8 @@
 param(
     [ValidateSet('Minimize')]
-    [string]$Action = 'Minimize'
+    [string]$Action = 'Minimize',
+
+    [int]$ProcessId = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,17 +19,29 @@ public static class CviNativeWindowControl
 }
 '@ -ErrorAction SilentlyContinue
 
+if ($ProcessId -le 0) {
+    [ordered]@{
+        ok = $false
+        action = $Action
+        processId = $ProcessId
+        affectedWindows = 0
+        error = 'A specific LabWindows/CVI process ID is required. Refusing to modify every CVI window.'
+    } | ConvertTo-Json -Compress
+    exit 2
+}
+
 $affected = 0
-Get-Process -Name 'cvi' -ErrorAction SilentlyContinue | ForEach-Object {
-    if ($_.MainWindowHandle -ne [IntPtr]::Zero) {
-        # SW_MINIMIZE = 6
-        [void][CviNativeWindowControl]::ShowWindowAsync($_.MainWindowHandle, 6)
-        $affected++
-    }
+$process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+if ($null -ne $process -and $process.ProcessName -ieq 'cvi' -and $process.MainWindowHandle -ne [IntPtr]::Zero) {
+    # SW_MINIMIZE = 6
+    [void][CviNativeWindowControl]::ShowWindowAsync($process.MainWindowHandle, 6)
+    $affected = 1
 }
 
 [ordered]@{
-    ok = $true
+    ok = ($null -ne $process)
     action = $Action
+    processId = $ProcessId
     affectedWindows = $affected
+    error = if ($null -eq $process) { 'The requested LabWindows/CVI process is no longer running.' } else { '' }
 } | ConvertTo-Json -Compress

@@ -1,3 +1,173 @@
+## 0.7.43
+
+- Ajoute une page **External Compiler** dans **CVI Project Settings** avec choix du moteur `Native LabWindows/CVI (compile.exe)` ou `External Microsoft Visual C++ (MSVC)`.
+- Le mode MSVC reprend la configuration CVI active (Debug/Release/Debug64/Release64 ou custom reconnue) pour l'architecture, les defines, include paths, prefix header et chemin de sortie.
+- Découvre automatiquement `vcvarsall.bat` via `VSINSTALLDIR`/`vswhere.exe`, avec override manuel possible.
+- Compile les sources C avec `cl.exe` dans `.vscode/cvi-external-build/...`, puis utilise `link.exe` pour EXE/DLL ou `lib.exe` pour une static library.
+- Ajoute automatiquement `CVI\include`, `extlib\msvc|msvc64\cvirt.lib` et `cvisupp.lib`.
+- Consomme les fichiers générés par **Build > External Compiler Support** (UIR callbacks / Project Symbols) lorsqu'ils existent, sans tenter de reconstruire ce format propriétaire.
+- Signale les prérequis `InitCVIRTE` et `CloseCVIRTE`, les sources/libs/objets manquants et les fichiers UIR sans table de callbacks générée.
+- Les builds Debug externes utilisent `/Z7` et `/DEBUG` avec PDB, puis la commande **Build and Debug with External MSVC in VS Code** lance `cppvsdbg`.
+- Le débogage natif CVI force explicitement le moteur natif `compile.exe`, même si le projet est configuré en MSVC.
+- Les anciens `labwindows-cvi-build.json` sans champ `externalBuild` restent automatiquement en moteur CVI natif.
+- Ajoute 23 tests ciblés External Compiler ; la non-régression cumulative v0.7.31→v0.7.43 atteint 261/261 contrôles.
+
+## 0.7.42
+
+- Ajoute une page **Autocompletion** dédiée dans le panneau visuel **CVI Project Settings**.
+- Les cinq profils `Hybrid`, `Native`, `Native + CVI Signature Help`, `CVI API Assist` et `Custom` sont sélectionnables directement depuis cette page.
+- Le mode Custom expose visuellement les quatre composants indépendants : provider CVI PM, symboles projet, API LabWindows/CVI embarquée et Signature Help immédiat.
+- Ajoute un aperçu dynamique du comportement effectif avant sauvegarde (completion CVI PM, symboles projet, API CVI, Signature Help).
+- Les réglages d'autocomplétion sont sauvegardés avec le bouton **Save settings** du panneau et restent stockés au niveau workspace VS Code, indépendamment de Debug/Release/32/64 bits.
+- La page fournit également **Sync IntelliSense** et **Diagnose IntelliSense** sans modifier les réglages `C_Cpp.*` de Microsoft C/C++.
+- Le profil **Native + CVI Signature Help** est mis en avant comme compromis pour éviter les doublons de completion tout en conservant les paramètres instantanés.
+- Le sélecteur Quick Pick v0.7.41 reste disponible ; la page visuelle et la commande pilotent les mêmes clés de configuration.
+- Ajoute 14 tests ciblés de la page visuelle ; la non-régression cumulative v0.7.31→v0.7.42 atteint 238/238 contrôles.
+
+## 0.7.41
+
+- Ajoute `labwindowsCvi.autocompleteProfile` avec cinq profils génériques : `hybrid`, `native`, `nativeSignature`, `cviApi` et `custom`.
+- Le profil **Hybrid** conserve le comportement v0.7.40 : completion projet + API CVI embarquée + Signature Help CVI PM, tout en laissant les autres providers C/C++ contribuer normalement.
+- Le profil **Native** retire complètement les providers de completion/signature CVI PM sans modifier les réglages Microsoft C/C++ ni ceux d'une autre extension.
+- Le profil **Native + CVI Signature Help** laisse la liste de completion au provider C/C++ natif tout en conservant l'affichage immédiat des prototypes/paramètres de CVI PM après `(` et `,`.
+- Le profil **CVI API Assist** n'ajoute que les fonctions du pack API LabWindows/CVI à la completion ; les symboles projet restent à la charge du provider natif, tandis que Signature Help reste disponible.
+- Le profil **Custom** conserve les réglages fins historiques et ajoute `labwindowsCvi.enableSupplementalCviApiCompletion` pour activer/désactiver séparément les symboles de l'API CVI embarquée.
+- Ajoute la commande `LabWindows/CVI: Select Autocompletion Profile` avec Quick Pick ; le réglage est enregistré au niveau workspace lorsqu'un workspace est ouvert, sinon au niveau utilisateur.
+- Les anciens booléens explicitement configurés avant v0.7.41 restent honorés automatiquement comme profil Custom tant qu'aucun nouveau profil n'a été choisi explicitement.
+- Aucune configuration Microsoft C/C++ (`C_Cpp.*`) n'est modifiée par le sélecteur de profil ; CVI PM contrôle uniquement ses propres contributions.
+- Ajoute des tests d'API génériques et vérifie explicitement l'absence de règles runtime codées en dur pour une bibliothèque/projet particulier.
+- Ajoute 22 tests ciblés de profils d'autocomplétion ; la non-régression cumulative v0.7.31→v0.7.41 atteint 224/224 contrôles.
+
+## 0.7.40
+
+- Ajoute un `SignatureHelpProvider` CVI PM pour afficher immédiatement le prototype et les paramètres des fonctions du projet et du pack CVI lors de la saisie de `(` puis mettre à jour le paramètre actif sur `,`.
+- Réutilise l’index de symboles projet déjà disponible au lieu d’attendre la fin de l’analyse sémantique Microsoft C/C++, supprimant le délai observé avant l’apparition des paramètres.
+- Préfère les déclarations provenant des headers (`.h/.hpp/.hh/.hxx`) aux définitions source lorsqu’une fonction existe aux deux endroits, afin de conserver le prototype public et les noms d’arguments les plus précis.
+- Conserve les surcharges distinctes pour Signature Help tout en gardant une seule entrée de completion par nom de fonction.
+- Gère le suivi du paramètre actif à travers les appels imbriqués, parenthèses/crochets/accolades, chaînes et commentaires.
+- Gère correctement les paramètres pointeurs de fonction/callback et les signatures contenant des attributs comme `__declspec(...)`.
+- Les suggestions complémentaires acceptent désormais `(` comme caractère de validation afin que la transition completion → aide aux paramètres soit immédiate.
+- Ajoute `labwindowsCvi.enableSupplementalProjectCompletion` pour masquer uniquement les symboles projet du provider complémentaire lorsque Microsoft C/C++ affiche déjà la même entrée, tout en conservant le Signature Help immédiat.
+- Ajoute `labwindowsCvi.enableSupplementalSignatureHelp`, activé par défaut et indépendant du provider de completion complémentaire.
+- Ajoute 23 tests ciblés Signature Help/completion ; la non-régression cumulative v0.7.31→v0.7.40 atteint 202/202 contrôles.
+
+## 0.7.39
+
+- Corrige le validateur `.prj` à partir de projets CVI réels : `Number of Files` peut être temporairement désynchronisé du nombre de sections sans empêcher CVI d’ouvrir/build le projet.
+- N’impose plus que les sections `[File NNNN]` soient contiguës ni physiquement triées. Les identifiants de fichier CVI sont stables et peuvent contenir des trous ; l’ordre des blocs dans le fichier est indépendant de leur numéro.
+- `Add Existing Files` insère désormais le nouveau bloc après le dernier bloc `[File]` existant sans déplacer les sections natives, et choisit un nouvel identifiant à partir du maximum existant.
+- `Remove File` et `Remove Folder -> Remove references` ne renumérotent plus les autres fichiers ; seul `Number of Files` est mis à jour lorsque l’ensemble des références change.
+- Les projets CVI anciens qui utilisent `Folder` sans `Folder Id` ne sont plus signalés comme corrompus. Les références physiques absentes (clé USB, réseau, ancien disque) ne déclenchent plus une proposition de Repair à chaque ouverture.
+- Le Repair `.prj` devient volontairement conservateur : il ne renumérote plus les fichiers, n’aplatit plus les dossiers, ne réécrit plus les chemins, ne convertit plus les types de fichier et n’ajoute plus de `Folder Id` sur la seule base d’hypothèses CVI PM.
+- Le garde-fou avant écriture ne bloque plus Replace/Add à cause d’un layout historique accepté par CVI ; il conserve uniquement les protections déterministes telles que les sections `[File NNNN]` dupliquées.
+- Ajoute des tests de régression construits à partir des structures observées dans le projet MCO_ACS et ses backups natifs CVI.
+
+## 0.7.38
+
+- Ajoute une vraie commande **Close Current Workspace or Project** qui décharge l’état CVI, détruit les watchers natifs et oublie le dernier workspace mémorisé.
+- Décharge automatiquement un workspace/projet CVI lorsque son fichier natif disparaît ou lorsque le dossier VS Code qui le contient est retiré, au lieu de conserver une arborescence obsolète en mémoire.
+- Versionne les watchers `.cws/.prj` avec une génération et annule les timers de refresh appartenant à un ancien workspace afin qu’un événement retardé ne puisse plus rafraîchir un projet nouvellement chargé.
+- Le panneau **Build Settings** suit désormais le workspace courant et se ferme si son projet n’en fait plus partie ; chaque sauvegarde revérifie l’appartenance du `.prj` avant toute écriture.
+- Les synchronisations IntelliSense différées utilisent un epoch : une synchronisation devenue obsolète après un changement de projet/workspace/configuration est abandonnée avant l’écriture de `c_cpp_properties.json`.
+- Le binding DDE natif est libéré dès que le contexte CVI change lorsqu’aucune exécution n’est active. Si un programme reste Running/Suspended, le binding PID précédent est conservé uniquement pour Pause/Continue/Stop.
+- `CviBuildService` et `CviProjectSettingsService` sont maintenant disposables : les processus `compile.exe`, Build Steps shell et timers de suivi de log encore actifs sont arrêtés lors d’un reload/désactivation.
+- Les providers Workspace/File Symbols possèdent désormais explicitement leurs subscriptions/EventEmitters et les libèrent à la désactivation.
+- Le module CVI Libraries rattache ses Webviews, son TreeDataProvider et ses timers de rendu au `ExtensionContext`, évitant des callbacks de rendu après reload.
+- Ajoute 30 tests ciblés de cycle de vie ; la non-régression cumulative v0.7.31→v0.7.38 atteint 160/160 contrôles.
+
+## 0.7.37
+
+- Lie désormais chaque session native CVI à un **PID précis** au lieu de supposer qu’un service DDE `cvi/system/status` unique est disponible.
+- Le bridge DDE utilise `DdeConnectList` / `DdeQueryConvInfo` pour identifier le processus serveur et refuse toute connexion ambiguë lorsque plusieurs instances CVI répondent sans PID cible.
+- Une instance CVI existante n’est réutilisée que si son identité peut être vérifiée ; les workspaces multi-projets utilisent une instance dédiée afin de ne pas piloter un projet actif différent en mémoire.
+- Le PID retourné lors du lancement de `cvi.exe` est conservé et réutilisé pour tous les probes DDE, la session persistante, le monitoring de fin d’exécution et le contrôle de fenêtre.
+- `native/cvi-window-control.ps1` ne minimise plus toutes les fenêtres CVI : il exige le PID exact de l’instance liée.
+- Le fallback ActiveX refuse désormais plusieurs processus CVI simultanés et vérifie le PID attendu lorsqu’un binding déterministe existe.
+- Les commandes Pause/Continue/Stop tentent une reconnexion unique de la session DDE persistante au même PID si le processus bridge a disparu.
+- Build/Run refusent explicitement de continuer lorsque CVI attend une réponse utilisateur dans une boîte de dialogue modale.
+- La perte du bridge DDE met à jour l’état du dashboard et conserve un diagnostic exploitable au lieu de laisser une session faussement connectée.
+- La synchronisation des breakpoints `.cws` utilise maintenant la garde de concurrence optimiste afin de ne pas écraser une sauvegarde CVI simultanée.
+- Supprime les réglages et méthodes DAP morts restés depuis l’ancien prototype 0.6.24 ; le débogage détaillé reste volontairement délégué à la fenêtre native CVI.
+
+## 0.7.36
+
+- Étend les Target Settings natifs aux configurations personnalisées détectées par `Config Name`, sans dépendre du nom interne de leur section `.prj`.
+- Résout et écrit le chemin de sortie exact `Executable File_<nom de configuration>` pour les configurations custom, y compris lorsque leur nom contient des espaces.
+- Gère par configuration personnalisée les paramètres de cible/linker réellement sérialisés : titre, icône, runtime support/binding, manifest, map, console, UIR embarquées, modules forcés, DLL, type information, version info et signature.
+- Préserve et expose `DLL Import Library Choice` comme valeur CVI native libre afin de ne pas imposer une énumération non documentée.
+- Accepte les deux formes rencontrées pour les exports DLL (`Export File1` et `Export File 0001`) et corrige ainsi la relecture des listes écrites par CVI PM.
+- Étend l'écriture des paramètres compilateur aux configurations personnalisées reconnues tout en conservant l'isolation vis-à-vis de Debug/Release/Debug64/Release64.
+- Étend les Run/Debug et Build Options custom du `.cws` uniquement lorsqu'une section native correspondante existe déjà ; CVI PM refuse de créer artificiellement une structure custom non observée.
+- Le panneau Build Settings permet désormais de sélectionner directement une configuration personnalisée reconnue et affiche ses Target/Compiler/Run Settings.
+- Les Build Steps d'une configuration custom restent la propriété de CVI/`compile.exe -config=<nom>` et ne sont pas réécrits par le panneau.
+- `Run` utilise les Run Settings propres à la configuration custom active lorsqu'ils sont présents dans le workspace.
+- Corrige une double écriture accidentelle du `.prj` dans le setter Target Settings standard.
+
+## 0.7.35
+
+- Durcit les options propres aux fichiers CVI : `Exclude File from Build` n'est proposé/accepté que pour les modules de build éligibles (sources C, bibliothèques, DLL/OBJ) et reste refusé pour les headers, function panels et UIR.
+- Conserve `Compile Into Object File` strictement réservé aux sources C et expose désormais les métadonnées natives `Project Flags` et `Path Force Path Absolute` dans le modèle fichier.
+- Détecte les configurations de build personnalisées sérialisées dans le `.prj` par leurs champs natifs (`Config Name`, `Is 64-Bit`, `Is Release`) sans dépendre d'un nom de section non documenté.
+- Lit les options compilateur d'une configuration personnalisée reconnue (defines, C99, warnings, architecture, etc.) et les propage à IntelliSense.
+- Synchronise le nom exact d'une configuration personnalisée avec `Build Configuration` du `.cws` et l'utilise automatiquement pour `compile.exe -config=<nom>`, même sans override VS Code explicite.
+- Le sélecteur de configuration affiche les configurations personnalisées détectées en plus de Debug/Release/Debug64/Release64.
+- Les configurations personnalisées reconnues déterminent correctement l'architecture x86/x64, le profil Debug/Release et le comportement du débogueur natif.
+- La résolution du target essaie d'abord une sortie nommée propre à la configuration personnalisée puis retombe prudemment sur le mode standard équivalent.
+- Signale les incohérences entre `Num Custom Build Configs` et le nombre de sections custom reconnues sans modifier automatiquement le projet.
+- Ajoute une lecture non destructive de la section `External Compiler Support` (UIR callbacks, LoadExternalModule, project symbols) afin de préserver ce workflow tiers sans le confondre avec le build natif `compile.exe`.
+- Les menus Include/Exclude du Tree suivent maintenant l'éligibilité réelle du type de fichier au lieu d'être limités arbitrairement aux seuls `.c`.
+
+## 0.7.34
+
+- Synchronise le fichier `.vscode/c_cpp_properties.json` avec le **projet CVI actif** et sa configuration native `Debug`, `Release`, `Debug64` ou `Release64`.
+- Bascule `intelliSenseMode` entre `windows-clang-x86` et `windows-clang-x64` selon la configuration CVI active.
+- Propage les `Compiler Defines` `/DNAME` et `/DNAME=value` du `.prj` vers `defines`, tout en ignorant les tokens invalides déjà signalés par le validateur.
+- Ajoute les macros CVI/Windows d’architecture nécessaires à l’analyse des headers (`_NI_mswin32_` / `_NI_mswin64_`, `_WIN64` en x64) et `NDEBUG` pour les configurations Release.
+- Ajoute `_CVI_CONFIGURATION_NAME_` pour les formats CVI 2013+.
+- Propage les `Include Paths` projet en conservant leur priorité devant les headers système CVI/Windows.
+- Mappe le Prefix Header natif sur `forcedInclude` lorsque `Precompile Prefix Header` est activé.
+- Remplace le `c11` générique par `c89` ou `c99` selon `Enable C99 Extensions` pour mieux suivre le mode de compilation CVI.
+- Isole le `includePath` sémantique au projet actif afin d’éviter qu’un header homonyme d’un autre projet du workspace soit résolu par erreur. `browse.path` conserve en revanche l’ensemble des projets pour la recherche globale de symboles.
+- Supprime le glob récursif `${workspaceFolder}/**` du `includePath` géré, source potentielle de résolutions différentes de `compile.exe`.
+- Le diagnostic IntelliSense affiche désormais projet actif, configuration native, architecture, standard C, defines, includes et prefix header effectifs.
+- Les changements de projet actif, de configuration native ou de paramètres Compiler & Linker continuent à déclencher automatiquement la régénération via le rafraîchissement du workspace.
+- Les configurations CVI personnalisées non sérialisées restent explicitement signalées : CVI PM utilise alors le mode standard de secours pour IntelliSense sans prétendre avoir désérialisé les options custom.
+
+## 0.7.33
+
+- Ajoute une page **Compiler & Linker** aux paramètres de build pour les options réellement sérialisées par configuration CVI.
+- Lit et écrit par configuration les defines, convention d’appel, prototypes/retours, warnings historiques, C99, stack et image base sans propager arbitrairement les valeurs aux autres modes.
+- Préserve la compatibilité entre générations : les clés plus récentes (`Optimization Level`, profils de warnings, OpenMP, Stack Reserve/Commit) ne sont modifiées que si le `.prj` les sérialise déjà.
+- Ajoute la gestion ordonnée des `Include Paths`, du prefix header et de l’option de compatibilité CVI 5.0 au niveau projet.
+- Ajoute la lecture/écriture des options de build/debug natives du `.cws` par projet et configuration (browse info, runtime uninitialized warning, profile, debugging level, execution trace, batch build).
+- Ajoute une validation non bloquante des defines CVI et de la cohérence `Is 64-Bit` / `Is Release`; les anomalies apparaissent dans l’éditeur et dans le rapport de build.
+- Le préflight Build/Compile File affiche désormais un résumé des defines, include paths, warnings et optimisation lorsque ces informations sont disponibles.
+- Préserve les flags fichier `Exclude` / `Compile Into Object File` lors des modifications de paramètres compilateur.
+
+## 0.7.32
+
+- Sépare correctement les configurations CVI nommées des modes standards : `-config=<nom>` remplace désormais `-debug/-release/-debug64/-release64` au lieu d’être combiné avec eux.
+- Applique une configuration nommée uniquement au projet explicitement demandé ; les projets dépendants conservent leur propre configuration native du `.cws`.
+- `Compile File` conserve les options du mode natif du projet et n’applique pas arbitrairement une configuration nommée de projet complet.
+- Filtre dans `extraCompilerArguments` les options déjà pilotées par CVI PM (`-debug`, `-release`, `-debug64`, `-release64`, `-config`, `-rebuild`, `-log`) afin d’éviter les lignes de commande contradictoires.
+- Laisse `compile.exe` exécuter seul les Build Steps lorsqu’une configuration CVI nommée est utilisée, évitant une double exécution des actions de secours de l’extension.
+- Résout les chemins relatifs des diagnostics compilateur par rapport au dossier du `.prj` afin que la vue Problems pointe vers le bon fichier.
+- Détecte explicitement les échecs de Build Steps et fournit un diagnostic exploitable ; un code de sortie non nul sans diagnostic reconnu génère désormais une erreur synthétique au lieu d’afficher `Errors: 0`.
+- Supprime la duplication du stdout/stderr/log dans la Build Trace et conserve à la place un résumé des captures et le chemin du log CVI.
+- Étend la garde de concurrence optimiste aux Target Settings, Run Settings, Build Actions et changement de Target Type afin de ne pas écraser une sauvegarde CVI concurrente.
+
+## 0.7.31
+
+- Synchronise le mode de build avec la configuration native propre à chaque projet du workspace CVI (`Debug`, `Release`, `Debug64`, `Release64`).
+- Utilise le mode natif de chaque dépendance lors des builds multi-projets au lieu de forcer un mode VS Code global unique.
+- Sécurise le débogage natif : une configuration Release est convertie explicitement vers Debug/Debug64 avant le preflight et le lancement CVI.
+- Résout les chemins relatifs `Program Name` et `Working Directory` par rapport au dossier du `.prj`.
+- Durcit le lancement des exécutables : validation fichier/dossier et gestion de l’événement `spawn` en erreur.
+- Rend `Clean` sensible à la configuration : les bases de symboles Debug ne sont plus supprimées lors d’un Clean Release et les import libraries DLL ne sont plus devinées/supprimées à risque.
+- Corrige le validateur `.cws` : `Number of Opened Files` est un état de session de l’IDE CVI et n’est plus assimilé au nombre de sections `[File NNNN]`.
+- Préserve `Number of Opened Files` lors des mutations de références workspace.
+- Exclut réellement les source maps `out/**/*.map` du VSIX.
+
 ## 0.7.11
 
 - Supprime les packs internes liés à un environnement Lua propriétaire et à un ancien séquenceur privé.

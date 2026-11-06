@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CviParser } from '../model/cviParser';
-import { CviInstallation, CviWorkspace } from '../model/types';
+import { CviBuildMode, CviInstallation, CviWorkspace, CviWorkspaceProjectRef } from '../model/types';
 import { CviInstallationService } from './cviInstallationService';
 
 const MANAGED_CONFIGURATION_NAME = 'LabWindows/CVI (managed)';
@@ -26,6 +26,7 @@ interface CppToolsConfiguration {
   cStandard?: string;
   cppStandard?: string;
   includePath?: string[];
+  forcedInclude?: string[];
   browse?: {
     path?: string[];
     limitSymbolsToIncludedHeaders?: boolean;
@@ -40,6 +41,7 @@ interface SourceFileConfiguration {
   defines: string[];
   intelliSenseMode?: string;
   standard?: string;
+  forcedInclude?: string[];
   compilerPath?: string;
 }
 
@@ -76,12 +78,30 @@ interface ProviderPaths {
   compilerPath?: string;
 }
 
+interface IntelliSenseProjectContext {
+  projectRef?: CviWorkspaceProjectRef;
+  projectPath?: string;
+  projectName?: string;
+  buildMode: CviBuildMode;
+  nativeConfigurationName: string;
+  is64Bit: boolean;
+  isRelease: boolean;
+  projectIncludePaths: string[];
+  projectDefines: string[];
+  forcedInclude: string[];
+  cStandard: string;
+  compatibilityYear?: number;
+  limitations: string[];
+}
+
 export class CviCppToolsService implements vscode.Disposable {
   private syncTimer: NodeJS.Timeout | undefined;
   private currentWorkspace: CviWorkspace | undefined;
   private cppToolsApi: CppToolsApiLike | undefined;
   private providerRegistered = false;
   private cachedProviderPaths: { key: string; value: ProviderPaths } | undefined;
+  private syncEpoch = 0;
+  private disposed = false;
 
   private readonly provider: CustomConfigurationProviderLike = {
     name: 'LabWindows/CVI Project Manager',
@@ -100,6 +120,8 @@ export class CviCppToolsService implements vscode.Disposable {
   ) {}
 
   dispose(): void {
+    this.disposed = true;
+    this.syncEpoch += 1;
     if (this.syncTimer) {
       clearTimeout(this.syncTimer);
       this.syncTimer = undefined;
@@ -119,18 +141,24 @@ export class CviCppToolsService implements vscode.Disposable {
   }
 
   requestSync(workspace: CviWorkspace | undefined): void {
+    if (this.disposed) return;
     this.setCurrentWorkspace(workspace);
+    const epoch = ++this.syncEpoch;
     if (this.syncTimer) {
       clearTimeout(this.syncTimer);
     }
     this.syncTimer = setTimeout(() => {
       this.syncTimer = undefined;
-      void this.sync(workspace);
+      if (this.disposed || epoch !== this.syncEpoch) return;
+      void this.sync(this.currentWorkspace, false, epoch);
     }, 120);
   }
 
-  async sync(workspace: CviWorkspace | undefined, notify = false): Promise<string | undefined> {
+  async sync(workspace: CviWorkspace | undefined, notify = false, scheduledEpoch?: number): Promise<string | undefined> {
+    if (this.disposed) return undefined;
     this.setCurrentWorkspace(workspace);
+    const epoch = scheduledEpoch ?? ++this.syncEpoch;
+    if (scheduledEpoch !== undefined && scheduledEpoch !== this.syncEpoch) return undefined;
     if (!workspace) {
       if (notify) {
         vscode.window.showErrorMessage('Open a LabWindows/CVI workspace or project before synchronizing IntelliSense.');
@@ -176,6 +204,11 @@ export class CviCppToolsService implements vscode.Disposable {
     const rendered = `${JSON.stringify(updated, null, 2)}\n`;
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
 
+    if (this.disposed || epoch !== this.syncEpoch || this.currentWorkspace?.path !== workspace.path) {
+      this.output.appendLine(`[CVI] Skipped stale IntelliSense synchronization for ${workspace.path}.`);
+      return undefined;
+    }
+
     const previous = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : undefined;
     if (previous !== rendered) {
       fs.writeFileSync(configPath, rendered, 'utf8');
@@ -189,7 +222,7 @@ export class CviCppToolsService implements vscode.Disposable {
       this.output.appendLine(`[CVI] IntelliSense configuration was written outside the currently opened VS Code folders: ${configPath}`);
       if (notify) {
         const action = await vscode.window.showWarningMessage(
-          `The CVI workspace is outside the folders currently opened in VS Code. The dynamic provider is available, but adding ${root} as a VS Code folder also activates the generated .vscode/c_cpp_properties.json file.`,
+          `The CVI workspace is outside the folders currently opened in VS Code. Add ${root} as a VS Code folder to activate the generated .vscode/c_cpp_properties.json file.`,
           'Add CVI folder to workspace'
         );
         if (action === 'Add CVI folder to workspace') {
@@ -393,7 +426,7 @@ export class CviCppToolsService implements vscode.Disposable {
     this.output.appendLine(`[CVI] Workspace: ${workspace.path}`);
     this.output.appendLine(`[CVI] Configuration root: ${root}`);
     this.output.appendLine(`[CVI] Configuration root is active in VS Code: ${owningFolder ? 'yes' : 'no'}`);
-    this.output.appendLine(`[CVI] Dynamic provider registered: ${this.providerRegistered ? 'yes' : 'no'}`);
+    this.output.appendLine(`[CVI] Dynamic provider registered: ${this.providerRegistered ? 'yes' : 'no'} (expected: no; managed c_cpp_properties.json is authoritative)`);
     this.output.appendLine(`[CVI] Microsoft C/C++ extension detected: ${vscode.extensions.getExtension(CPPTOOLS_EXTENSION_ID) ? 'yes' : 'no'}`);
 
     if (!installation) {
@@ -425,8 +458,24 @@ export class CviCppToolsService implements vscode.Disposable {
       this.output.appendLine(`[CVI] Dynamic provider accepts active file: ${this.canProvideConfiguration(vscode.Uri.file(activeFile)) ? 'yes' : 'no'}`);
     }
 
+    const context = this.getIntelliSenseProjectContext(workspace);
     const paths = this.getProviderPaths(workspace, installation);
-    this.output.appendLine(`[CVI] Provider include directories: ${paths.includePath.length}`);
+    const effectiveDefines = mergeDefines(defaultDefines(context), context.projectDefines);
+    this.output.appendLine(`[CVI] Active project: ${context.projectName ?? '<none>'}`);
+    this.output.appendLine(`[CVI] Native build configuration: ${context.nativeConfigurationName}`);
+    this.output.appendLine(`[CVI] IntelliSense architecture: ${context.is64Bit ? 'x64 / windows-clang-x64' : 'x86 / windows-clang-x86'}`);
+    this.output.appendLine(`[CVI] IntelliSense C standard: ${context.cStandard}`);
+    this.output.appendLine(`[CVI] Project compiler defines: ${context.projectDefines.length ? context.projectDefines.join(' · ') : '<none>'}`);
+    this.output.appendLine(`[CVI] Effective IntelliSense defines: ${effectiveDefines.join(' · ')}`);
+    this.output.appendLine(`[CVI] Project include paths: ${context.projectIncludePaths.length}`);
+    for (const includePath of context.projectIncludePaths) {
+      this.output.appendLine(`  - ${includePath}`);
+    }
+    this.output.appendLine(`[CVI] Forced prefix header: ${context.forcedInclude.length ? context.forcedInclude.join(' · ') : '<none>'}`);
+    for (const limitation of context.limitations) {
+      this.output.appendLine(`[CVI] IntelliSense note: ${limitation}`);
+    }
+    this.output.appendLine(`[CVI] Effective semantic include directories: ${paths.includePath.length}`);
     for (const includePath of paths.includePath) {
       this.output.appendLine(`  - ${includePath}`);
     }
@@ -496,13 +545,16 @@ export class CviCppToolsService implements vscode.Disposable {
       return [];
     }
     const paths = this.getProviderPaths(workspace, installation);
+    const context = this.getIntelliSenseProjectContext(workspace);
+    const defines = mergeDefines(defaultDefines(context), context.projectDefines);
     return uris.filter((uri) => this.canProvideConfiguration(uri)).map((uri) => ({
       uri,
       configuration: {
         includePath: paths.includePath,
-        defines: defaultDefines(),
-        intelliSenseMode: 'windows-clang-x86',
-        standard: isCppFile(uri.fsPath) ? 'c++17' : 'c11',
+        defines,
+        intelliSenseMode: context.is64Bit ? 'windows-clang-x64' : 'windows-clang-x86',
+        standard: isCppFile(uri.fsPath) ? 'c++17' : context.cStandard,
+        ...(context.forcedInclude.length ? { forcedInclude: context.forcedInclude } : {}),
         ...(paths.compilerPath ? { compilerPath: paths.compilerPath } : {})
       }
     }));
@@ -518,21 +570,105 @@ export class CviCppToolsService implements vscode.Disposable {
       return null;
     }
     const paths = this.getProviderPaths(workspace, installation);
+    const context = this.getIntelliSenseProjectContext(workspace);
     return {
       browsePath: paths.browsePath,
-      standard: 'c11',
+      standard: context.cStandard,
       ...(paths.compilerPath ? { compilerPath: paths.compilerPath } : {})
     };
   }
 
+  private getIntelliSenseProjectContext(workspace: CviWorkspace): IntelliSenseProjectContext {
+    const fallbackMode = vscode.workspace.getConfiguration('labwindowsCvi').get<CviBuildMode>('buildMode', 'debug');
+    const projectRef = workspace.projects.find((candidate) => candidate.index === workspace.activeProjectIndex)
+      ?? workspace.projects.find((candidate) => candidate.exists);
+    const buildMode = projectRef?.buildMode ?? fallbackMode;
+    const configuredCustomName = normalizeNamedConfiguration(vscode.workspace.getConfiguration('labwindowsCvi').get<string>('customBuildConfiguration', ''));
+    const nativeConfigurationName = configuredCustomName || projectRef?.buildConfiguration?.trim() || buildModeLabel(buildMode);
+    const context: IntelliSenseProjectContext = {
+      projectRef,
+      projectPath: projectRef?.absolutePath,
+      projectName: projectRef?.name,
+      buildMode,
+      nativeConfigurationName,
+      is64Bit: buildMode === 'debug64' || buildMode === 'release64',
+      isRelease: buildMode === 'release' || buildMode === 'release64',
+      projectIncludePaths: [],
+      projectDefines: [],
+      forcedInclude: [],
+      cStandard: 'c11',
+      limitations: []
+    };
+
+    if (!projectRef?.exists) {
+      context.limitations.push('No existing active CVI project is available; IntelliSense uses the VS Code fallback build mode.');
+      return context;
+    }
+
+    const namedDescriptor = nativeConfigurationName && !projectRef.buildMode
+      ? this.parser.getNativeBuildConfiguration(projectRef.absolutePath, nativeConfigurationName)
+      : (configuredCustomName ? this.parser.getNativeBuildConfiguration(projectRef.absolutePath, configuredCustomName) : undefined);
+    if (namedDescriptor?.isCustom) {
+      context.is64Bit = namedDescriptor.is64Bit;
+      context.isRelease = namedDescriptor.isRelease;
+      context.buildMode = namedDescriptor.is64Bit
+        ? (namedDescriptor.isRelease ? 'release64' : 'debug64')
+        : (namedDescriptor.isRelease ? 'release' : 'debug');
+    } else if (configuredCustomName || (projectRef.buildConfiguration && !projectRef.buildMode)) {
+      context.limitations.push(`Native configuration ${JSON.stringify(nativeConfigurationName)} is custom but its serialized compiler section was not safely recognized; IntelliSense uses ${buildModeLabel(buildMode)} as the fallback compiler-settings baseline.`);
+    }
+
+    try {
+      const nativeCompiler = namedDescriptor?.isCustom
+        ? this.parser.getNativeCompilerSettingsForConfiguration(projectRef.absolutePath, namedDescriptor.name)
+        : this.parser.getNativeCompilerSettings(projectRef.absolutePath, context.buildMode);
+      if (!nativeCompiler) throw new Error(`compiler settings for ${nativeConfigurationName} were not found`);
+      const projectCompiler = this.parser.getProjectCompilerSettings(projectRef.absolutePath);
+      context.projectDefines = parseCviCompilerDefines(nativeCompiler.compilerDefines);
+      context.projectIncludePaths = projectCompiler.includePaths.map(toForwardSlashes);
+      context.cStandard = nativeCompiler.enableC99Extensions ? 'c99' : 'c89';
+      if (projectCompiler.precompilePrefixHeader && projectCompiler.prefixHeaderFile.trim()) {
+        context.forcedInclude = [toForwardSlashes(projectCompiler.prefixHeaderFile.trim())];
+      }
+      const issues = namedDescriptor?.isCustom
+        ? this.parser.inspectNativeCompilerConfigurationForConfiguration(projectRef.absolutePath, namedDescriptor.name, context.buildMode)
+        : this.parser.inspectNativeCompilerConfiguration(projectRef.absolutePath, context.buildMode);
+      for (const issue of issues) {
+        if (issue.field === 'Compiler Defines') {
+          context.limitations.push(issue.message);
+        }
+      }
+    } catch (error) {
+      context.limitations.push(`Cannot read native compiler settings from ${projectRef.name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    try {
+      const compatibility = this.parser.inspectNativeCompatibility(projectRef.absolutePath);
+      context.compatibilityYear = compatibility.approximateReleaseYear;
+    } catch {
+      // Compatibility metadata is advisory only; IntelliSense can still be generated.
+    }
+
+    return context;
+  }
+
   private getProviderPaths(workspace: CviWorkspace, installation: CviInstallation): ProviderPaths {
     const additional = this.getAdditionalIncludePaths();
-    const key = JSON.stringify({ workspace: workspace.path, installation: installation.root, additional });
+    const context = this.getIntelliSenseProjectContext(workspace);
+    const key = JSON.stringify({
+      workspace: workspace.path,
+      installation: installation.root,
+      additional,
+      activeProject: context.projectPath,
+      buildMode: context.buildMode,
+      includes: context.projectIncludePaths
+    });
     if (this.cachedProviderPaths?.key === key) {
       return this.cachedProviderPaths.value;
     }
 
-    const projectDirectories = this.collectProjectDirectories(workspace);
+    const activeProjectDirectories = this.collectProjectDirectories(workspace, context.projectRef);
+    const allProjectDirectories = this.collectProjectDirectories(workspace);
     const includeRoot = path.join(installation.root, 'include');
     const toolsLibraryRoot = path.join(installation.root, 'toolslib');
     const toolboxRoot = path.join(toolsLibraryRoot, 'toolbox');
@@ -540,7 +676,8 @@ export class CviCppToolsService implements vscode.Disposable {
     const msvcCompatibilityRoots = findMsvcCompatibilityIncludeDirectories();
     const ansiHeaderDirectories = findHeaderCandidates(includeRoot, ['ansi.h', 'ansi_c.h'], 5, 600).map((header) => path.dirname(header));
     const includePath = unique([
-      ...projectDirectories,
+      ...context.projectIncludePaths,
+      ...activeProjectDirectories,
       includeRoot,
       path.join(includeRoot, 'ansi'),
       ...ansiHeaderDirectories,
@@ -549,9 +686,10 @@ export class CviCppToolsService implements vscode.Disposable {
       ...windowsKitRoots.flatMap((directory) => collectHeaderDirectories(directory, 3, 300)),
       ...msvcCompatibilityRoots,
       ...additional
-    ].filter((entry) => fs.existsSync(entry)).map(toForwardSlashes));
+    ].filter((entry) => entry && (context.projectIncludePaths.includes(entry) || fs.existsSync(entry))).map(toForwardSlashes));
     const browsePath = unique([
-      ...projectDirectories,
+      ...context.projectIncludePaths,
+      ...allProjectDirectories,
       includeRoot,
       path.join(includeRoot, 'ansi'),
       ...ansiHeaderDirectories,
@@ -560,7 +698,7 @@ export class CviCppToolsService implements vscode.Disposable {
       ...windowsKitRoots,
       ...msvcCompatibilityRoots,
       ...additional
-    ].filter((entry) => fs.existsSync(entry)).map(toForwardSlashes));
+    ].filter((entry) => entry && (context.projectIncludePaths.includes(entry) || fs.existsSync(entry))).map(toForwardSlashes));
     const value: ProviderPaths = {
       includePath,
       browsePath,
@@ -570,20 +708,24 @@ export class CviCppToolsService implements vscode.Disposable {
     return value;
   }
 
-  private collectProjectDirectories(workspace: CviWorkspace): string[] {
-    const directories = [path.dirname(workspace.path)];
-    for (const projectRef of workspace.projects) {
-      if (!projectRef.exists) {
+  private collectProjectDirectories(workspace: CviWorkspace, projectRef?: CviWorkspaceProjectRef): string[] {
+    const directories: string[] = [];
+    const projectRefs = projectRef ? [projectRef] : workspace.projects;
+    if (!projectRef) {
+      directories.push(path.dirname(workspace.path));
+    }
+    for (const candidate of projectRefs) {
+      if (!candidate.exists) {
         continue;
       }
-      directories.push(path.dirname(projectRef.absolutePath));
+      directories.push(path.dirname(candidate.absolutePath));
       try {
-        const project = this.parser.parseProject(projectRef.absolutePath);
+        const project = this.parser.parseProject(candidate.absolutePath);
         for (const file of project.files) {
           directories.push(path.dirname(file.absolutePath));
         }
       } catch (error) {
-        this.output.appendLine(`[CVI] Cannot collect IntelliSense paths from ${projectRef.absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+        this.output.appendLine(`[CVI] Cannot collect IntelliSense paths from ${candidate.absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     return unique(directories.filter((entry) => fs.existsSync(entry)).map(toForwardSlashes));
@@ -635,6 +777,7 @@ export class CviCppToolsService implements vscode.Disposable {
   }
 
   private createManagedConfiguration(installation: CviInstallation, workspace: CviWorkspace): CppToolsConfiguration {
+    const context = this.getIntelliSenseProjectContext(workspace);
     const includeDirectory = path.join(installation.root, 'include');
     const ansiIncludeDirectory = path.join(includeDirectory, 'ansi');
     const clangIncludeDirectory = path.join(includeDirectory, 'clang');
@@ -642,12 +785,16 @@ export class CviCppToolsService implements vscode.Disposable {
     const toolboxDirectory = path.join(toolsLibraryDirectory, 'toolbox');
     const windowsKitIncludeDirectories = findWindowsKitIncludeDirectories();
     const msvcCompatibilityIncludeDirectories = findMsvcCompatibilityIncludeDirectories();
-    const projectDirectories = this.collectProjectDirectories(workspace);
+    const activeProjectDirectories = this.collectProjectDirectories(workspace, context.projectRef);
+    const allProjectDirectories = this.collectProjectDirectories(workspace);
     const additional = this.getAdditionalIncludePaths();
 
+    // Keep semantic include resolution close to the active CVI project. Avoid a
+    // recursive ${workspaceFolder}/** entry because it can resolve a same-name
+    // header from another CVI project even though compile.exe would not search it.
     const includePath = unique([
-      '${workspaceFolder}/**',
-      ...projectDirectories,
+      ...context.projectIncludePaths,
+      ...activeProjectDirectories,
       existingPath(includeDirectory),
       existingPath(ansiIncludeDirectory),
       existingPath(clangIncludeDirectory) ? `${clangIncludeDirectory}${path.sep}**` : undefined,
@@ -660,9 +807,12 @@ export class CviCppToolsService implements vscode.Disposable {
       ...additional.map(existingPath)
     ].filter((value): value is string => !!value).map(toForwardSlashes));
 
+    // browse.path may span the full CVI workspace because it feeds global symbol
+    // search rather than the compiler-like include resolver.
     const browsePath = unique([
       '${workspaceFolder}',
-      ...projectDirectories,
+      ...context.projectIncludePaths,
+      ...allProjectDirectories,
       existingPath(includeDirectory),
       existingPath(ansiIncludeDirectory),
       existingPath(clangIncludeDirectory),
@@ -675,20 +825,29 @@ export class CviCppToolsService implements vscode.Disposable {
 
     const configuration: CppToolsConfiguration = {
       name: MANAGED_CONFIGURATION_NAME,
-      intelliSenseMode: 'windows-clang-x86',
-      cStandard: 'c11',
+      intelliSenseMode: context.is64Bit ? 'windows-clang-x64' : 'windows-clang-x86',
+      cStandard: context.cStandard,
       cppStandard: 'c++17',
       includePath,
       browse: {
         path: browsePath,
         limitSymbolsToIncludedHeaders: false
       },
-      defines: defaultDefines()
+      defines: mergeDefines(defaultDefines(context), context.projectDefines)
     };
+
+    if (context.forcedInclude.length) {
+      configuration.forcedInclude = context.forcedInclude;
+    }
 
     const compilerPath = this.resolveCompilerPath(installation);
     if (compilerPath) {
       configuration.compilerPath = compilerPath;
+    }
+
+    this.output.appendLine(`[CVI] IntelliSense context: ${context.projectName ?? '<no project>'} · ${context.nativeConfigurationName} · ${context.is64Bit ? 'x64' : 'x86'} · ${configuration.defines?.length ?? 0} defines · ${context.projectIncludePaths.length} project include path(s).`);
+    for (const limitation of context.limitations) {
+      this.output.appendLine(`[CVI] IntelliSense note: ${limitation}`);
     }
     return configuration;
   }
@@ -722,13 +881,106 @@ function findMsvcCompatibilityIncludeDirectories(): string[] {
   return unique(directories.map(toForwardSlashes));
 }
 
-function defaultDefines(): string[] {
-  return [
+function normalizeNamedConfiguration(value: string): string {
+  const trimmed = (value ?? '').trim();
+  if (trimmed.length >= 2 && ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")))) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function buildModeLabel(mode: CviBuildMode): string {
+  switch (mode) {
+    case 'debug': return 'Debug';
+    case 'release': return 'Release';
+    case 'debug64': return 'Debug64';
+    case 'release64': return 'Release64';
+  }
+}
+
+function tokenizeCviDefines(value: string): string[] {
+  const result: string[] = [];
+  let token = '';
+  let quoted = false;
+  for (const ch of value) {
+    if (ch === '"') {
+      quoted = !quoted;
+      token += ch;
+      continue;
+    }
+    if (/\s/.test(ch) && !quoted) {
+      if (token.trim()) {
+        result.push(token.trim());
+        token = '';
+      }
+      continue;
+    }
+    token += ch;
+  }
+  if (token.trim()) {
+    result.push(token.trim());
+  }
+  return result;
+}
+
+function parseCviCompilerDefines(value: string): string[] {
+  const defines: string[] = [];
+  for (const token of tokenizeCviDefines(value)) {
+    const match = token.match(/^\/D([A-Za-z_][A-Za-z0-9_]*)(?:=(.*))?$/i);
+    if (!match) {
+      continue;
+    }
+    const name = match[1];
+    const assigned = match[2];
+    defines.push(assigned === undefined ? name : `${name}=${assigned}`);
+  }
+  return defines;
+}
+
+function defineName(value: string): string {
+  return value.split('=', 1)[0].trim().toLowerCase();
+}
+
+function mergeDefines(base: string[], project: string[]): string[] {
+  const ordered: string[] = [];
+  const indexByName = new Map<string, number>();
+  for (const value of [...base, ...project]) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const key = defineName(trimmed);
+    const existing = indexByName.get(key);
+    if (existing === undefined) {
+      indexByName.set(key, ordered.length);
+      ordered.push(trimmed);
+    } else {
+      // Project defines are appended after defaults, so the later definition
+      // replaces the earlier one while preserving the stable array position.
+      ordered[existing] = trimmed;
+    }
+  }
+  return ordered;
+}
+
+function defaultDefines(context: IntelliSenseProjectContext): string[] {
+  const defines = [
     '_WINDOWS',
     '_WIN32',
     'WIN32',
-    '_CRT_SECURE_NO_WARNINGS'
+    '_CRT_SECURE_NO_WARNINGS',
+    context.is64Bit ? '_NI_mswin64_=1' : '_NI_mswin32_=1'
   ];
+  if (context.is64Bit) {
+    defines.push('_WIN64=1');
+  }
+  if (context.isRelease) {
+    defines.push('NDEBUG');
+  }
+  if ((context.compatibilityYear ?? 0) >= 2013) {
+    defines.push(`_CVI_CONFIGURATION_NAME_="${context.nativeConfigurationName.replace(/"/g, '\\"')}"`);
+  }
+  return defines;
 }
 
 function findWindowsKitIncludeDirectories(): string[] {

@@ -47,6 +47,9 @@ interface BridgePayload {
   progId?: string;
   connectionMode?: string;
   method?: string;
+  serverProcessId?: number;
+  serverWindowTitle?: string;
+  candidateProcessIds?: number[];
   fallbackFrom?: BridgePayload;
 }
 
@@ -105,7 +108,8 @@ interface DdeSessionHandle {
   readyPromise: Promise<BridgePayload>;
   resolveReady: (payload: BridgePayload) => void;
   readySettled: boolean;
-  workspacePath: string;
+  contextSignature: string;
+  serverProcessId?: number;
 }
 
 export interface CviNativeState {
@@ -130,6 +134,10 @@ export interface CviNativeDebugSnapshot {
   workspacePath?: string;
   projectPath?: string;
   projectName?: string;
+  nativeProcessId?: number;
+  nativeProcessOwned?: boolean;
+  nativeWindowTitle?: string;
+  nativeContext?: string;
   lastCommand: string;
   lastResult: string;
   updatedAt?: number;
@@ -204,12 +212,16 @@ export class CviNativeCommandService implements vscode.Disposable {
   readonly onDidChange = this.changeEmitter.event;
   private readonly executionTransitionEmitter = new vscode.EventEmitter<CviNativeExecutionTransition>();
   readonly onDidExecutionTransition = this.executionTransitionEmitter.event;
-  private debugAdapterMonitorUsers = 0;
-  private debugAdapterPollTimer?: NodeJS.Timeout;
-  private debugAdapterPollInFlight = false;
-  private debugAdapterPollFailures = 0;
+  private nativeServerProcessId?: number;
+  private nativeServerOwned = false;
+  private nativeServerWindowTitle?: string;
+  private boundNativeContextSignature?: string;
+  private boundNativeContextLabel?: string;
   private nativeCompletionMonitor?: NodeJS.Timeout;
   private nativeCompletionMonitorInFlight = false;
+  private readonly lifecycleDisposables: vscode.Disposable[] = [];
+  private readonly ddeSessionKillTimers = new Set<NodeJS.Timeout>();
+  private disposed = false;
 
   constructor(
     context: vscode.ExtensionContext,
@@ -223,14 +235,30 @@ export class CviNativeCommandService implements vscode.Disposable {
     this.activeXDiscoveryScript = context.asAbsolutePath(path.join('native', 'cvi-activex-discovery.ps1'));
     this.backgroundStartScript = context.asAbsolutePath(path.join('native', 'cvi-start-background.ps1'));
     this.windowControlScript = context.asAbsolutePath(path.join('native', 'cvi-window-control.ps1'));
+    this.lifecycleDisposables.push(this.workspaces.onDidChange(() => this.handleWorkspaceContextChanged()));
   }
 
   dispose(): void {
-    this.stopDebugAdapterMonitoring();
+    this.disposed = true;
     this.stopNativeCompletionMonitor();
-    this.closeDdeSession('extension disposed');
+    this.closeDdeSession('extension disposed', true);
+    for (const timer of this.ddeSessionKillTimers) clearTimeout(timer);
+    this.ddeSessionKillTimers.clear();
+    for (const disposable of this.lifecycleDisposables.splice(0)) disposable.dispose();
     this.executionTransitionEmitter.dispose();
     this.changeEmitter.dispose();
+  }
+
+  private handleWorkspaceContextChanged(): void {
+    if (this.disposed || !this.boundNativeContextSignature) return;
+    const context = this.getNativeContext();
+    if (context.signature === this.boundNativeContextSignature) return;
+    if (this.cachedProjectExecution === 'running' || this.cachedProjectExecution === 'suspended') {
+      this.output.appendLine(`[CVI] Active VS Code CVI context changed while native execution remains ${this.cachedProjectExecution} for ${this.boundNativeContextLabel ?? 'the bound CVI context'}. The existing PID binding is retained only for Pause/Continue/Stop.`);
+      this.publishChange();
+      return;
+    }
+    this.releaseNativeBinding('VS Code workspace/project/build configuration changed');
   }
 
   getDebugSnapshot(): CviNativeDebugSnapshot {
@@ -246,6 +274,10 @@ export class CviNativeCommandService implements vscode.Disposable {
       workspacePath: this.workspaces.currentWorkspace?.path,
       projectPath: ref?.absolutePath,
       projectName: ref?.name,
+      nativeProcessId: this.nativeServerProcessId,
+      nativeProcessOwned: this.nativeServerProcessId ? this.nativeServerOwned : undefined,
+      nativeWindowTitle: this.nativeServerWindowTitle,
+      nativeContext: this.boundNativeContextLabel ?? this.boundNativeContextSignature,
       lastCommand: this.lastCommand,
       lastResult: this.lastResult,
       updatedAt: this.lastUpdatedAt
@@ -286,6 +318,10 @@ export class CviNativeCommandService implements vscode.Disposable {
   async build(options: CviNativeCommandOptions = {}): Promise<boolean> {
     if (!await this.ensureServer(true, options.background === true)) return false;
     const state = await this.getState(true, false);
+    if (state?.waitingForUserResponse) {
+      if (!options.silent) vscode.window.showWarningMessage('Cannot build while LabWindows/CVI is waiting for a modal dialog response. Answer or close the dialog in the bound CVI instance first.');
+      return false;
+    }
     if (state && state.projectExecution !== 'idle') {
       if (!options.silent) vscode.window.showWarningMessage(`Cannot build the active CVI project while execution is ${state.projectExecution}. Stop the current execution first.`);
       return false;
@@ -311,6 +347,10 @@ export class CviNativeCommandService implements vscode.Disposable {
     }
     if (!await this.ensureServer(true, options.background === true)) return false;
     const state = await this.getState(true, false);
+    if (state?.waitingForUserResponse) {
+      if (!options.silent) vscode.window.showWarningMessage('Cannot start native execution while LabWindows/CVI is waiting for a modal dialog response. Answer or close the dialog in the bound CVI instance first.');
+      return false;
+    }
     if (state && state.projectExecution !== 'idle') {
       if (!options.silent) vscode.window.showWarningMessage(`The active CVI project is already ${state.projectExecution}. Stop or continue the current execution before starting a new run.`);
       return false;
@@ -348,24 +388,6 @@ export class CviNativeCommandService implements vscode.Disposable {
     return accepted;
   }
 
-  startDebugAdapterMonitoring(): vscode.Disposable {
-    this.debugAdapterMonitorUsers += 1;
-    this.scheduleDebugAdapterPoll(250);
-    return new vscode.Disposable(() => {
-      this.debugAdapterMonitorUsers = Math.max(0, this.debugAdapterMonitorUsers - 1);
-      if (this.debugAdapterMonitorUsers === 0) this.stopDebugAdapterMonitoring();
-    });
-  }
-
-  async endDebugAdapterSession(terminateExecution = false): Promise<void> {
-    if (terminateExecution && this.ddeSession && this.cachedProjectExecution !== 'idle') {
-      await this.stop({ silent: true, background: true });
-    }
-    this.stopDebugAdapterMonitoring();
-    this.closeDdeSession('VS Code debug session ended');
-    if (this.cachedProjectExecution !== 'idle') this.setCachedExecution('idle', 'cached');
-  }
-
   async showState(): Promise<void> {
     if (this.ddeSession && (this.cachedProjectExecution === 'running' || this.cachedProjectExecution === 'suspended')) {
       vscode.window.showInformationMessage(`Native CVI debug session: execution ${this.cachedProjectExecution} (cached while the project is active).`);
@@ -392,6 +414,9 @@ export class CviNativeCommandService implements vscode.Disposable {
     this.output.appendLine(`[CVI] Workspace: ${this.workspaces.currentWorkspace?.path ?? '<none>'}`);
     this.output.appendLine(`[CVI] Active project: ${this.workspaces.activeProjectRef?.absolutePath ?? '<none>'}`);
     this.output.appendLine(`[CVI] Persistent DDE debug session: ${this.ddeSession ? `connected · cached execution ${this.cachedProjectExecution}` : 'not connected'}`);
+    this.output.appendLine(`[CVI] Bound CVI process: ${this.nativeServerProcessId ? `PID ${this.nativeServerProcessId}${this.nativeServerOwned ? ' · extension-launched' : ' · existing'}${this.nativeServerWindowTitle ? ` · ${this.nativeServerWindowTitle}` : ''}` : '<none>'}`);
+    this.output.appendLine(`[CVI] Native context: ${this.boundNativeContextLabel ?? '<none>'}`);
+    this.output.appendLine(`[CVI] Native context signature: ${this.boundNativeContextSignature ?? '<none>'}`);
     if (process.platform !== 'win32') {
       this.output.appendLine('[CVI] The native ActiveX/DDE bridge is available only on Windows.');
       vscode.window.showWarningMessage('The native LabWindows/CVI command bridge is available only on Windows.');
@@ -477,10 +502,14 @@ export class CviNativeCommandService implements vscode.Disposable {
   }
 
   private async executeDdeSessionControl(command: string, acceptedMessage: string, nextState: CviNativeState['projectExecution'], silent = false): Promise<boolean> {
-    if (!this.ddeSession) {
-      this.markAction(command, 'Skipped: no persistent native CVI debug session is connected.');
-      if (!silent) vscode.window.showWarningMessage('No persistent native CVI debug session is available. Start the project with “Run Project in Native CVI Debugger” first.');
-      return false;
+    if (!this.ddeSession || this.ddeSession.process.killed) {
+      if (this.nativeServerProcessId && await this.ensureDdeSession()) {
+        this.output.appendLine(`[CVI] Re-established the persistent DDE control session for PID ${this.nativeServerProcessId}.`);
+      } else {
+        this.markAction(command, 'Skipped: no persistent native CVI debug session is connected.');
+        if (!silent) vscode.window.showWarningMessage('No persistent native CVI debug session is available. Start the project with “Run Project in Native CVI Debugger” first.');
+        return false;
+      }
     }
     if (await this.executeAction(command, acceptedMessage, true, silent)) {
       this.setCachedExecution(nextState, 'cached');
@@ -489,25 +518,124 @@ export class CviNativeCommandService implements vscode.Disposable {
     return false;
   }
 
+  private getNativeContext(): { signature: string; openPath?: string; projectPath?: string; displayName: string; multiProjectWorkspace: boolean } {
+    const workspace = this.workspaces.currentWorkspace;
+    const ref = this.workspaces.activeProjectRef;
+    const openPath = workspace?.path ?? ref?.absolutePath;
+    const projectPath = ref?.absolutePath;
+    const configuration = ref ? (this.workspaces.getProjectBuildConfiguration(ref) ?? ref.buildConfiguration ?? ref.buildMode ?? '') : '';
+    const normalize = (value: string | undefined): string => value ? path.resolve(value).toLowerCase() : '';
+    const signature = [normalize(openPath), normalize(projectPath), configuration.trim().toLowerCase()].join('|');
+    return {
+      signature,
+      openPath,
+      projectPath,
+      displayName: `${workspace?.name ?? path.basename(openPath ?? projectPath ?? 'CVI')} · ${ref?.name ?? '<no active project>'} · ${configuration || '<default config>'}`,
+      multiProjectWorkspace: Boolean(workspace && path.extname(workspace.path).toLowerCase() === '.cws' && workspace.projects.length > 1)
+    };
+  }
+
+  private releaseNativeBinding(reason: string): void {
+    if (this.ddeSession) this.closeDdeSession(reason);
+    if (this.nativeServerProcessId) {
+      this.output.appendLine(`[CVI] Released native CVI process binding PID ${this.nativeServerProcessId}: ${reason}. The CVI process itself is left running.`);
+    }
+    this.nativeServerProcessId = undefined;
+    this.nativeServerOwned = false;
+    this.nativeServerWindowTitle = undefined;
+    this.boundNativeContextSignature = undefined;
+    this.boundNativeContextLabel = undefined;
+    this.serverAvailable = undefined;
+    this.projectCompiledAndLinked = undefined;
+    this.waitingForUserResponse = undefined;
+    if (this.cachedProjectExecution !== 'idle') this.cachedProjectExecution = 'unknown';
+    this.stateSource = 'unknown';
+    this.lastUpdatedAt = Date.now();
+    this.publishChange();
+  }
+
+  private bindNativeServer(response: BridgePayload, processId: number, owned: boolean, contextSignature: string): void {
+    if (this.ddeSession && this.ddeSession.serverProcessId !== processId) {
+      this.closeDdeSession('native CVI process binding changed');
+    }
+    this.nativeServerProcessId = processId;
+    this.nativeServerOwned = owned;
+    this.nativeServerWindowTitle = response.serverWindowTitle?.trim() || this.nativeServerWindowTitle;
+    this.boundNativeContextSignature = contextSignature;
+    this.boundNativeContextLabel = this.getNativeContext().displayName;
+    this.serverAvailable = true;
+    this.lastUpdatedAt = Date.now();
+    this.output.appendLine(`[CVI] Bound native command bridge to CVI PID ${processId}${owned ? ' (extension-launched)' : ' (existing instance)'}${this.nativeServerWindowTitle ? ` · ${this.nativeServerWindowTitle}` : ''}.`);
+    this.publishChange();
+  }
+
+  private canReuseExistingServer(response: BridgePayload, context: ReturnType<CviNativeCommandService['getNativeContext']>): boolean {
+    const pid = Number(response.serverProcessId ?? 0);
+    if (!response.ok || pid <= 0) return false;
+    if (context.multiProjectWorkspace) {
+      this.output.appendLine(`[CVI] Existing CVI PID ${pid} is not reused for a multi-project workspace because DDE does not expose a reliable active-project selector. A dedicated instance will be opened.`);
+      return false;
+    }
+    const title = (response.serverWindowTitle ?? '').trim().toLowerCase();
+    if (!title) {
+      this.output.appendLine(`[CVI] Existing CVI PID ${pid} did not expose a window title that can be matched to the requested project/workspace. Refusing an unverified attachment.`);
+      return false;
+    }
+    const expected = [context.openPath, context.projectPath]
+      .filter((value): value is string => Boolean(value))
+      .flatMap((value) => [path.basename(value).toLowerCase(), path.basename(value, path.extname(value)).toLowerCase()])
+      .filter(Boolean);
+    const matched = expected.some((candidate) => title.includes(candidate));
+    if (!matched) {
+      this.output.appendLine(`[CVI] Existing CVI PID ${pid} title does not match the requested native context: "${response.serverWindowTitle}". A dedicated instance will be used instead.`);
+    }
+    return matched;
+  }
+
   private async ensureServer(autoOpen: boolean, background = false): Promise<boolean> {
     if (process.platform !== 'win32') {
       vscode.window.showWarningMessage('The native LabWindows/CVI command bridge is available only on Windows.');
       return false;
     }
-    if (await this.getDdeState(true)) {
-      return true;
-    }
-    if (!autoOpen) {
-      vscode.window.showWarningMessage('LabWindows/CVI is not exposing its native DDE command server. Open the workspace in CVI first.');
-      return false;
-    }
-    const workspace = this.workspaces.currentWorkspace;
-    const ref = this.workspaces.activeProjectRef;
-    const openPath = workspace?.path ?? ref?.absolutePath;
-    if (!openPath || !fs.existsSync(openPath)) {
+
+    const context = this.getNativeContext();
+    if (!context.openPath || !fs.existsSync(context.openPath)) {
       vscode.window.showErrorMessage('No existing CVI workspace or project is available to open.');
       return false;
     }
+
+    if (this.boundNativeContextSignature && this.boundNativeContextSignature !== context.signature) {
+      if (this.cachedProjectExecution === 'running' || this.cachedProjectExecution === 'suspended') {
+        vscode.window.showWarningMessage(`A native CVI debug session is still ${this.cachedProjectExecution} for ${this.boundNativeContextLabel ?? 'the previously bound project'}. Stop that execution before building or running another CVI context.`);
+        return false;
+      }
+      this.releaseNativeBinding('active workspace/project/build configuration changed');
+    }
+
+    if (this.nativeServerProcessId) {
+      const state = await this.getDdeState(true, this.nativeServerProcessId);
+      if (state) return true;
+      this.releaseNativeBinding('the bound CVI process no longer exposes the expected DDE server');
+    }
+
+    const existing = await this.invokeDde(COMMANDS.state, '', undefined);
+    if (existing.ok && this.canReuseExistingServer(existing, context)) {
+      const pid = Number(existing.serverProcessId);
+      this.bindNativeServer(existing, pid, false, context.signature);
+      const state = this.parseState(existing.raw);
+      if (state) this.rememberState(state);
+      return true;
+    }
+    if (!existing.ok && (existing.candidateProcessIds?.length ?? 0) > 1) {
+      this.output.appendLine(`[CVI] Multiple CVI DDE servers detected (${existing.candidateProcessIds?.join(', ')}); no ambiguous instance will be controlled.`);
+    }
+
+    if (!autoOpen) {
+      vscode.window.showWarningMessage('No verified LabWindows/CVI instance is bound to the active project. Open the project in CVI or allow CVI PM to launch a dedicated instance.');
+      return false;
+    }
+
+    const workspace = this.workspaces.currentWorkspace;
     let installation = this.installations.getActiveInstallation(workspace?.cviDir);
     if (!installation?.ideExe) {
       installation = await this.installations.selectInstallation(workspace?.cviDir);
@@ -516,22 +644,40 @@ export class CviNativeCommandService implements vscode.Disposable {
       vscode.window.showErrorMessage('LabWindows/CVI IDE executable not found. Select the correct installation directory.');
       return false;
     }
-    await this.startNativeIde(installation.ideExe, openPath, background);
+
+    const pid = await this.startNativeIde(installation.ideExe, context.openPath, background);
+    if (!pid) {
+      vscode.window.showErrorMessage('LabWindows/CVI could not be started with a process ID. Native debugging was cancelled to avoid attaching to an unrelated CVI instance.');
+      return false;
+    }
+    this.nativeServerProcessId = pid;
+    this.nativeServerOwned = true;
+    this.boundNativeContextSignature = context.signature;
+    this.boundNativeContextLabel = context.displayName;
+    this.nativeServerWindowTitle = undefined;
+    this.output.appendLine(`[CVI] Waiting for dedicated CVI PID ${pid} to expose the DDE command server for ${context.displayName}.`);
+    this.publishChange();
+
     const startupTimeout = Math.max(1000, vscode.workspace.getConfiguration('labwindowsCvi').get<number>('nativeCommandStartupTimeoutMs', 10000));
     const deadline = Date.now() + startupTimeout;
     while (Date.now() < deadline) {
       await delay(400);
-      if (await this.getDdeState(true)) {
-        await this.waitAfterNativeIdeStartup();
-        return true;
-      }
+      const response = await this.invokeDde(COMMANDS.state, '', pid);
+      if (!response.ok) continue;
+      const state = this.parseState(response.raw);
+      if (!state) continue;
+      this.bindNativeServer(response, pid, true, context.signature);
+      this.rememberState(state);
+      await this.waitAfterNativeIdeStartup();
+      return true;
     }
-    vscode.window.showWarningMessage('LabWindows/CVI was opened, but its native DDE command server did not become available before the startup timeout expired.');
+    this.releaseNativeBinding(`dedicated CVI PID ${pid} did not expose its DDE command server before the startup timeout`);
+    vscode.window.showWarningMessage(`LabWindows/CVI PID ${pid} was opened, but its native DDE command server did not become available before the startup timeout expired.`);
     return false;
   }
 
-  private async getDdeState(silent = false): Promise<CviNativeState | undefined> {
-    const response = await this.invokeDde(COMMANDS.state, '');
+  private async getDdeState(silent = false, targetProcessId = this.nativeServerProcessId): Promise<CviNativeState | undefined> {
+    const response = await this.invokeDde(COMMANDS.state, '', targetProcessId);
     // During IDE startup CVI can temporarily expose the DDE conversation while
     // still rejecting commands with DMLERR_BUSY. Keep polling silently in that
     // case so the output channel reports the stable result instead of expected
@@ -547,52 +693,74 @@ export class CviNativeCommandService implements vscode.Disposable {
     if (!state && !silent) {
       vscode.window.showWarningMessage(`LabWindows/CVI responded, but its state could not be decoded: ${response.raw}`);
     }
-    if (state) this.rememberState(state);
+    if (state) {
+      if (response.serverProcessId && (!this.nativeServerProcessId || response.serverProcessId === this.nativeServerProcessId)) {
+        this.nativeServerProcessId = response.serverProcessId;
+        this.nativeServerWindowTitle = response.serverWindowTitle?.trim() || this.nativeServerWindowTitle;
+      }
+      this.rememberState(state);
+    }
     return state;
   }
 
   private async invoke(command: string, argument = '', createActiveXIfMissing = false): Promise<BridgePayload> {
     const strategy = this.nativeCommandTransport;
+    const targetProcessId = this.nativeServerProcessId;
     if (strategy === 'dde') {
-      return await this.invokeDde(command, argument);
+      return await this.invokeDde(command, argument, targetProcessId);
     }
     if (strategy === 'activex') {
       const activeX = await this.invokeActiveX(command, argument, createActiveXIfMissing && this.allowActiveXAutoStart);
       if (activeX.ok) return activeX;
-      const dde = await this.invokeDde(command, argument);
+      const dde = await this.invokeDde(command, argument, targetProcessId);
       return dde.ok ? { ...dde, fallbackFrom: activeX } : { ...dde, error: `ActiveX bridge failed: ${activeX.error} DDE fallback failed: ${dde.error}`, fallbackFrom: activeX };
     }
-    const dde = await this.invokeDde(command, argument);
+    const dde = await this.invokeDde(command, argument, targetProcessId);
     if (dde.ok) return dde;
     const activeX = await this.invokeActiveX(command, argument, createActiveXIfMissing && this.allowActiveXAutoStart);
     return activeX.ok ? { ...activeX, fallbackFrom: dde } : { ...activeX, error: `DDE bridge failed: ${dde.error} ActiveX fallback failed: ${activeX.error}`, fallbackFrom: dde };
   }
 
   private async ensureDdeSession(): Promise<boolean> {
-    const workspacePath = this.workspaces.currentWorkspace?.path ?? this.workspaces.activeProjectRef?.absolutePath ?? '';
-    if (this.ddeSession && this.ddeSession.workspacePath === workspacePath && !this.ddeSession.process.killed) {
+    const context = this.getNativeContext();
+    const targetProcessId = this.nativeServerProcessId;
+    if (!targetProcessId) {
+      this.output.appendLine('[CVI] Persistent DDE session refused: no deterministic CVI process binding is available.');
+      return false;
+    }
+    if (this.boundNativeContextSignature && this.boundNativeContextSignature !== context.signature) {
+      this.releaseNativeBinding('native context changed before persistent DDE session creation');
+      return false;
+    }
+    if (this.ddeSession && this.ddeSession.contextSignature === context.signature && this.ddeSession.serverProcessId === targetProcessId && !this.ddeSession.process.killed) {
       return true;
     }
     if (this.ddeSession) {
-      this.closeDdeSession('workspace changed');
+      this.closeDdeSession('native context or CVI process changed');
     }
-    const ready = await this.startDdeSession(workspacePath);
+    const ready = await this.startDdeSession(context.signature, targetProcessId);
     if (!ready.ok) {
       this.logResponse(ready);
       this.closeDdeSession('session startup failed');
       return false;
     }
-    this.output.appendLine(`[CVI] Persistent DDE session handshake accepted${ready.mode ? ` (${ready.mode})` : ''}.`);
+    if (ready.serverProcessId && ready.serverProcessId !== targetProcessId) {
+      this.logResponse(ready);
+      this.closeDdeSession('session connected to an unexpected CVI process');
+      return false;
+    }
+    this.nativeServerWindowTitle = ready.serverWindowTitle?.trim() || this.nativeServerWindowTitle;
+    this.output.appendLine(`[CVI] Persistent DDE session handshake accepted for PID ${targetProcessId}${ready.mode ? ` (${ready.mode})` : ''}.`);
     this.logBootstrap(ready.bootstrap);
-    this.output.appendLine(`[CVI] Persistent DDE debug session connected for ${workspacePath || '<unknown workspace>'}.`);
+    this.output.appendLine(`[CVI] Persistent DDE debug session connected for ${context.displayName}.`);
     this.serverAvailable = true;
     this.publishChange();
     return true;
   }
 
-  private async startDdeSession(workspacePath: string): Promise<BridgePayload> {
+  private async startDdeSession(contextSignature: string, targetProcessId: number): Promise<BridgePayload> {
     const timeout = Math.max(500, vscode.workspace.getConfiguration('labwindowsCvi').get<number>('nativeCommandTimeoutMs', 3000));
-    const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.bridgeScript, '-Command', '__session__', '-TimeoutMs', String(timeout), '-Session'];
+    const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.bridgeScript, '-Command', '__session__', '-TimeoutMs', String(timeout), '-TargetProcessId', String(targetProcessId), '-Session'];
     const child = spawn(this.powershellExecutable, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let resolveReady!: (payload: BridgePayload) => void;
     const readyPromise = new Promise<BridgePayload>((resolve) => { resolveReady = resolve; });
@@ -604,7 +772,8 @@ export class CviNativeCommandService implements vscode.Disposable {
       readyPromise,
       resolveReady,
       readySettled: false,
-      workspacePath
+      contextSignature,
+      serverProcessId: targetProcessId
     };
     this.ddeSession = handle;
     child.stdout.setEncoding('utf8');
@@ -668,26 +837,37 @@ export class CviNativeCommandService implements vscode.Disposable {
     handle.pending.clear();
     if (this.ddeSession === handle) {
       this.ddeSession = undefined;
+      this.serverAvailable = undefined;
       if (this.cachedProjectExecution !== 'idle') this.cachedProjectExecution = 'unknown';
       this.stateSource = 'unknown';
+      this.lastCommand = 'Persistent DDE session';
+      this.lastResult = error;
       this.lastUpdatedAt = Date.now();
       this.publishChange();
     }
   }
 
-  private closeDdeSession(reason: string): void {
+  private closeDdeSession(reason: string, force = false): void {
     const handle = this.ddeSession;
     if (!handle) return;
     this.output.appendLine(`[CVI] Closing persistent DDE debug session: ${reason}.`);
     this.ddeSession = undefined;
     this.lastUpdatedAt = Date.now();
-    this.publishChange();
+    if (!this.disposed) this.publishChange();
     try {
       handle.process.stdin.write(`${JSON.stringify({ id: `close-${Date.now()}`, command: '__close__', argument: '', timeoutMs: 1000 })}\n`);
     } catch {
       // The process may already have terminated.
     }
-    setTimeout(() => { if (!handle.process.killed) handle.process.kill(); }, 750);
+    if (force) {
+      if (!handle.process.killed) handle.process.kill();
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.ddeSessionKillTimers.delete(timer);
+      if (!handle.process.killed) handle.process.kill();
+    }, 750);
+    this.ddeSessionKillTimers.add(timer);
   }
 
   private async invokeDdeSession(command: string, argument: string, options: DdeSessionInvokeOptions = {}): Promise<BridgePayload> {
@@ -738,7 +918,7 @@ export class CviNativeCommandService implements vscode.Disposable {
       // may reject fresh conversations; that is expected and intentionally
       // ignored. Once the program completes, the probe succeeds and the
       // dashboard returns to idle without disturbing the persistent session.
-      const response = await this.invokeDde(COMMANDS.state, '');
+      const response = await this.invokeDde(COMMANDS.state, '', this.nativeServerProcessId);
       if (!response.ok) return;
       const state = this.parseState(response.raw);
       if (!state) return;
@@ -766,6 +946,9 @@ export class CviNativeCommandService implements vscode.Disposable {
       args.push('-Argument', argument);
     }
     args.push('-TimeoutMs', String(timeout));
+    if (this.nativeServerProcessId) {
+      args.push('-ExpectedProcessId', String(this.nativeServerProcessId));
+    }
     if (createIfMissing) {
       args.push('-CreateIfMissing');
     }
@@ -782,7 +965,7 @@ export class CviNativeCommandService implements vscode.Disposable {
     });
   }
 
-  private async invokeDde(command: string, argument: string): Promise<BridgePayload> {
+  private async invokeDde(command: string, argument: string, targetProcessId = this.nativeServerProcessId): Promise<BridgePayload> {
     if (process.platform !== 'win32') {
       return { ok: false, transport: 'dde', command, argument, raw: '', error: 'The native bridge is supported only on Windows.' };
     }
@@ -795,6 +978,9 @@ export class CviNativeCommandService implements vscode.Disposable {
       args.push('-Argument', argument);
     }
     args.push('-TimeoutMs', String(timeout));
+    if (targetProcessId && targetProcessId > 0) {
+      args.push('-TargetProcessId', String(targetProcessId));
+    }
     return await new Promise<BridgePayload>((resolve) => {
       const hostTimeout = Math.max(30000, vscode.workspace.getConfiguration('labwindowsCvi').get<number>('nativeBridgeProcessTimeoutMs', 90000));
       execFile(this.powershellExecutable, args, { windowsHide: true, timeout: hostTimeout, encoding: 'utf8' }, (error, stdout, stderr) => {
@@ -808,68 +994,43 @@ export class CviNativeCommandService implements vscode.Disposable {
     });
   }
 
-  private async startNativeIde(executable: string, openPath: string, background: boolean): Promise<void> {
+  private async startNativeIde(executable: string, openPath: string, background: boolean): Promise<number | undefined> {
     if (background && fs.existsSync(this.backgroundStartScript)) {
       const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.backgroundStartScript, '-Executable', executable, '-Target', openPath, '-WindowMode', this.nativeDebuggerIdeWindowMode === 'normal' ? 'Normal' : 'Minimized'];
-      const launched = await new Promise<boolean>((resolve) => {
-        execFile(this.powershellExecutable, args, { windowsHide: true, timeout: 10000, encoding: 'utf8' }, (error) => resolve(!error));
+      const launched = await new Promise<{ ok: boolean; pid?: number }>((resolve) => {
+        execFile(this.powershellExecutable, args, { windowsHide: true, timeout: 10000, encoding: 'utf8' }, (error, stdout) => {
+          const payload = this.tryParseLastJsonLine<{ ok?: boolean; pid?: number }>(stdout);
+          resolve({ ok: !error && payload?.ok === true && Number(payload.pid) > 0, pid: Number(payload?.pid) || undefined });
+        });
       });
-      if (launched) {
-        this.output.appendLine(`[CVI] Started native IDE in ${this.nativeDebuggerIdeWindowMode} background mode for VS Code debugging: ${executable} ${openPath}`);
-        return;
+      if (launched.ok && launched.pid) {
+        this.output.appendLine(`[CVI] Started dedicated native IDE PID ${launched.pid} in ${this.nativeDebuggerIdeWindowMode} mode: ${executable} ${openPath}`);
+        return launched.pid;
       }
-      this.output.appendLine('[CVI] Background launch helper failed; falling back to the standard native IDE launcher.');
+      this.output.appendLine('[CVI] Background launch helper failed to return a valid CVI PID; falling back to the standard native IDE launcher.');
     }
-    const child = spawn(executable, [openPath], { cwd: path.dirname(openPath), detached: true, shell: false, stdio: 'ignore', windowsHide: background });
-    child.unref();
-    this.output.appendLine(`[CVI] Started native IDE for DDE command bridge: ${executable} ${openPath}`);
+    try {
+      const child = spawn(executable, [openPath], { cwd: path.dirname(openPath), detached: true, shell: false, stdio: 'ignore', windowsHide: background });
+      const pid = child.pid;
+      child.unref();
+      if (pid && pid > 0) {
+        this.output.appendLine(`[CVI] Started dedicated native IDE PID ${pid} for DDE command bridge: ${executable} ${openPath}`);
+        return pid;
+      }
+    } catch (error) {
+      this.output.appendLine(`[CVI] Failed to start native CVI IDE: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return undefined;
   }
 
   keepNativeIdeInBackground(): void {
-    if (!this.keepNativeIdeMinimizedDuringVsCodeDebug || process.platform !== 'win32' || !fs.existsSync(this.windowControlScript)) return;
-    const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.windowControlScript, '-Action', 'Minimize'];
-    execFile(this.powershellExecutable, args, { windowsHide: true, timeout: 5000, encoding: 'utf8' }, () => undefined);
-  }
-
-  private scheduleDebugAdapterPoll(delayMs = this.nativeDapPollIntervalMs): void {
-    if (this.debugAdapterMonitorUsers <= 0 || this.debugAdapterPollTimer) return;
-    this.debugAdapterPollTimer = setTimeout(() => {
-      this.debugAdapterPollTimer = undefined;
-      void this.pollDebugAdapterState();
-    }, delayMs);
-  }
-
-  private stopDebugAdapterMonitoring(): void {
-    if (this.debugAdapterPollTimer) clearTimeout(this.debugAdapterPollTimer);
-    this.debugAdapterPollTimer = undefined;
-    this.debugAdapterPollInFlight = false;
-    this.debugAdapterPollFailures = 0;
-  }
-
-  private async pollDebugAdapterState(): Promise<void> {
-    if (this.debugAdapterMonitorUsers <= 0) return;
-    if (this.debugAdapterPollInFlight || !this.ddeSession || this.cachedProjectExecution === 'idle') {
-      this.scheduleDebugAdapterPoll();
-      return;
-    }
-    this.debugAdapterPollInFlight = true;
-    try {
-      const response = await this.invokeDdeSession(COMMANDS.state, '', { timeoutMs: this.nativeDapPollTimeoutMs, closeOnTimeout: false });
-      if (response.ok) {
-        const state = this.parseState(response.raw);
-        if (state) {
-          this.debugAdapterPollFailures = 0;
-          this.rememberState(state, 'poll');
-        }
-      } else {
-        this.debugAdapterPollFailures += 1;
-        if (this.debugAdapterPollFailures === 1) this.output.appendLine(`[CVI] VS Code debug state polling temporarily unavailable: ${response.error}`);
-      }
-    } finally {
-      this.debugAdapterPollInFlight = false;
-      const backoff = this.debugAdapterPollFailures >= 2 ? Math.max(2000, this.nativeDapPollIntervalMs * 3) : this.nativeDapPollIntervalMs;
-      this.scheduleDebugAdapterPoll(backoff);
-    }
+    const processId = this.nativeServerProcessId;
+    if (!this.keepNativeIdeMinimizedDuringVsCodeDebug || !processId || process.platform !== 'win32' || !fs.existsSync(this.windowControlScript)) return;
+    const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', this.windowControlScript, '-Action', 'Minimize', '-ProcessId', String(processId)];
+    execFile(this.powershellExecutable, args, { windowsHide: true, timeout: 5000, encoding: 'utf8' }, (_error, stdout) => {
+      const payload = this.tryParseLastJsonLine<{ ok?: boolean; affectedWindows?: number; error?: string }>(stdout);
+      if (payload && payload.ok === false && payload.error) this.output.appendLine(`[CVI] Unable to minimize bound CVI PID ${processId}: ${payload.error}`);
+    });
   }
 
   private async waitAfterNativeIdeStartup(): Promise<void> {
@@ -886,14 +1047,6 @@ export class CviNativeCommandService implements vscode.Disposable {
 
   private get keepNativeIdeMinimizedDuringVsCodeDebug(): boolean {
     return vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('keepNativeIdeMinimizedDuringVsCodeDebug', true);
-  }
-
-  private get nativeDapPollIntervalMs(): number {
-    return Math.max(300, vscode.workspace.getConfiguration('labwindowsCvi').get<number>('nativeDapPollIntervalMs', 750));
-  }
-
-  private get nativeDapPollTimeoutMs(): number {
-    return Math.max(500, vscode.workspace.getConfiguration('labwindowsCvi').get<number>('nativeDapPollTimeoutMs', 1000));
   }
 
   private async discoverActiveX(): Promise<ActiveXDiscoveryPayload> {
@@ -1073,6 +1226,8 @@ export class CviNativeCommandService implements vscode.Disposable {
     const transport = response.transport ?? 'unknown-transport';
     const prefix = fallbackSource ? `${transport} primary attempt` : transport;
     this.output.appendLine(`[CVI] ${prefix} ${response.command}${response.argument ? `,${response.argument}` : ''} -> ${response.ok ? response.raw : response.error}`);
+    if (response.serverProcessId) this.output.appendLine(`[CVI]   Server PID: ${response.serverProcessId}${response.serverWindowTitle ? ` · ${response.serverWindowTitle}` : ''}`);
+    if ((response.candidateProcessIds?.length ?? 0) > 1) this.output.appendLine(`[CVI]   Candidate CVI PIDs: ${response.candidateProcessIds?.join(', ')}`);
     if (transport === 'activex') {
       this.output.appendLine(`[CVI]   ActiveX ProgID: ${response.progId || 'CVI.Application'} · connection=${response.connectionMode || '<none>'} · method=${response.method || '<none>'}`);
       for (const attempt of response.attempts ?? []) {

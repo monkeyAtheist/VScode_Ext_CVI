@@ -15,7 +15,7 @@ import { CviProjectSettingsService } from './services/cviProjectSettingsService'
 import { BuildSettingsPanel } from './views/buildSettingsPanel';
 import { QuickActionsView } from './views/quickActionsView';
 import { CviDebugView } from './views/cviDebugView';
-import { CviCompletionProvider, CviSourceSymbol, CviSymbolService, isSourceOrHeader } from './services/cviSymbolService';
+import { CviAutocompleteProfile, CviCompletionProvider, CviSignatureHelpProvider, CviSourceSymbol, CviSymbolService, getCviAutocompleteSettings, isSourceOrHeader } from './services/cviSymbolService';
 import { CviFunctionPanelService } from './services/cviFunctionPanelService';
 import { CviBreakpointSyncService } from './services/cviBreakpointSyncService';
 import { CviNativeCommandService } from './services/cviNativeCommandService';
@@ -32,6 +32,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const templates = new CviTemplateService(context, installations, output);
   const workspaces = new CviWorkspaceService(context, parser, installations, templates, output);
   const projectSettings = new CviProjectSettingsService(workspaces, parser, output);
+  workspaces.setProjectDependencyLifecycle(projectSettings);
   const breakpointSync = new CviBreakpointSyncService(context, parser, workspaces, output);
   const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
   const colorValues = new CviColorValueService();
@@ -48,6 +49,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const completionRegistration = vscode.languages.registerCompletionItemProvider(
     [{ language: 'c', scheme: 'file' }, { language: 'cpp', scheme: 'file' }],
     completionProvider
+  );
+  const signatureHelpProvider = new CviSignatureHelpProvider(symbols);
+  const signatureHelpRegistration = vscode.languages.registerSignatureHelpProvider(
+    [{ language: 'c', scheme: 'file' }, { language: 'cpp', scheme: 'file' }],
+    signatureHelpProvider,
+    '(',
+    ','
   );
   const home = new HomePanel(context, workspaces, builds, installations);
   const buildSettings = new BuildSettingsPanel(workspaces, parser, projectSettings);
@@ -114,16 +122,50 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  const selectAutocompleteProfile = async (): Promise<void> => {
+    const current = getCviAutocompleteSettings().profile;
+    const items: Array<vscode.QuickPickItem & { value: CviAutocompleteProfile }> = [
+      { label: '$(combine) Hybrid', description: 'CVI PM + native C/C++ provider', detail: 'Project symbols + CVI API completion + immediate CVI PM Signature Help.', value: 'hybrid' },
+      { label: '$(symbol-method) Native', description: 'Native C/C++ provider only', detail: 'CVI PM withdraws its completion and Signature Help providers without changing Microsoft C/C++ settings.', value: 'native' },
+      { label: '$(info) Native + CVI Signature Help', description: 'Native completion, instant CVI PM parameters', detail: 'Avoid project completion duplicates while keeping immediate parameter hints after ( and ,.', value: 'nativeSignature' },
+      { label: '$(library) CVI API Assist', description: 'Native project completion + CVI API additions', detail: 'CVI PM contributes only the embedded LabWindows/CVI API completion plus Signature Help.', value: 'cviApi' },
+      { label: '$(settings-gear) Custom', description: 'Use advanced CVI PM completion toggles', detail: 'Uses enableSupplementalCompletionProvider, enableSupplementalProjectCompletion, enableSupplementalCviApiCompletion and enableSupplementalSignatureHelp.', value: 'custom' }
+    ];
+    const selected = await vscode.window.showQuickPick(items, {
+      title: 'LabWindows/CVI Autocompletion Profile',
+      placeHolder: `Current profile: ${current}`
+    });
+    if (!selected) return;
+
+    const config = vscode.workspace.getConfiguration('labwindowsCvi');
+    const target = vscode.workspace.workspaceFile || (vscode.workspace.workspaceFolders?.length ?? 0) > 0
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+    await config.update('autocompleteProfile', selected.value, target);
+    output.appendLine(`[CVI] Autocompletion profile changed to ${selected.value} (${target === vscode.ConfigurationTarget.Workspace ? 'workspace' : 'user'} setting).`);
+    const action = await vscode.window.showInformationMessage(
+      `LabWindows/CVI autocompletion profile: ${selected.label.replace(/^\$\([^)]*\)\s*/, '')}`,
+      ...(selected.value === 'custom' ? ['Open Autocompletion Settings'] : [])
+    );
+    if (action === 'Open Autocompletion Settings') {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'labwindowsCvi autocomplete');
+    }
+  };
+
   const focusTreeThen = async (command: string): Promise<void> => {
     await vscode.commands.executeCommand('labwindowsCvi.workspaceExplorer.focus');
     await vscode.commands.executeCommand(command);
   };
 
   const runNativeDebug = async (): Promise<boolean> => {
+    if (!await builds.ensureDebugBuildMode()) {
+      output.appendLine('[CVI] Native debugger launch cancelled: no debug build configuration is active.');
+      return false;
+    }
     const shouldBuild = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('buildBeforeNativeDebug', true);
     if (shouldBuild) {
       output.appendLine('[CVI] Running local compile.exe preflight build before native debugging.');
-      const built = await builds.build(false);
+      const built = await builds.buildNative(false);
       if (!built) {
         output.appendLine('[CVI] Native debugger launch cancelled: local compile.exe preflight build failed.');
         vscode.window.showErrorMessage('Native CVI debugger was not opened because the local compile.exe build failed.');
@@ -139,6 +181,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     buildTraceOutput,
     buildDiagnostics,
     nativeCommands,
+    builds,
+    projectSettings,
     workspaces,
     home,
     buildSettings,
@@ -147,9 +191,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     debugView,
     debugViewRegistration,
     cppTools,
+    treeProvider,
     treeView,
+    fileSymbolsProvider,
     fileSymbolsView,
     completionRegistration,
+    signatureHelpRegistration,
     ...statusBarItems,
     treeView.onDidChangeSelection((event) => {
       const selected = event.selection[0];
@@ -185,6 +232,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     register('labwindowsCvi.openHome', () => home.show()),
     register('labwindowsCvi.openWorkspace', () => workspaces.openWorkspace()),
+    register('labwindowsCvi.closeWorkspace', () => workspaces.closeWorkspace()),
     register('labwindowsCvi.createWorkspace', () => workspaces.createWorkspace()),
     register('labwindowsCvi.createWorkspaceProject', () => workspaces.createWorkspaceProject()),
     register('labwindowsCvi.refresh', () => workspaces.refresh()),
@@ -195,15 +243,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         home.update();
       }
     }),
+    register('labwindowsCvi.selectAutocompleteProfile', () => selectAutocompleteProfile()),
     register('labwindowsCvi.syncCppTools', () => cppTools.sync(workspaces.currentWorkspace, true)),
     register('labwindowsCvi.diagnoseCppTools', () => cppTools.diagnose(workspaces.currentWorkspace)),
     register('labwindowsCvi.repairCppToolsProvider', () => cppTools.repairCppToolsProviderSelection(workspaces.currentWorkspace)),
+    register('labwindowsCvi.validateNativeWorkspaceStructure', () => workspaces.validateNativeWorkspaceStructure()),
     register('labwindowsCvi.repairNativeWorkspaceCompatibility', () => workspaces.repairNativeWorkspaceCompatibility()),
     register('labwindowsCvi.synchronizeBreakpoints', (node?: ProjectNode) => breakpointSync.synchronize(node?.ref)),
     register('labwindowsCvi.clearSynchronizedBreakpoints', (node?: ProjectNode) => breakpointSync.clear(node?.ref)),
     register('labwindowsCvi.diagnoseBreakpointBridge', (node?: ProjectNode) => breakpointSync.diagnose(node?.ref)),
     register('labwindowsCvi.chooseNativeDebugAction', () => nativeCommands.chooseAction()),
-    register('labwindowsCvi.nativeBuild', () => builds.build(false)),
+    register('labwindowsCvi.nativeBuild', () => builds.buildNative(false)),
     register('labwindowsCvi.nativeRun', async () => runNativeDebug()),
     register('labwindowsCvi.nativePause', () => nativeCommands.pause()),
     register('labwindowsCvi.nativeContinue', () => nativeCommands.continueExecution()),
@@ -219,6 +269,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.selectBuildModeR64', () => builds.selectBuildMode()),
     register('labwindowsCvi.chooseBuildAction', () => builds.chooseBuildAction()),
     register('labwindowsCvi.build', () => builds.build(false)),
+    register('labwindowsCvi.externalBuild', () => builds.build(false)),
+    register('labwindowsCvi.externalDebug', () => builds.debugWithExternalCompiler()),
     register('labwindowsCvi.rebuild', () => builds.build(true)),
     register('labwindowsCvi.clean', () => builds.clean()),
     register('labwindowsCvi.showBuildProblems', () => builds.showBuildProblems()),

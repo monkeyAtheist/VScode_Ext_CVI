@@ -12,16 +12,22 @@ export interface FolderNode { kind: 'folder'; ref: CviWorkspaceProjectRef; proje
 export interface FileNode { kind: 'file'; ref: CviWorkspaceProjectRef; file: CviProjectFile; }
 export interface PlaceholderNode { kind: 'placeholder'; label: string; }
 
-export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode>, vscode.TreeDragAndDropController<CviTreeNode> {
+export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode>, vscode.TreeDragAndDropController<CviTreeNode>, vscode.Disposable {
   private static readonly dragMimeType = 'application/vnd.code.tree.labwindows-cvi.workspaceexplorer';
 
   readonly dragMimeTypes = [CviTreeProvider.dragMimeType];
   readonly dropMimeTypes = [CviTreeProvider.dragMimeType];
   private readonly changeEmitter = new vscode.EventEmitter<CviTreeNode | undefined | null | void>();
   readonly onDidChangeTreeData = this.changeEmitter.event;
+  private readonly disposables: vscode.Disposable[] = [];
 
   constructor(private readonly workspaces: CviWorkspaceService) {
-    this.workspaces.onDidChange(() => this.refresh());
+    this.disposables.push(this.workspaces.onDidChange(() => this.refresh()));
+  }
+
+  dispose(): void {
+    for (const disposable of this.disposables.splice(0)) disposable.dispose();
+    this.changeEmitter.dispose();
   }
 
   refresh(): void {
@@ -149,41 +155,29 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode>, vs
   }
 
   private childrenForFolder(ref: CviWorkspaceProjectRef, project: CviProject, parentFolder: string): CviTreeNode[] {
-    const directFolders = new Set<string>();
-    const directFiles: FileNode[] = [];
+    const normalizedParent = normalizeLogicalFolder(parentFolder);
+    const files = project.files
+      .filter((file) => normalizeLogicalFolder(file.folder).toLowerCase() === normalizedParent.toLowerCase())
+      .map((file): FileNode => ({ kind: 'file', ref, file }))
+      .sort((a, b) => path.basename(a.file.absolutePath).localeCompare(path.basename(b.file.absolutePath)));
 
-    for (const file of project.files) {
-      const folder = normalizeLogicalFolder(file.folder);
-      if (folder === parentFolder) {
-        directFiles.push({ kind: 'file', ref, file });
-      }
-      if (folder.startsWith(parentFolder ? `${parentFolder}/` : '')) {
-        const remainder = parentFolder ? folder.slice(parentFolder.length + 1) : folder;
-        const nextSegment = remainder.split('/')[0];
-        if (nextSegment && `${parentFolder ? `${parentFolder}/` : ''}${nextSegment}` !== parentFolder) {
-          directFolders.add(`${parentFolder ? `${parentFolder}/` : ''}${nextSegment}`);
-        }
-      }
+    if (normalizedParent) {
+      return files;
     }
 
+    const folderNames = new Set<string>();
     for (const declared of project.folders) {
       const folder = normalizeLogicalFolder(declared);
-      if (folder.startsWith(parentFolder ? `${parentFolder}/` : '')) {
-        const remainder = parentFolder ? folder.slice(parentFolder.length + 1) : folder;
-        const nextSegment = remainder.split('/')[0];
-        if (nextSegment) {
-          directFolders.add(`${parentFolder ? `${parentFolder}/` : ''}${nextSegment}`);
-        }
-      }
+      if (folder) folderNames.add(folder);
     }
-
-    const folders: FolderNode[] = [...directFolders]
-      .filter((folder) => folder !== parentFolder)
+    for (const file of project.files) {
+      const folder = normalizeLogicalFolder(file.folder);
+      if (folder) folderNames.add(folder);
+    }
+    const folders: FolderNode[] = [...folderNames]
       .sort((a, b) => a.localeCompare(b))
       .map((folderPath) => ({ kind: 'folder', ref, project, folderPath }));
-
-    directFiles.sort((a, b) => path.basename(a.file.absolutePath).localeCompare(path.basename(b.file.absolutePath)));
-    return [...folders, ...directFiles];
+    return [...folders, ...files];
   }
 
   private workspaceItem(): vscode.TreeItem {
@@ -209,8 +203,7 @@ export class CviTreeProvider implements vscode.TreeDataProvider<CviTreeNode>, vs
   }
 
   private folderItem(node: FolderNode): vscode.TreeItem {
-    const label = node.folderPath.split('/').pop() ?? node.folderPath;
-    const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
+    const item = new vscode.TreeItem(node.folderPath, vscode.TreeItemCollapsibleState.Collapsed);
     item.contextValue = 'cviFolder';
     item.tooltip = `CVI logical folder: ${node.folderPath}`;
     item.iconPath = new vscode.ThemeIcon('folder');
@@ -263,14 +256,14 @@ function contextValueForFile(file: CviProjectFile): string {
         : file.type === 'Include' ? 'header'
         : file.type === 'Library' ? 'library'
           : 'other';
-  const build = file.excluded ? 'excluded' : 'included';
+  const build = file.excludeEligible ? (file.excluded ? 'excluded' : 'included') : 'excludeNA';
   const obj = file.type === 'CSource' ? (file.compileIntoObjectFile ? 'objOn' : 'objOff') : 'objNA';
   return `cviFile.${kind}.${build}.${obj}`;
 }
 
 function statusDescription(file: CviProjectFile): string | undefined {
   const parts: string[] = [];
-  if (file.excluded) {
+  if (file.excludeEligible && file.excluded) {
     parts.push('excluded');
   }
   if (!file.exists) {

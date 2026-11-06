@@ -1,8 +1,8 @@
-# LabWindows/CVI Project Manager 0.7.10
+# LabWindows/CVI Project Manager 0.7.43
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.6.39` keeps the CVI workspace/project manager, native build/debug controls, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
+Version `0.7.43` keeps the CVI workspace/project manager, native build/debug controls, configuration-aware Target/Compiler/Run settings, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
 
 ## Main views
 
@@ -26,6 +26,7 @@ The editor context menu exposes a compact `CVI` root. It includes snippet insert
 The extension can:
 
 - open an existing `.cws` workspace or standalone `.prj` project;
+- close/unload the current CVI workspace without closing the VS Code window;
 - create a minimal CVI-compatible workspace and project;
 - create an additional EXE, DLL or static-library project directly inside the loaded `.cws` workspace;
 - display the hierarchy `workspace -> project -> logical CVI folder -> file`;
@@ -39,9 +40,26 @@ The extension can:
 - discover common CVI installations and store a manually selected installation.
 
 
+
+## Extension lifecycle and workspace switching
+
+Version 0.7.43 adds a project-level **External Compiler** build engine. The default remains the native LabWindows/CVI `compile.exe` pipeline. A project can instead select **Microsoft Visual C++ (MSVC)** from CVI Project Settings. CVI PM then resolves the active CVI configuration, compiles referenced C sources with `cl.exe`, links the target with `link.exe`/`lib.exe`, adds the CVI external support libraries (`cvirt.lib`, `cvisupp.lib`), consumes generated UIR callback/project-symbol files when available, and can launch Debug/Debug64 outputs with VS Code `cppvsdbg` and PDB symbols. Native CVI debugging always forces a native `compile.exe` preflight because externally compiled code is not CVI-debuggable.
+
+Version 0.7.42 keeps the immediate **Signature Help** introduced in 0.7.40 and adds configurable autocompletion profiles directly in a dedicated **Autocompletion** page of **CVI Project Settings**. The same profiles remain accessible from the command palette and VS Code settings. Use `LabWindows/CVI: Select Autocompletion Profile` or the `labwindowsCvi.autocompleteProfile` setting to choose: **Hybrid** (project + CVI API completion and immediate Signature Help), **Native** (CVI PM withdraws and leaves completion/signatures to the installed C/C++ provider), **Native + CVI Signature Help** (native completion with immediate CVI PM parameter hints), **CVI API Assist** (only embedded LabWindows/CVI API completion is added), or **Custom** for individual switches. CVI PM never rewrites `C_Cpp.*` settings when changing profiles. Header declarations are still preferred over source definitions so public C APIs keep their most useful parameter names and types.
+
+Version 0.7.39 relaxes native project validation to match real CVI serialization. `Number of Files` is treated as advisory during unrelated writes; `[File NNNN]` identifiers may contain gaps and may appear in arbitrary physical order; old projects may omit `Folder Id`; and unavailable external references no longer trigger a repair prompt. Add/Replace preserve the existing layout, Remove/Delete preserve stable file identifiers, and the repair command no longer renumbers sections, flattens folders, rewrites paths or normalizes file types simply to satisfy CVI PM assumptions.
+
+Version 0.7.38 makes the loaded CVI workspace an explicitly managed resource. Closing the workspace, removing its owning VS Code folder, or deleting the native `.cws/.prj` unloads the in-memory model and disposes its native file watchers. Watchers and delayed refreshes carry a generation token so an event queued for an old workspace cannot refresh a newly opened project.
+
+Long-lived resources are also disposed explicitly during extension reload/deactivation: compiler and build-step child processes, build-log polling timers, DDE bridge shutdown timers, IntelliSense synchronization timers, TreeDataProvider subscriptions, file-symbol emitters, and CVI Libraries Webviews/render timers. Build Settings revalidates that its project still belongs to the active workspace before writing.
+
 ## CVI-native build settings
 
 The project build-settings editor synchronizes the verified CVI-native fields instead of keeping a parallel copy whenever the native format is known.
+
+The **Compiler & Linker** page also reads the native `[Default Build Config Debug/Release/Debug64/Release64]` compiler fields for the selected configuration, including defines, calling convention, prototype/return checks, CVI warning flags, C99, stack/image-base settings, and generation-specific fields when the project already stores them. Project-wide include paths and prefix-header metadata remain in their native project sections.
+
+Custom CVI configurations serialized with a native `Config Name` are also detected. CVI PM reuses their own compiler and target/linker fields and the exact `Executable File_<configuration>` output key. Workspace Run/Debug fields are edited only when CVI has already serialized a matching custom `[Default Build Config NNNN <name>]` section; otherwise the panel remains conservative and read-only for those fields.
 
 The following `.prj` sections are read and written for the active configuration:
 
@@ -195,17 +213,29 @@ Cmd+Alt+P           macOS
 
 ## IntelliSense configuration
 
-When a workspace is opened or the selected CVI installation changes, the extension creates or updates a managed entry in:
+When a workspace is opened, the active CVI project changes, the native build configuration changes, or Compiler & Linker settings are saved, the extension creates or updates a managed entry in:
 
 ```text
 .vscode/c_cpp_properties.json
 ```
 
-The entry is named `LabWindows/CVI (managed)`. Existing user configurations are preserved.
+The entry is named `LabWindows/CVI (managed)`. Existing user-owned C/C++ configurations are preserved.
 
-Version `0.5.1` also registers a dynamic configuration provider for the Microsoft C/C++ extension. This provider supplies CVI paths directly for `.c`, `.h`, `.cpp` and `.hpp` files opened from the CVI project explorer, including files located outside the VS Code folder that was initially opened.
+The managed configuration follows the **active CVI project**:
 
-The managed configuration includes:
+- `Debug` / `Release` use `windows-clang-x86`.
+- `Debug64` / `Release64` use `windows-clang-x64`.
+- native project `Compiler Defines` are converted from `/DNAME` or `/DNAME=value` to Microsoft C/C++ `defines`.
+- project `Include Paths` are inserted before CVI and Windows SDK include directories.
+- a native Prefix Header is mapped to `forcedInclude` when precompilation is enabled.
+- C99 extensions map to `c99`; otherwise IntelliSense uses `c89`.
+- Release configurations add `NDEBUG`.
+- x86/x64 CVI header selection is represented with `_NI_mswin32_` or `_NI_mswin64_`; x64 also adds `_WIN64`.
+- CVI 2013+ projects receive `_CVI_CONFIGURATION_NAME_` matching the active native configuration.
+
+Semantic `includePath` entries are intentionally limited to the active CVI project plus its explicit project include paths and system headers. This avoids resolving a same-name header from another project just because both projects live under the same VS Code folder. `browse.path` still spans all projects in the CVI workspace for global symbol navigation.
+
+The generator also includes the detected CVI and platform header locations:
 
 ```text
 <CVI>/include
@@ -217,16 +247,11 @@ The managed configuration includes:
 <Windows Kits>/10/Include/**
 <Windows Kits>/8.1/Include/**
 <Microsoft SDKs>/Windows/v7.1A/Include/**
-project source and include directories
+active-project source/header directories
+project Include Paths
 ```
 
-The dynamic provider enumerates concrete header directories under `include` and `toolslib`. This avoids relying only on recursive glob expansion when resolving headers such as:
-
-```c
-#include "toolbox.h"
-```
-
-CVI 2020 installations may expose their internal Clang executable below a nested directory such as `bin/clang/<version>/`. The installation scanner now searches these nested locations and accepts `clang-cc.exe`, `clang.exe` and `clang-cl.exe`.
+CVI installations may expose their internal Clang executable below a nested directory such as `bin/clang/<version>/`. The installation scanner searches these locations and accepts `clang-cc.exe`, `clang.exe` and `clang-cl.exe`. `labwindowsCvi.intelliSenseCompilerPath` can override this discovery.
 
 Useful commands:
 
@@ -234,15 +259,14 @@ Useful commands:
 LabWindows/CVI: Synchronize C/C++ IntelliSense Configuration
 LabWindows/CVI: Diagnose C/C++ IntelliSense Configuration
 LabWindows/CVI: Add CVI Folder to VS Code Workspace for IntelliSense
+LabWindows/CVI: Repair C/C++ IntelliSense Provider Selection
 ```
 
-The diagnostic command reports whether `toolslib/toolbox/toolbox.h` exists, whether the Microsoft C/C++ extension is installed, whether the dynamic provider was registered, which compiler path was detected and whether the current CVI workspace folder is active in VS Code.
+The dynamic Microsoft C/C++ custom configuration provider remains intentionally disabled. CVI PM uses the managed `c_cpp_properties.json` entry because a globally selected provider can affect unrelated folders. The repair command removes stale provider references left by older versions.
 
-## Standard VS Code Explorer synchronization
+When a `.cws` or `.prj` file is opened, the extension can add its containing directory to the standard VS Code Explorer (`labwindowsCvi.autoAddCviFolderToWorkspace`). This activates the generated `.vscode/c_cpp_properties.json` in the normal cpptools workspace context.
 
-When a `.cws` or `.prj` file is opened, the extension adds its containing directory to the standard VS Code Explorer by default. This activates the generated `.vscode/c_cpp_properties.json` file in the normal VS Code workspace context and complements the dynamic Microsoft C/C++ provider. Disable this behavior with `labwindowsCvi.autoAddCviFolderToWorkspace` when required.
-
-The IntelliSense generator detects CVI ANSI include directories and Windows SDK include directories from Windows Kits 10, Windows Kits 8.1 and the historical Windows v7.1A SDK.
+For a custom CVI configuration name that CVI PM cannot yet deserialize from native metadata, the diagnostic output states the limitation explicitly and uses the configured standard build mode as the IntelliSense baseline instead of inventing custom compiler options.
 
 ## Build and debug behavior
 
@@ -279,7 +303,7 @@ compile.exe <file.c> <project.prj> -debug
 
 1. Open **Extensions** in VS Code.
 2. Select `...` then **Install from VSIX...**.
-3. Choose `labwindows-cvi-project-manager-0.5.9.vsix`.
+3. Choose `labwindows-cvi-project-manager-0.7.35.vsix`.
 4. Execute **Developer: Reload Window**.
 
 ## Source build
@@ -501,44 +525,20 @@ For action commands, the historical `cmdsrvr.h` contract is enforced strictly: o
 The **CVI Debug** view keeps unavailable controls visible but visually disabled. `Build` and `Run` are disabled while an execution is active. `Pause` is available while the cached execution is running. `Continue` and `Stop` remain available throughout an active persistent session because a native breakpoint can suspend CVI asynchronously while the local dashboard still reports a cached running state.
 
 
-## VS Code Run and Debug integration — 0.6.24
+## Native debugger integration — current behavior
 
-Version `0.6.24` adds an inline VS Code Debug Adapter Protocol (DAP) bridge for the validated CVI native backend. The CVI IDE is still required as the debugger engine, but VS Code now owns the visible debug session and toolbar. The backend CVI window is launched minimized by default.
+The experimental inline DAP facade introduced in 0.6.24 was removed in 0.6.30. Current versions intentionally use the **CVI Debug** tree and the native LabWindows/CVI debugger window. Run/Pause/Continue/Stop are sent through the native command bridge, while stepping, watches, call stacks and native variable inspection remain in CVI.
 
-Start the VS Code-owned session from the **CVI Debug** view or the command palette:
+Since 0.7.37, native control is bound to one exact CVI process ID. If multiple CVI instances are running, CVI PM refuses an ambiguous DDE/ActiveX attachment. Multi-project workspaces are opened in a dedicated CVI instance so the active project/configuration loaded from the `.cws` cannot be confused with another developer session.
 
-```text
-LabWindows/CVI: Start Debugging in VS Code
-```
-
-The first integration supports:
-
-```text
-source breakpoint synchronization before launch
-Run
-Pause
-Continue
-Stop
-VS Code debug toolbar and Debug Console output
-optional breakpoint-suspension detection through persistent-session polling
-```
-
-The direct command remains available as a compatibility fallback:
-
-```text
-LabWindows/CVI: Run Project in Native CVI Debugger
-```
-
-The DAP adapter intentionally does not fabricate unavailable native data. CVI call-stack frames, local variables, watch evaluation, and step-over / step-in / step-out are not yet exposed in VS Code. Those features require additional stable CVI automation primitives or a dedicated native adapter layer.
-
-Background behavior can be configured with:
+The background behavior is configured with:
 
 ```text
 labwindowsCvi.nativeDebuggerIdeWindowMode
 labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug
-labwindowsCvi.nativeDapPollIntervalMs
-labwindowsCvi.nativeDapPollTimeoutMs
 ```
+
+Only the bound CVI PID can be minimized; unrelated CVI windows are never touched.
 
 ## 0.7.11 - Embedded library cleanup
 

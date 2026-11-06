@@ -113,11 +113,12 @@ const service = new CviCppToolsService(installations, parser, output);
     if (!staticPaths.includes(normalize(expected))) throw new Error(`Static include path missing: ${expected}`);
   }
   if (!managed.compilerPath || normalize(managed.compilerPath) !== normalize(installation.clangCcExe)) throw new Error('compilerPath missing or invalid');
-  if (!managed.configurationProvider) throw new Error('configurationProvider missing');
+  if (managed.configurationProvider) throw new Error('stale configurationProvider must not be present');
+  if (managed.mergeConfigurations !== undefined) throw new Error('stale mergeConfigurations must not be present');
 
   const result = {
     status: 'ok',
-    version: '0.5.2',
+    version: '0.7.34 regression of historical 0.5.2 scenario',
     standardExplorerFolderAdded: true,
     generatedConfig: configPath,
     compilerPath: managed.compilerPath,

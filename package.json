@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.19",
+  "version": "0.7.43",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -23,6 +23,7 @@
     "onView:labwindowsCvi.quickActions",
     "onView:labwindowsCvi.workspaceExplorer",
     "onCommand:labwindowsCvi.openHome",
+    "onCommand:labwindowsCvi.closeWorkspace",
     "onCommand:labwindowsCvi.createProjectInWorkspace",
     "onView:labwindowsCvi.libraryExplorer",
     "onCommand:labwindowsCvi.debugInCvi",
@@ -38,6 +39,7 @@
     "onCommand:labwindowsCvi.diagnoseCppTools",
     "onCommand:labwindowsCvi.addWorkspaceFolderForIntelliSense",
     "onCommand:labwindowsCvi.repairCppToolsProvider",
+    "onCommand:labwindowsCvi.validateNativeWorkspaceStructure",
     "onCommand:labwindowsCvi.repairNativeWorkspaceCompatibility",
     "onCommand:labwindowsCvi.chooseBuildAction",
     "onCommand:labwindowsCvi.clean",
@@ -105,7 +107,9 @@
     "onCommand:labwindowsCvi.copyFileSymbolDeclarations",
     "onCommand:labwindowsCvi.exportFileSymbols",
     "onCommand:labwindowsCvi.generateFileSymbolsHeader",
-    "onCommand:labwindowsCvi.generateFileSymbolsSource"
+    "onCommand:labwindowsCvi.generateFileSymbolsSource",
+    "onCommand:labwindowsCvi.externalBuild",
+    "onCommand:labwindowsCvi.externalDebug"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -177,6 +181,11 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "labwindowsCvi.closeWorkspace",
+        "title": "LabWindows/CVI: Close Current Workspace or Project",
+        "icon": "$(close)"
+      },
+      {
         "command": "labwindowsCvi.createWorkspaceProject",
         "title": "LabWindows/CVI: Create Workspace (legacy alias)"
       },
@@ -188,6 +197,11 @@
       {
         "command": "labwindowsCvi.configureInstallation",
         "title": "LabWindows/CVI: Select Installation",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "labwindowsCvi.selectAutocompleteProfile",
+        "title": "LabWindows/CVI: Select Autocompletion Profile",
         "icon": "$(settings-gear)"
       },
       {
@@ -204,6 +218,12 @@
         "command": "labwindowsCvi.repairCppToolsProvider",
         "title": "LabWindows/CVI: Repair C/C++ IntelliSense Provider Selection",
         "icon": "$(wrench)"
+      },
+      {
+        "command": "labwindowsCvi.validateNativeWorkspaceStructure",
+        "title": "LabWindows/CVI: Validate Native Workspace Structure",
+        "icon": "$(checklist)",
+        "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.repairNativeWorkspaceCompatibility",
@@ -224,6 +244,16 @@
         "command": "labwindowsCvi.build",
         "title": "LabWindows/CVI: Build Active Project",
         "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.externalBuild",
+        "title": "LabWindows/CVI: Build with Selected Build Engine",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.externalDebug",
+        "title": "LabWindows/CVI: Build and Debug with External MSVC in VS Code",
+        "icon": "$(debug-alt)"
       },
       {
         "command": "labwindowsCvi.rebuild",
@@ -567,7 +597,7 @@
       },
       {
         "command": "labwindowsCvi.editBuildSettingsSafeMode",
-        "title": "Project Build Settings (Safe Mode)…",
+        "title": "Project Build Settings (Safe Mode)\u2026",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
@@ -1035,6 +1065,11 @@
           "group": "modification@3"
         },
         {
+          "command": "labwindowsCvi.closeWorkspace",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviWorkspace",
+          "group": "modification@9"
+        },
+        {
           "command": "labwindowsCvi.saveAll",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviProject",
           "group": "project@1"
@@ -1130,11 +1165,6 @@
           "group": "modification@2"
         },
         {
-          "command": "labwindowsCvi.addFolder",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
-          "group": "modification@3"
-        },
-        {
           "command": "labwindowsCvi.addFiles",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem == cviFolder",
           "group": "modification@4"
@@ -1186,12 +1216,12 @@
         },
         {
           "command": "labwindowsCvi.excludeFile",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.included\\./",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.[^.]+\\.included\\./",
           "group": "build@1"
         },
         {
           "command": "labwindowsCvi.includeFile",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.excluded\\./",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.[^.]+\\.excluded\\./",
           "group": "build@1"
         },
         {
@@ -1758,7 +1788,7 @@
         "labwindowsCvi.customBuildConfiguration": {
           "type": "string",
           "default": "",
-          "description": "Optional CVI custom build configuration name passed through -config=..."
+          "description": "Optional named LabWindows/CVI configuration for the explicitly requested project. When set, compile.exe uses -config=<name> instead of -debug/-release/-debug64/-release64. Dependency projects keep their own native workspace mode; Compile File ignores this override."
         },
         "labwindowsCvi.extraCompilerArguments": {
           "type": "array",
@@ -1766,7 +1796,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Additional arguments appended to compile.exe invocations."
+          "description": "Additional compile.exe arguments. CVI Project Manager ignores configuration/log switches it owns (-debug/-release/-debug64/-release64, -config, -rebuild and -log) to avoid conflicting command lines."
         },
         "labwindowsCvi.runArguments": {
           "type": "array",
@@ -1780,7 +1810,7 @@
           "type": "number",
           "default": 1200,
           "minimum": 1,
-          "description": "Version value used when generating new .cws and .prj files. The default matches the supplied CVI 2012 examples."
+          "description": "Version value used when generating new .cws and .prj files. Known native examples include 1200 (CVI 2012), 1302 (CVI 2013), 1700 (CVI 2017) and 2000 (CVI 2020). CVI PM preserves the version stored by existing projects and reports obvious format/CVI Dir mismatches."
         },
         "labwindowsCvi.autoLoadWorkspace": {
           "type": "boolean",
@@ -1824,12 +1854,46 @@
           "items": {
             "type": "string"
           },
-          "description": "Additional include directories appended to the generated CVI IntelliSense configuration and dynamic provider."
+          "description": "Additional include directories appended to the generated managed CVI IntelliSense configuration."
+        },
+        "labwindowsCvi.autocompleteProfile": {
+          "type": "string",
+          "enum": [
+            "hybrid",
+            "native",
+            "nativeSignature",
+            "cviApi",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Hybrid: CVI PM adds project symbols, embedded CVI API symbols and immediate Signature Help. Other C/C++ providers may also contribute results.",
+            "Native: CVI PM does not contribute completion items or Signature Help; VS Code/Microsoft C/C++ (or another installed provider) remains untouched.",
+            "Native + CVI Signature Help: completion is left to the native C/C++ provider while CVI PM keeps immediate parameter hints after ( and ,.",
+            "CVI API Assist: CVI PM contributes only embedded LabWindows/CVI API completion plus immediate Signature Help; project completion is left to the native provider.",
+            "Custom: use the advanced supplemental completion/signature settings below."
+          ],
+          "default": "hybrid",
+          "description": "Select how CVI PM participates in C/C++ autocompletion. CVI PM never disables or rewrites another extension provider when switching profiles."
         },
         "labwindowsCvi.enableSupplementalCompletionProvider": {
           "type": "boolean",
           "default": true,
-          "description": "Provide supplemental C/C++ completion items from the active CVI workspace and the embedded CVI API pack. The provider is scoped to CVI workspace files and does not run in unrelated C/C++ folders."
+          "description": "Custom profile only: enable the CVI PM supplemental C/C++ completion provider. It is scoped to CVI workspace files and does not run in unrelated C/C++ folders."
+        },
+        "labwindowsCvi.enableSupplementalProjectCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Custom profile only: include active-project functions in the CVI PM supplemental completion list."
+        },
+        "labwindowsCvi.enableSupplementalCviApiCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Custom profile only: include functions from the embedded LabWindows/CVI API pack in the CVI PM completion list."
+        },
+        "labwindowsCvi.enableSupplementalSignatureHelp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Custom profile only: show immediate parameter/signature help for project and embedded CVI functions when typing ( or , in CVI workspace C/C++ files."
         },
         "labwindowsCvi.showPersistentStatusBarActions": {
           "type": "boolean",
@@ -1915,24 +1979,12 @@
             "normal"
           ],
           "default": "minimized",
-          "description": "Window mode used for the native CVI IDE backend when a VS Code debug session is launched. minimized keeps CVI in the background while VS Code owns the debug UI."
+          "description": "Window mode used when CVI PM launches a dedicated native CVI debugger instance. minimized keeps the bound CVI instance in the background while controls remain available in the CVI Debug view."
         },
         "labwindowsCvi.keepNativeIdeMinimizedDuringVsCodeDebug": {
           "type": "boolean",
           "default": true,
-          "description": "Keep the native CVI IDE minimized while VS Code controls the debug session through the inline DAP adapter."
-        },
-        "labwindowsCvi.nativeDapPollIntervalMs": {
-          "type": "number",
-          "default": 750,
-          "minimum": 300,
-          "description": "Polling interval used by the VS Code debug adapter to detect native CVI execution-state transitions such as breakpoint suspension."
-        },
-        "labwindowsCvi.nativeDapPollTimeoutMs": {
-          "type": "number",
-          "default": 1000,
-          "minimum": 500,
-          "description": "Timeout for one non-destructive execution-state polling request sent through the persistent DDE session. Poll failures do not close the session."
+          "description": "Keep the specific CVI process bound to the CVI Debug view minimized after native Run/Pause/Continue/Stop transitions. Other CVI instances are never minimized."
         },
         "labwindowsCvi.buildBeforeNativeDebug": {
           "type": "boolean",

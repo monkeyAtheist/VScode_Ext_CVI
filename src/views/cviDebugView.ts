@@ -100,6 +100,7 @@ export class CviDebugView implements vscode.TreeDataProvider<CviDebugNode>, vsco
       group('Available actions', actions, true, 'play'),
       group('Diagnostics', [
         info('Native bridge', server, snapshot.serverAvailable ? 'radio-tower' : 'debug-disconnect'),
+        info('Bound CVI instance', snapshot.nativeProcessId ? `PID ${snapshot.nativeProcessId}${snapshot.nativeProcessOwned ? ' · dedicated' : ' · existing'}` : 'None', snapshot.nativeProcessId ? 'server-process' : 'circle-outline', snapshot.nativeWindowTitle ?? 'No deterministic native CVI process binding is active.'),
         info('Linked', linked, snapshot.projectCompiledAndLinked ? 'pass' : 'circle-outline'),
         info('Transport', snapshot.transport.toUpperCase(), 'radio-tower'),
         info('State source', source, snapshot.stateSource === 'cached' ? 'history' : 'pulse'),

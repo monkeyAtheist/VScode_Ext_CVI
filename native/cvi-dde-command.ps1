@@ -6,6 +6,8 @@ param(
 
     [int]$TimeoutMs = 3000,
 
+    [int]$TargetProcessId = 0,
+
     [switch]$Session
 )
 
@@ -63,6 +65,49 @@ namespace CviDdeBridge
         private const int XTYP_EXECUTE = 0x4050;
         private const int DDE_FACK = 0x8000;
         private const uint PM_REMOVE = 0x0001;
+        private const uint QID_SYNC = 0xFFFFFFFF;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SECURITY_QUALITY_OF_SERVICE
+        {
+            public uint Length;
+            public int ImpersonationLevel;
+            public byte ContextTrackingMode;
+            public byte EffectiveOnly;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct CONVCONTEXT
+        {
+            public uint cb;
+            public uint wFlags;
+            public uint wCountryID;
+            public int iCodePage;
+            public uint dwLangID;
+            public uint dwSecurity;
+            public SECURITY_QUALITY_OF_SERVICE qos;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct CONVINFO
+        {
+            public uint cb;
+            public UIntPtr hUser;
+            public IntPtr hConvPartner;
+            public IntPtr hszSvcPartner;
+            public IntPtr hszServiceReq;
+            public IntPtr hszTopic;
+            public IntPtr hszItem;
+            public uint wFmt;
+            public uint wType;
+            public uint wStatus;
+            public uint wConvst;
+            public uint wLastError;
+            public IntPtr hConvList;
+            public CONVCONTEXT ConvCtxt;
+            public IntPtr hwnd;
+            public IntPtr hwndPartner;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
@@ -112,7 +157,19 @@ namespace CviDdeBridge
         private static extern IntPtr DdeConnect(uint idInst, IntPtr hszService, IntPtr hszTopic, IntPtr pCC);
 
         [DllImport("user32.dll")]
+        private static extern IntPtr DdeConnectList(uint idInst, IntPtr hszService, IntPtr hszTopic, IntPtr hConvList, IntPtr pCC);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DdeQueryNextServer(IntPtr hConvList, IntPtr hConvPrev);
+
+        [DllImport("user32.dll")]
+        private static extern uint DdeQueryConvInfo(IntPtr hConv, uint idTransaction, ref CONVINFO pConvInfo);
+
+        [DllImport("user32.dll")]
         private static extern bool DdeDisconnect(IntPtr hConv);
+
+        [DllImport("user32.dll")]
+        private static extern bool DdeDisconnectList(IntPtr hConvList);
 
         [DllImport("user32.dll")]
         private static extern bool DdeUninitialize(uint idInst);
@@ -146,30 +203,56 @@ namespace CviDdeBridge
         [DllImport("user32.dll")]
         private static extern IntPtr DispatchMessage(ref MSG lpMsg);
 
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowTextLengthW(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
         private readonly DdeCallback callback;
         private readonly DdeTextMode textMode;
         private readonly string serviceName;
         private readonly string topicName;
         private readonly string statusName;
+        private readonly int targetProcessId;
         private uint instanceId;
         private IntPtr serviceHandle;
         private IntPtr topicHandle;
         private IntPtr statusHandle;
+        private IntPtr conversationList;
         private IntPtr conversation;
         private string response;
         private bool disposed;
+        private readonly List<int> candidateProcessIds = new List<int>();
 
-        public CviDdeClient(DdeTextMode textMode, string serviceName, string topicName, string statusName)
+        public CviDdeClient(DdeTextMode textMode, string serviceName, string topicName, string statusName, int targetProcessId)
         {
             this.textMode = textMode;
             this.serviceName = serviceName;
             this.topicName = topicName;
             this.statusName = statusName;
+            this.targetProcessId = targetProcessId;
             callback = OnDdeCallback;
         }
 
         public string ModeName { get { return textMode == DdeTextMode.Ansi ? "ansi" : "unicode"; } }
         public uint LastError { get { return instanceId == 0 ? 0 : DdeGetLastError(instanceId); } }
+        public int ServerProcessId { get; private set; }
+        public string ServerWindowTitle { get; private set; }
+        public int[] CandidateProcessIds { get { return candidateProcessIds.ToArray(); } }
 
         public void Connect()
         {
@@ -192,7 +275,16 @@ namespace CviDdeBridge
             for (int attempt = 0; attempt < 3 && conversation == IntPtr.Zero; attempt++)
             {
                 PumpMessages();
-                conversation = DdeConnect(instanceId, serviceHandle, topicHandle, IntPtr.Zero);
+                if (conversationList != IntPtr.Zero)
+                {
+                    DdeDisconnectList(conversationList);
+                    conversationList = IntPtr.Zero;
+                }
+                conversationList = DdeConnectList(instanceId, serviceHandle, topicHandle, IntPtr.Zero, IntPtr.Zero);
+                if (conversationList != IntPtr.Zero)
+                {
+                    SelectConversationFromList();
+                }
                 if (conversation == IntPtr.Zero)
                 {
                     Thread.Sleep(75);
@@ -200,7 +292,8 @@ namespace CviDdeBridge
             }
             if (conversation == IntPtr.Zero)
             {
-                Throw("connect", LastError, "Unable to connect to the LabWindows/CVI DDE command server");
+                string suffix = candidateProcessIds.Count > 0 ? " Candidate CVI process IDs: " + string.Join(", ", candidateProcessIds.ToArray()) + "." : "";
+                Throw("connect", LastError, "Unable to connect to the requested LabWindows/CVI DDE command server." + suffix);
             }
 
             uint transactionResult;
@@ -209,6 +302,86 @@ namespace CviDdeBridge
             {
                 Throw("subscribe-status", LastError, "Unable to subscribe to the LabWindows/CVI DDE status item");
             }
+        }
+
+
+        private void SelectConversationFromList()
+        {
+            candidateProcessIds.Clear();
+            IntPtr current = IntPtr.Zero;
+            IntPtr selected = IntPtr.Zero;
+            int selectedPid = 0;
+            while ((current = DdeQueryNextServer(conversationList, current)) != IntPtr.Zero)
+            {
+                CONVINFO info = new CONVINFO();
+                info.cb = (uint)Marshal.SizeOf(typeof(CONVINFO));
+                if (DdeQueryConvInfo(current, QID_SYNC, ref info) == 0)
+                {
+                    continue;
+                }
+                uint pid = 0;
+                if (info.hwndPartner != IntPtr.Zero)
+                {
+                    GetWindowThreadProcessId(info.hwndPartner, out pid);
+                }
+                int candidatePid = unchecked((int)pid);
+                if (candidatePid > 0 && !candidateProcessIds.Contains(candidatePid))
+                {
+                    candidateProcessIds.Add(candidatePid);
+                }
+                if (targetProcessId > 0)
+                {
+                    if (candidatePid == targetProcessId)
+                    {
+                        selected = current;
+                        selectedPid = candidatePid;
+                        break;
+                    }
+                }
+                else if (selected == IntPtr.Zero)
+                {
+                    selected = current;
+                    selectedPid = candidatePid;
+                }
+            }
+
+            if (targetProcessId <= 0 && candidateProcessIds.Count > 1)
+            {
+                throw new DdeBridgeException("select-server", 0, "Multiple LabWindows/CVI DDE servers are available. Refusing an ambiguous connection. Candidate CVI process IDs: " + string.Join(", ", candidateProcessIds.ToArray()) + ".");
+            }
+            if (targetProcessId > 0 && selected == IntPtr.Zero)
+            {
+                return;
+            }
+            if (selected == IntPtr.Zero)
+            {
+                return;
+            }
+
+            conversation = selected;
+            ServerProcessId = selectedPid;
+            ServerWindowTitle = FindTopLevelWindowTitle(selectedPid);
+        }
+
+        private static string FindTopLevelWindowTitle(int processId)
+        {
+            if (processId <= 0) return "";
+            string best = "";
+            EnumWindows(delegate(IntPtr hWnd, IntPtr lParam)
+            {
+                if (!IsWindowVisible(hWnd)) return true;
+                uint pid;
+                GetWindowThreadProcessId(hWnd, out pid);
+                if (pid != (uint)processId) return true;
+                int length = GetWindowTextLengthW(hWnd);
+                if (length <= 0) return true;
+                StringBuilder builder = new StringBuilder(length + 1);
+                GetWindowTextW(hWnd, builder, builder.Capacity);
+                string title = builder.ToString().Trim();
+                if (title.Length > best.Length) best = title;
+                return true;
+            }, IntPtr.Zero);
+            return best;
         }
 
         public string Execute(string command, int timeoutMs)
@@ -326,7 +499,13 @@ namespace CviDdeBridge
                 uint ignored;
                 DdeClientTransaction(null, 0, conversation, statusHandle, CF_TEXT, XTYP_ADVSTOP, 1000, out ignored);
             }
-            if (conversation != IntPtr.Zero)
+            if (conversationList != IntPtr.Zero)
+            {
+                DdeDisconnectList(conversationList);
+                conversationList = IntPtr.Zero;
+                conversation = IntPtr.Zero;
+            }
+            else if (conversation != IntPtr.Zero)
             {
                 DdeDisconnect(conversation);
                 conversation = IntPtr.Zero;
@@ -385,7 +564,7 @@ function Import-CviDdeBridgeType {
         $cacheRoot = [System.IO.Path]::GetTempPath()
     }
     $cacheDirectory = Join-Path $cacheRoot 'LabWindowsCviProjectManager\NativeBridge'
-    $assemblyPath = Join-Path $cacheDirectory 'CviDdeBridge.0.6.18.dll'
+    $assemblyPath = Join-Path $cacheDirectory 'CviDdeBridge.0.7.37.dll'
     $script:bridgeBootstrap.assemblyPath = $assemblyPath
 
     if ('CviDdeBridge.CviDdeClient' -as [type]) {
@@ -430,13 +609,13 @@ function Write-JsonLine($payload) {
 }
 
 function New-ConnectedDdeClient {
-    param([System.Collections.ArrayList]$attempts)
+    param([System.Collections.ArrayList]$attempts, [int]$targetProcessId)
 
     foreach ($mode in @('Ansi', 'Unicode')) {
         $candidate = $null
         try {
             $enumMode = [CviDdeBridge.DdeTextMode]::$mode
-            $candidate = New-Object -TypeName 'CviDdeBridge.CviDdeClient' -ArgumentList @($enumMode, 'cvi', 'system', 'status')
+            $candidate = New-Object -TypeName 'CviDdeBridge.CviDdeClient' -ArgumentList @($enumMode, 'cvi', 'system', 'status', $targetProcessId)
             $candidate.Connect()
             [void]$attempts.Add([ordered]@{
                 mode = $mode.ToLowerInvariant()
@@ -481,7 +660,7 @@ if ($Session) {
     $sessionAttempts = New-Object System.Collections.ArrayList
     try {
         Import-CviDdeBridgeType $source
-        $sessionClient = New-ConnectedDdeClient $sessionAttempts
+        $sessionClient = New-ConnectedDdeClient $sessionAttempts $TargetProcessId
         if ($null -eq $sessionClient) {
             $lastError = if ($sessionAttempts.Count -gt 0) { [string]$sessionAttempts[$sessionAttempts.Count - 1].error } else { 'Unable to connect to the LabWindows/CVI DDE command server.' }
             Write-JsonLine ([ordered]@{
@@ -511,6 +690,9 @@ if ($Session) {
             mode = if ($null -ne $connectedAttempt) { [string]$connectedAttempt.mode } else { '' }
             attempts = @($sessionAttempts)
             bootstrap = $bridgeBootstrap
+            serverProcessId = $sessionClient.ServerProcessId
+            serverWindowTitle = $sessionClient.ServerWindowTitle
+            candidateProcessIds = @($sessionClient.CandidateProcessIds)
         })
 
         while ($null -ne ($line = [Console]::In.ReadLine())) {
@@ -535,6 +717,9 @@ if ($Session) {
                         raw = '0'
                         error = ''
                         mode = if ($null -ne $connectedAttempt) { [string]$connectedAttempt.mode } else { '' }
+                        serverProcessId = $sessionClient.ServerProcessId
+                        serverWindowTitle = $sessionClient.ServerWindowTitle
+                        candidateProcessIds = @($sessionClient.CandidateProcessIds)
                     })
                     break
                 }
@@ -550,6 +735,9 @@ if ($Session) {
                     raw = $raw
                     error = ''
                     mode = if ($null -ne $connectedAttempt) { [string]$connectedAttempt.mode } else { '' }
+                    serverProcessId = $sessionClient.ServerProcessId
+                    serverWindowTitle = $sessionClient.ServerWindowTitle
+                    candidateProcessIds = @($sessionClient.CandidateProcessIds)
                 })
             }
             catch {
@@ -614,6 +802,9 @@ $result = [ordered]@{
     mode = ''
     attempts = @()
     bootstrap = $bridgeBootstrap
+    serverProcessId = 0
+    serverWindowTitle = ''
+    candidateProcessIds = @()
 }
 
 try {
@@ -624,11 +815,14 @@ try {
         $client = $null
         try {
             $enumMode = [CviDdeBridge.DdeTextMode]::$mode
-            $client = New-Object -TypeName 'CviDdeBridge.CviDdeClient' -ArgumentList @($enumMode, 'cvi', 'system', 'status')
+            $client = New-Object -TypeName 'CviDdeBridge.CviDdeClient' -ArgumentList @($enumMode, 'cvi', 'system', 'status', $TargetProcessId)
             $client.Connect()
             $result.raw = $client.Execute($wireCommand, $TimeoutMs)
             $result.ok = $true
             $result.mode = $mode.ToLowerInvariant()
+            $result.serverProcessId = $client.ServerProcessId
+            $result.serverWindowTitle = $client.ServerWindowTitle
+            $result.candidateProcessIds = @($client.CandidateProcessIds)
             $result.attempts += [ordered]@{
                 mode = $mode.ToLowerInvariant()
                 service = 'cvi'
@@ -660,6 +854,11 @@ try {
             }
             $result.attempts += $attempt
             $result.error = $deepest.Message
+            if ($null -ne $client) {
+                $result.candidateProcessIds = @($client.CandidateProcessIds)
+                if ($client.ServerProcessId -gt 0) { $result.serverProcessId = $client.ServerProcessId }
+                if (-not [string]::IsNullOrWhiteSpace($client.ServerWindowTitle)) { $result.serverWindowTitle = $client.ServerWindowTitle }
+            }
         }
         finally {
             if ($null -ne $client) {

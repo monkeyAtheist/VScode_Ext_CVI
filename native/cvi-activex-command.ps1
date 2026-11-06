@@ -6,6 +6,8 @@ param(
 
     [int]$TimeoutMs = 3000,
 
+    [int]$ExpectedProcessId = 0,
+
     [switch]$CreateIfMissing
 )
 
@@ -29,6 +31,8 @@ $result = [ordered]@{
     connectionMode = ''
     method = ''
     attempts = @()
+    serverProcessId = 0
+    candidateProcessIds = @()
 }
 
 function Add-ConnectionAttempt {
@@ -73,6 +77,14 @@ function Invoke-CviState {
 
 $app = $null
 try {
+    $runningCvi = @(Get-Process -Name 'cvi' -ErrorAction SilentlyContinue)
+    $result.candidateProcessIds = @($runningCvi | ForEach-Object { $_.Id })
+    if ($runningCvi.Count -gt 1) {
+        throw "Multiple LabWindows/CVI processes are running. The CVI.Application active object does not provide a deterministic instance selector, so the ActiveX bridge refuses an ambiguous connection. Use the DDE transport for process-specific control."
+    }
+    if ($ExpectedProcessId -gt 0 -and $runningCvi.Count -eq 1 -and $runningCvi[0].Id -ne $ExpectedProcessId) {
+        throw "The only running LabWindows/CVI process has PID $($runningCvi[0].Id), but PID $ExpectedProcessId was requested. Refusing to control the wrong instance."
+    }
     try {
         $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject($progId)
         $result.connectionMode = 'active-object'
@@ -89,6 +101,12 @@ try {
         } catch {
             Add-ConnectionAttempt -Mode 'create-object' -Ok $false -ErrorMessage $_.Exception.Message
         }
+    }
+
+    $runningAfterConnection = @(Get-Process -Name 'cvi' -ErrorAction SilentlyContinue)
+    $result.candidateProcessIds = @($runningAfterConnection | ForEach-Object { $_.Id })
+    if ($runningAfterConnection.Count -eq 1) {
+        $result.serverProcessId = $runningAfterConnection[0].Id
     }
 
     if ($null -eq $app) {

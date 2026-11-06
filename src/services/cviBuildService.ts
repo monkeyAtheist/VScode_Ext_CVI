@@ -1,15 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawn } from 'child_process';
+import { ChildProcess, execFileSync, spawn } from 'child_process';
 import * as vscode from 'vscode';
 import { CviBuildMode, CviWorkspaceProjectRef } from '../model/types';
 import { CviParser } from '../model/cviParser';
 import { CviInstallation, CviWorkspace } from '../model/types';
 import { CviInstallationService } from './cviInstallationService';
-import { CviProjectSettingsService } from './cviProjectSettingsService';
+import { CviExternalBuildSettings, CviProjectSettingsService } from './cviProjectSettingsService';
 import { CviWorkspaceService } from './cviWorkspaceService';
 import { CviBreakpointSyncService } from './cviBreakpointSyncService';
-import { normalizeRuntimePath } from '../utils/pathUtils';
+import { normalizeRuntimePath, resolveCviReferencePath } from '../utils/pathUtils';
 
 
 type CviBuildLogDetail = 'compact' | 'normal' | 'verbose';
@@ -51,7 +51,7 @@ interface CviBuildReport {
   projectBuilt: number;
 }
 
-export class CviBuildService {
+export class CviBuildService implements vscode.Disposable {
   constructor(
     private readonly parser: CviParser,
     private readonly workspaces: CviWorkspaceService,
@@ -64,9 +64,48 @@ export class CviBuildService {
   ) {}
 
   private currentReport: CviBuildReport | undefined;
+  private readonly activeCompilerChildren = new Set<ChildProcess>();
+  private readonly activeLogTimers = new Set<NodeJS.Timeout>();
+  private disposed = false;
+
+  dispose(): void {
+    this.disposed = true;
+    for (const timer of this.activeLogTimers) clearInterval(timer);
+    this.activeLogTimers.clear();
+    for (const child of this.activeCompilerChildren) {
+      if (!child.killed) child.kill();
+    }
+    this.activeCompilerChildren.clear();
+    this.currentReport = undefined;
+  }
 
   get buildMode(): CviBuildMode {
+    const ref = this.workspaces.activeProjectRef;
+    return ref ? this.resolveBuildMode(ref) : this.configuredBuildMode;
+  }
+
+  private get configuredBuildMode(): CviBuildMode {
     return vscode.workspace.getConfiguration('labwindowsCvi').get<CviBuildMode>('buildMode', 'debug');
+  }
+
+  private resolveBuildMode(projectRef: CviWorkspaceProjectRef): CviBuildMode {
+    return this.workspaces.getProjectBuildMode(projectRef) ?? this.configuredBuildMode;
+  }
+
+  private resolveCustomBuildConfiguration(projectRef: CviWorkspaceProjectRef): string {
+    const configured = this.customBuildConfiguration;
+    if (configured) return configured;
+    const workspaceService = this.workspaces as CviWorkspaceService & Partial<Pick<CviWorkspaceService, 'getProjectBuildConfiguration'>>;
+    const nativeName = workspaceService.getProjectBuildConfiguration?.(projectRef)?.trim() || projectRef.buildConfiguration?.trim() || '';
+    return nativeName && !this.workspaces.getProjectBuildMode(projectRef) ? nativeName : '';
+  }
+
+  private modeForConfiguration(projectPath: string, configurationName: string, fallback: CviBuildMode): CviBuildMode {
+    const parser = this.parser as CviParser & Partial<Pick<CviParser, 'getNativeBuildConfiguration'>>;
+    const descriptor = parser.getNativeBuildConfiguration?.(projectPath, configurationName);
+    if (!descriptor) return fallback;
+    if (descriptor.is64Bit) return descriptor.isRelease ? 'release64' : 'debug64';
+    return descriptor.isRelease ? 'release' : 'debug';
   }
 
   async chooseBuildAction(projectRef?: CviWorkspaceProjectRef): Promise<void> {
@@ -87,9 +126,10 @@ export class CviBuildService {
 
   async chooseRunAction(projectRef?: CviWorkspaceProjectRef): Promise<void> {
     const selected = await vscode.window.showQuickPick([
-      { label: '$(play) Build and run', value: 'buildRun', description: 'Build the active target and launch the resulting executable' },
-      { label: '$(run) Run without build', value: 'runOnly', description: 'Launch the existing target without invoking compile.exe' },
-      { label: '$(debug-alt) Build and run debug', value: 'debug', description: 'Build locally, synchronize breakpoints and run the native CVI debugger' }
+      { label: '$(play) Build and run', value: 'buildRun', description: 'Build with the selected project build engine and run the target' },
+      { label: '$(run) Run without build', value: 'runOnly', description: 'Run the existing EXE, or the configured Program Name for a DLL target, without building' },
+      { label: '$(debug-alt) Native CVI debug', value: 'debug', description: 'Build with CVI, synchronize breakpoints and run the native CVI debugger' },
+      { label: '$(debug) External MSVC debug in VS Code', value: 'externalDebug', description: 'Build with MSVC and launch cppvsdbg using generated PDB symbols' }
     ], { title: 'LabWindows/CVI run action' });
     if (!selected) {
       return;
@@ -98,37 +138,99 @@ export class CviBuildService {
       await this.runWithoutBuild(projectRef);
     } else if (selected.value === 'debug') {
       await vscode.commands.executeCommand('labwindowsCvi.nativeRun');
+    } else if (selected.value === 'externalDebug') {
+      await this.debugWithExternalCompiler(projectRef);
     } else {
       await this.buildAndRun(projectRef);
     }
   }
 
   async selectBuildMode(): Promise<void> {
-    const selected = await vscode.window.showQuickPick([
-      { label: 'Debug x86', value: 'debug' as CviBuildMode, description: 'compile.exe -debug' },
-      { label: 'Release x86', value: 'release' as CviBuildMode, description: 'compile.exe -release' },
-      { label: 'Debug x64', value: 'debug64' as CviBuildMode, description: 'compile.exe -debug64' },
-      { label: 'Release x64', value: 'release64' as CviBuildMode, description: 'compile.exe -release64' }
-    ], { title: 'Select the LabWindows/CVI build mode' });
-    if (!selected) {
-      return;
+    const ref = this.workspaces.activeProjectRef;
+    const standard = [
+      { label: 'Debug x86', value: 'debug', nativeName: 'Debug', description: 'compile.exe -debug' },
+      { label: 'Release x86', value: 'release', nativeName: 'Release', description: 'compile.exe -release' },
+      { label: 'Debug x64', value: 'debug64', nativeName: 'Debug64', description: 'compile.exe -debug64' },
+      { label: 'Release x64', value: 'release64', nativeName: 'Release64', description: 'compile.exe -release64' }
+    ] as const;
+    const custom = ref?.exists ? this.parser.getNativeBuildConfigurations(ref.absolutePath)
+      .filter((entry) => entry.isCustom)
+      .map((entry) => ({
+        label: `${entry.name} (${entry.is64Bit ? 'x64' : 'x86'} · ${entry.isRelease ? 'Release' : 'Debug'})`,
+        value: entry.name,
+        nativeName: entry.name,
+        description: `compile.exe -config=${entry.name}`,
+        custom: true as const,
+        descriptor: entry
+      })) : [];
+    const items: Array<{ label: string; value: string; nativeName: string; description: string; custom?: boolean; descriptor?: { is64Bit: boolean; isRelease: boolean } }> = [...standard, ...custom];
+    const selected = await vscode.window.showQuickPick(items, { title: 'Select the LabWindows/CVI build configuration' });
+    if (!selected) return;
+
+    const config = vscode.workspace.getConfiguration('labwindowsCvi');
+    if (selected.custom && ref) {
+      this.workspaces.setProjectBuildConfiguration(ref, selected.nativeName);
+      const fallbackMode: CviBuildMode = selected.descriptor?.is64Bit
+        ? (selected.descriptor.isRelease ? 'release64' : 'debug64')
+        : (selected.descriptor?.isRelease ? 'release' : 'debug');
+      await config.update('buildMode', fallbackMode, vscode.ConfigurationTarget.Workspace);
+      await config.update('customBuildConfiguration', selected.nativeName, vscode.ConfigurationTarget.Workspace);
+    } else {
+      const mode = selected.value as CviBuildMode;
+      if (ref) this.workspaces.setProjectBuildMode(ref, mode);
+      await config.update('buildMode', mode, vscode.ConfigurationTarget.Workspace);
+      await config.update('customBuildConfiguration', '', vscode.ConfigurationTarget.Workspace);
     }
-    await vscode.workspace.getConfiguration('labwindowsCvi').update('buildMode', selected.value, vscode.ConfigurationTarget.Workspace);
-    vscode.window.showInformationMessage(`LabWindows/CVI build mode: ${selected.label}.`);
+    vscode.window.showInformationMessage(`LabWindows/CVI build configuration: ${selected.label}${ref && this.workspaces.currentWorkspace?.path.toLowerCase().endsWith('.cws') ? ' (synchronized with the native CVI workspace)' : ''}.`);
   }
 
-  async build(rebuild = false, projectRef?: CviWorkspaceProjectRef): Promise<boolean> {
+  async ensureDebugBuildMode(projectRef?: CviWorkspaceProjectRef): Promise<boolean> {
+    const ref = projectRef ?? this.workspaces.activeProjectRef;
+    if (!ref?.exists) {
+      vscode.window.showErrorMessage('No existing CVI project is available for debugging.');
+      return false;
+    }
+    let mode = this.resolveBuildMode(ref);
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    if (customConfiguration) {
+      const descriptor = this.parser.getNativeBuildConfiguration(ref.absolutePath, customConfiguration);
+      if (descriptor) {
+        mode = descriptor.is64Bit ? (descriptor.isRelease ? 'release64' : 'debug64') : (descriptor.isRelease ? 'release' : 'debug');
+        if (!descriptor.isRelease) return true;
+      }
+    }
+    if (mode === 'debug' || mode === 'debug64') {
+      return true;
+    }
+    const debugMode: CviBuildMode = mode === 'release64' ? 'debug64' : 'debug';
+    const answer = await vscode.window.showWarningMessage(
+      `The active build mode is ${mode}. Native CVI debugging requires a debug configuration. Switch ${ref.name} to ${debugMode}?`,
+      'Switch to debug',
+      'Cancel'
+    );
+    if (answer !== 'Switch to debug') {
+      return false;
+    }
+    this.workspaces.setProjectBuildMode(ref, debugMode);
+    const config = vscode.workspace.getConfiguration('labwindowsCvi');
+    await config.update('buildMode', debugMode, vscode.ConfigurationTarget.Workspace);
+    if (customConfiguration) await config.update('customBuildConfiguration', '', vscode.ConfigurationTarget.Workspace);
+    return true;
+  }
+
+  async build(rebuild = false, projectRef?: CviWorkspaceProjectRef, engineOverride?: 'cvi' | 'msvc'): Promise<boolean> {
     const ref = projectRef ?? this.workspaces.activeProjectRef;
     if (!ref?.exists) {
       vscode.window.showErrorMessage('No existing active CVI project is available for build.');
       return false;
     }
-    const installation = await this.requireCompiler();
-    if (!installation?.compileExe) {
+    const installation = await this.requireInstallation();
+    if (!installation) {
       return false;
     }
 
-    const report = this.beginOutput(`${rebuild ? 'Rebuild' : 'Build'} ${ref.name}`);
+    const rootMode = this.resolveBuildMode(ref);
+    const report = this.beginOutput(`${rebuild ? 'Rebuild' : 'Build'} ${ref.name}`, rootMode);
     let success = false;
     let failedAt = '';
     try {
@@ -145,23 +247,65 @@ export class CviBuildService {
 
       for (const item of order) {
         const cwd = path.dirname(item.absolutePath);
-        const settings = this.projectSettings.getSettings(item);
+        let itemMode = this.resolveBuildMode(item);
         const project = this.workspaces.getProject(item);
-        const targetPath = this.parser.getTargetPath(item.absolutePath, this.buildMode);
-        const nativeBuildActions = this.projectSettings.hasNativeBuildActions(item);
+        const compilerParser = this.parser as CviParser & Partial<Pick<CviParser, 'getNativeCompilerSettings' | 'getProjectCompilerSettings' | 'inspectNativeCompilerConfiguration'>>;
+        const isRequestedProject = path.resolve(item.absolutePath).toLowerCase() === path.resolve(ref.absolutePath).toLowerCase();
+        const customConfiguration = isRequestedProject ? this.resolveCustomBuildConfiguration(item) : '';
+        if (customConfiguration) itemMode = this.modeForConfiguration(item.absolutePath, customConfiguration, itemMode);
+        const settings = this.projectSettings.getSettings(item, itemMode);
+        const targetPath = customConfiguration && typeof (this.parser as any).getTargetPathForConfiguration === 'function'
+          ? (this.parser as any).getTargetPathForConfiguration(item.absolutePath, customConfiguration, itemMode)
+          : this.parser.getTargetPath(item.absolutePath, itemMode);
+        const compilerSettings = customConfiguration && typeof (this.parser as any).getNativeCompilerSettingsForConfiguration === 'function'
+          ? (this.parser as any).getNativeCompilerSettingsForConfiguration(item.absolutePath, customConfiguration)
+          : (typeof compilerParser.getNativeCompilerSettings === 'function' ? compilerParser.getNativeCompilerSettings(item.absolutePath, itemMode) : undefined);
+        const projectCompilerSettings = typeof compilerParser.getProjectCompilerSettings === 'function' ? compilerParser.getProjectCompilerSettings(item.absolutePath) : undefined;
+        const compilerIssues = customConfiguration && typeof (this.parser as any).inspectNativeCompilerConfigurationForConfiguration === 'function'
+          ? (this.parser as any).inspectNativeCompilerConfigurationForConfiguration(item.absolutePath, customConfiguration, itemMode)
+          : (typeof compilerParser.inspectNativeCompilerConfiguration === 'function' ? compilerParser.inspectNativeCompilerConfiguration(item.absolutePath, itemMode) : []);
+        const nativeBuildActions = this.projectSettings.hasNativeBuildActions(item, itemMode);
+        const effectiveBuildEngine = engineOverride ?? settings.externalBuild?.engine ?? 'cvi';
+        // compile.exe remains the owner of build steps whenever -config=<name> is used.
+        // Even when CVI PM can safely inspect the serialized compiler fields, it must not
+        // duplicate actions that belong to the named native CVI configuration.
+        const compilerOwnsBuildActions = effectiveBuildEngine === 'cvi' && (nativeBuildActions || customConfiguration.length > 0);
 
         this.appendSection('PROJECT / TOOLCHAIN');
         this.output.appendLine(`  Project   : ${item.name}`);
         this.output.appendLine(`  Project   : ${item.absolutePath}`);
+        this.output.appendLine(`  Mode      : ${itemMode}`);
         this.output.appendLine(`  Target    : ${targetPath ? normalizeRuntimePath(targetPath) : '<not resolved from .prj>'}`);
         this.output.appendLine(`  Type      : ${project?.targetType ?? '<unknown>'}`);
-        this.output.appendLine(`  Compiler  : ${installation.compileExe}`);
+        this.output.appendLine(`  Compiler  : ${effectiveBuildEngine === 'msvc' ? 'Microsoft Visual C++ (external)' : (installation.compileExe ?? '<compile.exe missing>')}`);
+        this.output.appendLine(`  Config    : ${customConfiguration ? `named CVI configuration "${customConfiguration}"` : itemMode}`);
         this.output.appendLine(`  Sources   : ${project ? countCompiledSources(project.files) : 0}`);
-        this.output.appendLine(`  Actions   : ${nativeBuildActions ? 'native CVI .prj actions executed by compile.exe' : 'extension-managed pre/custom/post actions'}`);
+        if (compilerSettings) {
+          this.output.appendLine(`  Defines   : ${compilerSettings.compilerDefines || '<none>'}`);
+          this.output.appendLine(`  Includes  : ${projectCompilerSettings?.includePaths.length ?? 0}`);
+          this.output.appendLine(`  Warnings  : ${compilerSettings.uninitializedLocalsCompileWarning}${compilerSettings.supportsWarningProfile && compilerSettings.selectedWarningLevel ? ` / ${compilerSettings.selectedWarningLevel}` : ''}`);
+          this.output.appendLine(`  Optimize  : ${compilerSettings.supportsOptimizationLevel ? (compilerSettings.optimizationLevel || '<native default>') : '<not serialized by this project>'}`);
+        }
+        this.output.appendLine(`  Actions   : ${compilerOwnsBuildActions ? (customConfiguration ? 'owned by named CVI configuration / compile.exe' : 'native CVI .prj actions executed by compile.exe') : 'extension-managed pre/custom/post actions'}`);
+        if (!isRequestedProject && this.resolveCustomBuildConfiguration(ref)) {
+          this.output.appendLine('  Note      : named -config override applies only to the requested project; dependency projects keep their own native CVI mode.');
+        }
         this.output.appendLine('');
+        if (compilerIssues.length > 0) {
+          this.output.appendLine('  Compiler configuration warnings:');
+          for (const issue of compilerIssues) {
+            this.output.appendLine(`    [!] ${issue.field}: ${issue.message}`);
+            this.recordSyntheticWarning(`Compiler options — ${item.name}`, issue.message, item.absolutePath);
+          }
+          this.output.appendLine('');
+        }
 
-        if (nativeBuildActions) {
-          this.output.appendLine(`[CVI] Native CVI build steps detected for ${item.name}; compile.exe will execute the .prj pre-build, custom and post-build actions.`);
+        if (compilerOwnsBuildActions) {
+          if (customConfiguration) {
+            this.output.appendLine(`[CVI] Named CVI configuration "${customConfiguration}" selected for ${item.name}; compile.exe owns that configuration's build steps. Extension-side fallback actions are intentionally skipped to prevent duplicate execution.`);
+          } else {
+            this.output.appendLine(`[CVI] Native CVI build steps detected for ${item.name}; compile.exe will execute the .prj pre-build, custom and post-build actions.`);
+          }
           this.output.appendLine('');
         } else {
           if (!await this.projectSettings.runActions(settings.preBuildActions, `Pre-build actions — ${item.name}`, cwd)) {
@@ -176,15 +320,25 @@ export class CviBuildService {
           }
         }
 
-        const args: string[] = [item.absolutePath, ...this.commonCompilerArguments(rebuild)];
-        const result = await this.runCviCompile(installation.compileExe, args, cwd, `${rebuild ? 'Rebuild' : 'Build'} ${item.name}`);
+        let result: CviToolRunResult;
+        if (effectiveBuildEngine === 'msvc') {
+          result = await this.runExternalMsvcBuild(item, project, itemMode, customConfiguration, targetPath, compilerSettings, projectCompilerSettings, settings.externalBuild ?? defaultExternalBuildSettings(), installation, rebuild);
+        } else {
+          if (!installation.compileExe) {
+            failedAt = `${rebuild ? 'Rebuild' : 'Build'} ${item.name}`;
+            this.recordSyntheticFailure(failedAt, 'compile.exe is required for the native CVI build engine. Select a valid LabWindows/CVI installation or switch this project to External MSVC Build.');
+            return false;
+          }
+          const args: string[] = [item.absolutePath, ...this.commonCompilerArguments(rebuild, itemMode, customConfiguration)];
+          result = await this.runCviCompile(installation.compileExe, args, cwd, `${rebuild ? 'Rebuild' : 'Build'} ${item.name}`);
+        }
         if (!result.success) {
           failedAt = this.currentReport?.failedAt ?? `${rebuild ? 'Rebuild' : 'Build'} ${item.name}`;
           return false;
         }
         report.projectBuilt += 1;
 
-        if (!nativeBuildActions && !await this.projectSettings.runActions(settings.postBuildActions, `Post-build actions — ${item.name}`, cwd)) {
+        if (!compilerOwnsBuildActions && !await this.projectSettings.runActions(settings.postBuildActions, `Post-build actions — ${item.name}`, cwd)) {
           failedAt = `Post-build actions — ${item.name}`;
           this.recordSyntheticFailure(failedAt, 'A post-build action returned a failure status. Check the action output above and the configured command in CVI Project Build Settings.');
           return false;
@@ -199,31 +353,50 @@ export class CviBuildService {
     }
   }
 
+  async buildNative(rebuild = false, projectRef?: CviWorkspaceProjectRef): Promise<boolean> {
+    return await this.build(rebuild, projectRef, 'cvi');
+  }
+
   async clean(projectRef?: CviWorkspaceProjectRef): Promise<void> {
     const ref = projectRef ?? this.workspaces.activeProjectRef;
     if (!ref?.exists) {
       vscode.window.showErrorMessage('No existing active CVI project is available to clean.');
       return;
     }
-    const report = this.beginOutput(`Clean ${ref.name}`);
+    let mode = this.resolveBuildMode(ref);
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    if (customConfiguration) mode = this.modeForConfiguration(ref.absolutePath, customConfiguration, mode);
+    const report = this.beginOutput(`Clean ${ref.name}`, mode);
     let success = true;
     try {
       const project = this.workspaces.getProject(ref);
-      const target = this.parser.getTargetPath(ref.absolutePath, this.buildMode);
+      const buildSettings = this.projectSettings.getSettings(ref, mode);
+      const target = customConfiguration
+        ? this.parser.getTargetPathForConfiguration(ref.absolutePath, customConfiguration, mode)
+        : this.parser.getTargetPath(ref.absolutePath, mode);
       const candidates = new Set<string>();
       if (target) {
         candidates.add(target);
-        candidates.add(replaceExtension(target, '.cdb'));
-        candidates.add(replaceExtension(target, '.pdb'));
-        if (project?.targetType === 'Dynamic Link Library') {
-          candidates.add(replaceExtension(target, '.lib'));
+        // CVI debug databases belong to the debug configuration. Do not remove them
+        // while cleaning Release/Release64, especially when several configurations
+        // intentionally share the same target base name.
+        if (mode === 'debug' || mode === 'debug64') {
+          candidates.add(replaceExtension(target, '.cdb'));
+          candidates.add(replaceExtension(target, '.pdb'));
         }
+        // Do not guess a DLL import-library path here. CVI can use a custom import
+        // library base name/copy destination, and deleting <target>.lib blindly can
+        // remove a user-managed library that is not the artifact of this mode.
       }
 
       this.appendSection('CLEAN GENERATED TARGET');
       this.output.appendLine(`  Project   : ${ref.name}`);
+      this.output.appendLine(`  Mode      : ${mode}`);
       this.output.appendLine(`  Target    : ${target ? normalizeRuntimePath(target) : '<not resolved from .prj>'}`);
       this.output.appendLine(`  Type      : ${project?.targetType ?? '<unknown>'}`);
+      if (project?.targetType === 'Dynamic Link Library') {
+        this.output.appendLine('  Import lib: preserved (CVI may use a custom base name or copy destination)');
+      }
       this.output.appendLine('');
 
       let removed = 0;
@@ -240,6 +413,17 @@ export class CviBuildService {
           const message = error instanceof Error ? error.message : String(error);
           this.output.appendLine(`  [X] Unable to delete ${candidate}: ${message}`);
           this.recordSyntheticFailure(`Clean ${ref.name}`, `Unable to delete ${candidate}: ${message}`);
+        }
+      }
+      if (buildSettings.externalBuild?.engine === 'msvc') {
+        const cwd = path.dirname(ref.absolutePath);
+        const configName = customConfiguration || mode;
+        const externalDir = buildSettings.externalBuild?.buildDirectory?.trim()
+          ? this.resolveRuntimeReference(buildSettings.externalBuild.buildDirectory, cwd)
+          : path.join(path.dirname(this.projectSettings.getConfigurationPath() ?? path.join(cwd, '.vscode', 'x')), 'cvi-external-build', path.basename(ref.absolutePath, path.extname(ref.absolutePath)), sanitizeFilePart(configName));
+        if (externalDir && fs.existsSync(externalDir)) {
+          try { fs.rmSync(externalDir, { recursive: true, force: true }); this.output.appendLine(`  [OK] Deleted external build directory: ${externalDir}`); removed += 1; }
+          catch (error) { success = false; this.recordSyntheticFailure(`Clean ${ref.name}`, `Unable to delete external build directory ${externalDir}: ${error instanceof Error ? error.message : String(error)}`); }
         }
       }
       if (removed === 0) {
@@ -270,16 +454,33 @@ export class CviBuildService {
       return false;
     }
 
-    const report = this.beginOutput(`Compile ${path.basename(filePath)}`);
+    const mode = this.resolveBuildMode(ref);
+    const report = this.beginOutput(`Compile ${path.basename(filePath)}`, mode);
     let success = false;
     try {
       this.appendSection('SOURCE / TOOLCHAIN');
       this.output.appendLine(`  Source    : ${filePath}`);
       this.output.appendLine(`  Project   : ${ref.absolutePath}`);
       this.output.appendLine(`  Compiler  : ${installation.compileExe}`);
+      const compilerParser = this.parser as CviParser & Partial<Pick<CviParser, 'getNativeCompilerSettings' | 'getProjectCompilerSettings' | 'inspectNativeCompilerConfiguration'>>;
+      const compilerSettings = typeof compilerParser.getNativeCompilerSettings === 'function' ? compilerParser.getNativeCompilerSettings(ref.absolutePath, mode) : undefined;
+      const projectCompilerSettings = typeof compilerParser.getProjectCompilerSettings === 'function' ? compilerParser.getProjectCompilerSettings(ref.absolutePath) : undefined;
+      if (compilerSettings) {
+        this.output.appendLine(`  Defines   : ${compilerSettings.compilerDefines || '<none>'}`);
+        this.output.appendLine(`  Includes  : ${projectCompilerSettings?.includePaths.length ?? 0}`);
+      }
+      const compilerIssues = typeof compilerParser.inspectNativeCompilerConfiguration === 'function' ? compilerParser.inspectNativeCompilerConfiguration(ref.absolutePath, mode) : [];
+      for (const issue of compilerIssues) {
+        this.output.appendLine(`  [!] ${issue.field}: ${issue.message}`);
+        this.recordSyntheticWarning(`Compiler options — ${ref.name}`, issue.message, ref.absolutePath);
+      }
       this.output.appendLine('');
 
-      const args = [filePath, ref.absolutePath, ...this.commonCompilerArguments(false)];
+      if (this.customBuildConfiguration) {
+        this.output.appendLine(`  Note      : named CVI configuration "${this.customBuildConfiguration}" is not applied to Compile File; the source is compiled with the project's ${mode} build options.`);
+        this.output.appendLine('');
+      }
+      const args = [filePath, ref.absolutePath, ...this.commonCompilerArguments(false, mode, '')];
       const result = await this.runCviCompile(installation.compileExe, args, path.dirname(ref.absolutePath), `Compile ${path.basename(filePath)}`);
       success = result.success;
       if (success) {
@@ -288,6 +489,59 @@ export class CviBuildService {
       return success;
     } finally {
       this.finishOutput(report, success, success ? '' : `Compile ${path.basename(filePath)}`);
+    }
+  }
+
+  async debugWithExternalCompiler(projectRef?: CviWorkspaceProjectRef): Promise<void> {
+    const ref = projectRef ?? this.workspaces.activeProjectRef;
+    if (!ref?.exists) {
+      vscode.window.showErrorMessage('No existing CVI project is available for external debugging.');
+      return;
+    }
+    const mode = this.resolveBuildMode(ref);
+    const settings = this.projectSettings.getSettings(ref, mode);
+    if (settings.externalBuild?.engine !== 'msvc') {
+      vscode.window.showWarningMessage('External VS Code debugging requires the project Build Engine to be set to Microsoft Visual C++ in CVI Project Settings > External Compiler.');
+      return;
+    }
+    if (!(mode === 'debug' || mode === 'debug64')) {
+      vscode.window.showWarningMessage('External VS Code debugging is intended for Debug/Debug64 configurations. Select a debug configuration first.');
+      return;
+    }
+    if (settings.externalBuild?.debugInVsCode === false) {
+      vscode.window.showWarningMessage('VS Code external debugging is disabled in this project External Compiler settings.');
+      return;
+    }
+    const built = await this.build(false, ref);
+    if (!built) return;
+
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    const target = customConfiguration
+      ? this.parser.getTargetPathForConfiguration(ref.absolutePath, customConfiguration, mode)
+      : this.parser.getTargetPath(ref.absolutePath, mode);
+    const project = this.workspaces.getProject(ref);
+    const run = settings.run;
+    let program = target;
+    if (project?.targetType === 'Dynamic Link Library') {
+      program = this.resolveRuntimeReference(run.externalProcessPath, path.dirname(ref.absolutePath));
+    }
+    if (!program || !fs.existsSync(program)) {
+      vscode.window.showErrorMessage('Unable to start the VS Code debugger because the external build target/host executable does not exist.');
+      return;
+    }
+    const cwd = this.resolveRuntimeReference(run.workingDirectory, path.dirname(ref.absolutePath)) || path.dirname(program);
+    const args = run.arguments.trim() ? this.projectSettings.parseArguments(run.arguments) : [];
+    const started = await vscode.debug.startDebugging(undefined, {
+      name: `CVI External MSVC — ${ref.name}`,
+      type: 'cppvsdbg',
+      request: 'launch',
+      program,
+      args,
+      cwd,
+      stopAtEntry: false
+    });
+    if (!started) {
+      vscode.window.showErrorMessage('VS Code could not start cppvsdbg. Install/enable the Microsoft C/C++ extension and verify the external MSVC Debug build produced PDB symbols.');
     }
   }
 
@@ -315,46 +569,104 @@ export class CviBuildService {
       return;
     }
     const project = this.workspaces.getProject(ref);
-    const run = this.projectSettings.getSettings(ref).run;
-    const targetPath = this.parser.getTargetPath(ref.absolutePath, this.buildMode);
-    const useExternalHost = project?.targetType === 'Dynamic Link Library' && run.externalProcessPath.trim().length > 0;
-    const rawExecutablePath = useExternalHost ? run.externalProcessPath.trim() : targetPath;
-    if (!rawExecutablePath) {
-      vscode.window.showErrorMessage(`The output target for ${ref.name} could not be resolved from the CVI project.`);
+    const targetType = project?.targetType ?? 'Unknown';
+    let mode = this.resolveBuildMode(ref);
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    if (customConfiguration) mode = this.modeForConfiguration(ref.absolutePath, customConfiguration, mode);
+    const run = customConfiguration
+      ? this.projectSettings.getSettingsForConfiguration(ref, customConfiguration, mode).run
+      : this.projectSettings.getSettings(ref, mode).run;
+    const targetPath = customConfiguration
+      ? this.parser.getTargetPathForConfiguration(ref.absolutePath, customConfiguration, mode)
+      : this.parser.getTargetPath(ref.absolutePath, mode);
+
+    if (targetType === 'Static Library') {
+      vscode.window.showErrorMessage('A static library cannot be run. Select an executable project, or use a DLL project with a Program Name host executable.');
       return;
     }
-    const executablePath = normalizeRuntimePath(rawExecutablePath);
+
+    const useExternalHost = targetType === 'Dynamic Link Library';
+    let rawExecutablePath: string | undefined;
+    if (useExternalHost) {
+      rawExecutablePath = run.externalProcessPath.trim();
+      if (!rawExecutablePath) {
+        const action = await vscode.window.showErrorMessage(
+          'This project builds a DLL, so the DLL cannot be launched directly. Configure Program Name with the executable that loads the DLL, as in LabWindows/CVI.',
+          'Open Run Settings'
+        );
+        if (action === 'Open Run Settings') {
+          // Preserve the project context when Run was invoked from a non-active project.
+          await vscode.commands.executeCommand('labwindowsCvi.editBuildSettings', { kind: 'project', ref });
+        }
+        return;
+      }
+    } else {
+      rawExecutablePath = targetPath;
+      if (!rawExecutablePath) {
+        vscode.window.showErrorMessage(`The executable target for ${ref.name} could not be resolved from the CVI project.`);
+        return;
+      }
+    }
+
+    const projectDirectory = path.dirname(ref.absolutePath);
+    const executablePath = this.resolveRuntimeReference(rawExecutablePath, projectDirectory);
     if (executablePath !== rawExecutablePath) {
-      this.output.appendLine(`[CVI] Normalized runtime path: ${rawExecutablePath} -> ${executablePath}`);
+      this.output.appendLine(`[CVI] Resolved runtime path: ${rawExecutablePath} -> ${executablePath}`);
     }
     if (path.extname(executablePath).toLowerCase() !== '.exe') {
-      vscode.window.showErrorMessage(`The selected target is ${path.basename(executablePath)}, not an executable. Configure an external executable for DLL debugging in CVI Project Build Settings.`);
+      vscode.window.showErrorMessage(useExternalHost
+        ? `Program Name must point to an executable (.exe). Current value: ${executablePath}`
+        : `The built target is ${path.basename(executablePath)}, not an executable.`);
       return;
     }
     if (!fs.existsSync(executablePath)) {
       if (useExternalHost) {
-        vscode.window.showErrorMessage(`The external executable configured for DLL debugging does not exist: ${executablePath}`);
-        this.output.appendLine(`[CVI] DLL external executable not found: ${executablePath}`);
+        vscode.window.showErrorMessage(`The Program Name executable configured for this DLL project does not exist: ${executablePath}`);
+        this.output.appendLine(`[CVI] DLL Program Name executable not found: ${executablePath}`);
       } else {
         vscode.window.showErrorMessage(`The executable does not exist: ${executablePath}. Use Build and Run to create the target before launching it.`);
         this.output.appendLine(`[CVI] Executable not found: ${executablePath}`);
       }
       return;
     }
+    try {
+      if (!fs.statSync(executablePath).isFile()) {
+        vscode.window.showErrorMessage(`The configured executable path is not a regular file: ${executablePath}`);
+        return;
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`The executable cannot be accessed: ${executablePath}. ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
     const fallbackArgs = vscode.workspace.getConfiguration('labwindowsCvi').get<string[]>('runArguments', []);
     const args = run.arguments.trim() ? this.projectSettings.parseArguments(run.arguments) : fallbackArgs;
     const configuredCwd = run.workingDirectory.trim();
-    const cwd = configuredCwd ? normalizeRuntimePath(configuredCwd) : path.dirname(executablePath);
+    const cwd = configuredCwd ? this.resolveRuntimeReference(configuredCwd, projectDirectory) : path.dirname(executablePath);
     if (configuredCwd && cwd !== configuredCwd) {
-      this.output.appendLine(`[CVI] Normalized working directory: ${configuredCwd} -> ${cwd}`);
+      this.output.appendLine(`[CVI] Resolved working directory: ${configuredCwd} -> ${cwd}`);
     }
     if (!fs.existsSync(cwd)) {
       vscode.window.showErrorMessage(`The configured working directory does not exist: ${cwd}`);
       return;
     }
+    try {
+      if (!fs.statSync(cwd).isDirectory()) {
+        vscode.window.showErrorMessage(`The configured working directory is not a directory: ${cwd}`);
+        return;
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`The configured working directory cannot be accessed: ${cwd}. ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const renderedCommand = `${executablePath} ${args.map(renderArgument).join(' ')}`.trim();
     const child = spawn(executablePath, args, { cwd, env: this.projectSettings.parseEnvironment(run.environmentOptions), detached: true, shell: false, stdio: 'ignore' });
+    child.once('spawn', () => this.output.appendLine(`[CVI] Started ${renderedCommand}`));
+    child.once('error', (error) => {
+      const message = `Unable to start ${executablePath}: ${error.message}`;
+      this.output.appendLine(`[CVI] ${message}`);
+      void vscode.window.showErrorMessage(message);
+    });
     child.unref();
-    this.output.appendLine(`[CVI] Started ${executablePath} ${args.map(renderArgument).join(' ')}`);
   }
 
   async debugInCvi(projectRef?: CviWorkspaceProjectRef): Promise<void> {
@@ -363,13 +675,8 @@ export class CviBuildService {
       vscode.window.showErrorMessage('No existing CVI project is available for debugging.');
       return;
     }
-    if (this.buildMode === 'release' || this.buildMode === 'release64') {
-      const debugMode: CviBuildMode = this.buildMode === 'release64' ? 'debug64' : 'debug';
-      const answer = await vscode.window.showWarningMessage(`The active build mode is ${this.buildMode}. Switch to ${debugMode}, build the project and open the native CVI debugger?`, 'Switch, build and open', 'Cancel');
-      if (answer !== 'Switch, build and open') {
-        return;
-      }
-      await vscode.workspace.getConfiguration('labwindowsCvi').update('buildMode', debugMode, vscode.ConfigurationTarget.Workspace);
+    if (!await this.ensureDebugBuildMode(ref)) {
+      return;
     }
     const success = await this.build(false, ref);
     if (!success) {
@@ -427,7 +734,7 @@ export class CviBuildService {
     await this.openInCvi(panelPath, this.workspaces.currentWorkspace, true);
   }
 
-  private beginOutput(label: string): CviBuildReport {
+  private beginOutput(label: string, mode: CviBuildMode = this.buildMode): CviBuildReport {
     const report: CviBuildReport = {
       label,
       startedAt: new Date(),
@@ -449,7 +756,7 @@ export class CviBuildService {
     this.output.appendLine('='.repeat(80));
     this.output.appendLine(` CVI BUILD  |  ${label}`);
     this.output.appendLine('='.repeat(80));
-    this.output.appendLine(`  Mode      : ${this.buildMode}`);
+    this.output.appendLine(`  Mode      : ${mode}`);
     this.output.appendLine(`  Started   : ${formatDateTime(report.startedAt)}`);
     this.output.appendLine(`  Log detail: ${detail}`);
     this.output.appendLine('');
@@ -460,7 +767,7 @@ export class CviBuildService {
     this.traceOutput.appendLine('='.repeat(80));
     this.traceOutput.appendLine(` CVI BUILD TRACE  |  ${label}`);
     this.traceOutput.appendLine('='.repeat(80));
-    this.traceOutput.appendLine(`Mode    : ${this.buildMode}`);
+    this.traceOutput.appendLine(`Mode    : ${mode}`);
     this.traceOutput.appendLine(`Started : ${formatDateTime(report.startedAt)}`);
     this.traceOutput.appendLine('');
     return report;
@@ -527,6 +834,16 @@ export class CviBuildService {
     this.traceOutput.show(true);
   }
 
+  private async requireInstallation(): Promise<CviInstallation | undefined> {
+    let installation = this.installations.getActiveInstallation(this.workspaces.currentWorkspace?.cviDir);
+    if (!installation) installation = await this.installations.selectInstallation(this.workspaces.currentWorkspace?.cviDir);
+    if (!installation) {
+      vscode.window.showErrorMessage('A LabWindows/CVI installation is required to resolve CVI headers and external support libraries.');
+      return undefined;
+    }
+    return installation;
+  }
+
   private async requireCompiler(): Promise<CviInstallation | undefined> {
     let installation = this.installations.getActiveInstallation(this.workspaces.currentWorkspace?.cviDir);
     if (!installation?.compileExe) {
@@ -539,15 +856,231 @@ export class CviBuildService {
     return installation;
   }
 
-  private commonCompilerArguments(rebuild: boolean): string[] {
+  private resolveRuntimeReference(value: string, baseDirectory: string): string {
+    const normalized = normalizeRuntimePath(value);
+    if (!normalized) {
+      return '';
+    }
+    if (path.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
+      return normalized;
+    }
+    return normalizeRuntimePath(resolveCviReferencePath(baseDirectory, normalized));
+  }
+
+  private get customBuildConfiguration(): string {
+    const raw = vscode.workspace.getConfiguration('labwindowsCvi').get<string>('customBuildConfiguration', '').trim();
+    if (raw.length >= 2 && ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'")))) {
+      return raw.slice(1, -1).trim();
+    }
+    return raw;
+  }
+
+  private commonCompilerArguments(rebuild: boolean, mode: CviBuildMode = this.buildMode, customConfig = this.customBuildConfiguration): string[] {
     const config = vscode.workspace.getConfiguration('labwindowsCvi');
-    const customConfig = config.get<string>('customBuildConfiguration', '').trim();
-    const extraArguments = config.get<string[]>('extraCompilerArguments', []);
-    const args: string[] = [`-${this.buildMode}`];
+    const rawExtraArguments = config.get<string[]>('extraCompilerArguments', []);
+    const { arguments: extraArguments, ignored } = sanitizeExtraCompilerArguments(rawExtraArguments);
+
+    // NI documents named configurations as `compile <project> -config=<name>`.
+    // Do not combine -config with -debug/-release: they are two competing ways to
+    // select the build configuration. Dependency projects intentionally keep their
+    // own native workspace mode unless they are the explicitly requested project.
+    const args: string[] = customConfig ? [`-config=${customConfig}`] : [`-${mode}`];
     if (rebuild) args.push('-rebuild');
-    if (customConfig) args.push(`-config=${customConfig}`);
     args.push(...extraArguments);
+
+    if (ignored.length > 0) {
+      const message = `Ignored extension-managed compile.exe argument(s): ${ignored.map(renderArgument).join(' ')}. Use Build Mode / Custom Build Configuration instead of duplicating -debug/-release/-config/-rebuild/-log in extraCompilerArguments.`;
+      this.traceOutput.appendLine(`[CVI] ${message}`);
+      if (this.logDetail() !== 'compact') this.output.appendLine(`  [!] ${message}`);
+    }
     return args;
+  }
+
+  private async runExternalMsvcBuild(
+    ref: CviWorkspaceProjectRef,
+    project: ReturnType<CviWorkspaceService['getProject']>,
+    mode: CviBuildMode,
+    customConfiguration: string,
+    targetPath: string,
+    compilerSettings: ReturnType<CviParser['getNativeCompilerSettings']> | undefined,
+    projectCompilerSettings: ReturnType<CviParser['getProjectCompilerSettings']> | undefined,
+    external: CviExternalBuildSettings,
+    installation: CviInstallation,
+    rebuild: boolean
+  ): Promise<CviToolRunResult> {
+    const label = `${rebuild ? 'External Rebuild' : 'External Build'} ${ref.name}`;
+    const cwd = path.dirname(ref.absolutePath);
+    if (process.platform !== 'win32') {
+      return this.externalSyntheticResult(label, 'Microsoft Visual C++ external builds are available only on Windows.');
+    }
+    if (!project) return this.externalSyntheticResult(label, 'The CVI project model is not available.');
+    if (!targetPath) return this.externalSyntheticResult(label, 'The target output path could not be resolved from the CVI project.');
+
+    const vcvarsall = this.findVcvarsall(external.vcvarsallPath);
+    if (!vcvarsall) {
+      return this.externalSyntheticResult(label, 'vcvarsall.bat was not found. Install Visual Studio/Build Tools with the Desktop development with C++ workload, or set the path in External Compiler settings.');
+    }
+    const is64 = mode === 'debug64' || mode === 'release64';
+    const debug = mode === 'debug' || mode === 'debug64';
+    const configName = customConfiguration || mode;
+    const configuredBuildDir = external.buildDirectory.trim();
+    const buildDir = configuredBuildDir
+      ? this.resolveRuntimeReference(configuredBuildDir, cwd)
+      : path.join(path.dirname(this.projectSettings.getConfigurationPath() ?? path.join(cwd, '.vscode', 'x')), 'cvi-external-build', path.basename(ref.absolutePath, path.extname(ref.absolutePath)), sanitizeFilePart(configName));
+    if (rebuild) {
+      try { fs.rmSync(buildDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+    fs.mkdirSync(buildDir, { recursive: true });
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+
+    const cviInclude = path.join(installation.root, 'include');
+    const cviExtlib = path.join(installation.root, 'extlib', is64 ? 'msvc64' : 'msvc');
+    const cvirt = path.join(cviExtlib, 'cvirt.lib');
+    const cvisupp = path.join(cviExtlib, 'cvisupp.lib');
+    if (!fs.existsSync(cviInclude) || !fs.existsSync(cvirt) || !fs.existsSync(cvisupp)) {
+      return this.externalSyntheticResult(label, `CVI external compiler support files were not found. Expected include=${cviInclude}, cvirt=${cvirt}, cvisupp=${cvisupp}.`);
+    }
+
+    const sourceRefs = project.files.filter((file) => !file.excluded && path.extname(file.absolutePath).toLowerCase() === '.c');
+    const missingSources = sourceRefs.filter((file) => !fs.existsSync(file.absolutePath));
+    if (missingSources.length > 0) return this.externalSyntheticResult(label, `External build cannot continue because ${missingSources.length} C source file(s) are missing: ${missingSources.slice(0, 4).map((file) => file.absolutePath).join(', ')}`);
+    const sources = sourceRefs;
+    if (sources.length === 0) return this.externalSyntheticResult(label, 'No C source file is available for the external MSVC build.');
+    const objectRefs = project.files.filter((file) => !file.excluded && path.extname(file.absolutePath).toLowerCase() === '.obj');
+    const libraryRefs = project.files.filter((file) => !file.excluded && path.extname(file.absolutePath).toLowerCase() === '.lib');
+    const missingLinkInputs = [...objectRefs, ...libraryRefs].filter((file) => !fs.existsSync(file.absolutePath));
+    if (missingLinkInputs.length > 0) return this.externalSyntheticResult(label, `External build cannot continue because ${missingLinkInputs.length} object/library input(s) are missing: ${missingLinkInputs.slice(0, 4).map((file) => file.absolutePath).join(', ')}`);
+    const objectInputs = objectRefs.map((file) => file.absolutePath);
+    const libraryInputs = libraryRefs.map((file) => file.absolutePath);
+    if (debug && libraryInputs.length > 0) {
+      this.recordSyntheticWarning(label, 'External Debug build references .lib files. NI documents that static libraries created by CVI in a Debug configuration are not supported outside LabWindows/CVI; verify each library is MSVC-compatible (release/import/vendor library).', ref.absolutePath);
+    }
+    const includePaths = uniquePaths([
+      cwd,
+      ...sources.map((file) => path.dirname(file.absolutePath)),
+      ...(projectCompilerSettings?.includePaths ?? []),
+      cviInclude
+    ]);
+    const defines = parseCviDefineOptions(compilerSettings?.compilerDefines ?? '');
+    const compileExtras = splitWindowsArguments(external.additionalCompilerOptions);
+    const linkExtras = splitWindowsArguments(external.additionalLinkerOptions);
+    const additionalLibraries = external.additionalLibraries.map((entry) => this.resolveRuntimeReference(entry, cwd)).filter(Boolean);
+
+    const support = this.parser.getExternalCompilerSupportSettings(ref.absolutePath);
+    const supportSources: string[] = [];
+    const supportObjects: string[] = [];
+    if (external.useCviExternalSupportFiles) {
+      const callbackFile = support.uirCallbacksObjFile;
+      if (callbackFile && fs.existsSync(callbackFile)) {
+        if (path.extname(callbackFile).toLowerCase() === '.c') supportSources.push(callbackFile); else supportObjects.push(callbackFile);
+      } else if (project.files.some((file) => path.extname(file.absolutePath).toLowerCase() === '.uir')) {
+        this.recordSyntheticWarning(label, 'This project contains UIR resources but no generated UIR callback source/object file is available. Generate it in CVI Build > External Compiler Support when the UIR contains callbacks.', ref.absolutePath);
+      }
+      if (support.usingLoadExternalModule) {
+        if (support.projectSymbolsObjFile && fs.existsSync(support.projectSymbolsObjFile)) supportObjects.push(support.projectSymbolsObjFile);
+        else this.recordSyntheticWarning(label, 'Using LoadExternalModule is enabled but the generated Project Symbols object file is missing.', ref.absolutePath);
+      }
+    }
+
+    const allSources = [...sources.map((file) => file.absolutePath), ...supportSources];
+    if (!allSources.some((file) => sourceContainsToken(file, /\bInitCVIRTE\s*\(/))) {
+      this.recordSyntheticWarning(label, 'NI requires externally linked CVI executables/DLLs to call InitCVIRTE at startup. No InitCVIRTE call was detected in the project sources.', ref.absolutePath);
+    }
+    if (project.targetType === 'Dynamic Link Library' && !allSources.some((file) => sourceContainsToken(file, /\bCloseCVIRTE\s*\(/))) {
+      this.recordSyntheticWarning(label, 'NI requires externally linked CVI DLLs to call CloseCVIRTE from the DLL entry-point lifecycle. No CloseCVIRTE call was detected.', ref.absolutePath);
+    }
+
+    const objects: string[] = [];
+    for (let index = 0; index < allSources.length; index += 1) {
+      const source = allSources[index];
+      const objectPath = path.join(buildDir, `${String(index + 1).padStart(3, '0')}-${sanitizeFilePart(path.basename(source, path.extname(source)))}.obj`);
+      const args = [
+        '/nologo', '/TC', '/c', source, `/Fo${objectPath}`,
+        debug ? '/Od' : '/O2', debug ? '/Z7' : '/DNDEBUG', '/W3',
+        ...includePaths.map((entry) => `/I${entry}`),
+        ...defines.map((entry) => `/D${entry}`),
+        ...(projectCompilerSettings?.precompilePrefixHeader && projectCompilerSettings.prefixHeaderFile ? [`/FI${projectCompilerSettings.prefixHeaderFile}`] : []),
+        ...compileExtras
+      ];
+      const result = await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'cl.exe', args, cwd, `${label} — compile ${path.basename(source)}`, buildDir);
+      if (!result.success) return result;
+      objects.push(objectPath);
+    }
+
+    const commonInputs = [...objects, ...objectInputs, ...supportObjects, ...libraryInputs, ...additionalLibraries];
+    if (project.targetType === 'Static Library') {
+      return await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'lib.exe', ['/nologo', `/OUT:${targetPath}`, ...commonInputs], cwd, `${label} — librarian`, buildDir);
+    }
+    const pdb = replaceExtension(targetPath, '.pdb');
+    const linkArgs = ['/NOLOGO', `/OUT:${targetPath}`, ...(debug ? ['/DEBUG', `/PDB:${pdb}`] : []), ...(project.targetType === 'Dynamic Link Library' ? ['/DLL'] : []), ...commonInputs, cvirt, cvisupp, ...linkExtras];
+    return await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'link.exe', linkArgs, cwd, `${label} — link`, buildDir);
+  }
+
+  private findVcvarsall(configured: string): string | undefined {
+    const explicit = configured.trim();
+    if (explicit && fs.existsSync(explicit)) return explicit;
+    const vsInstall = process.env.VSINSTALLDIR;
+    if (vsInstall) {
+      const candidate = path.join(vsInstall, 'VC', 'Auxiliary', 'Build', 'vcvarsall.bat');
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    const vswhere = path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
+    if (fs.existsSync(vswhere)) {
+      try {
+        const installPath = execFileSync(vswhere, ['-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath'], { encoding: 'utf8', windowsHide: true }).trim();
+        if (installPath) {
+          const candidate = path.join(installPath, 'VC', 'Auxiliary', 'Build', 'vcvarsall.bat');
+          if (fs.existsSync(candidate)) return candidate;
+        }
+      } catch { /* ignored */ }
+    }
+    return undefined;
+  }
+
+  private async runMsvcTool(vcvarsall: string, architecture: 'x86' | 'x64', tool: string, args: string[], cwd: string, label: string, buildDir: string): Promise<CviToolRunResult> {
+    fs.mkdirSync(buildDir, { recursive: true });
+    const rsp = path.join(buildDir, `${sanitizeFilePart(label)}.rsp`);
+    fs.writeFileSync(rsp, args.map(msvcResponseArgument).join('\r\n') + '\r\n', 'utf8');
+    const command = `call "${vcvarsall}" ${architecture} >nul && ${tool} @"${rsp}"`;
+    return await this.runExternalTool('cmd.exe', ['/d', '/s', '/c', command], cwd, label);
+  }
+
+  private async runExternalTool(executable: string, args: string[], cwd: string, label: string): Promise<CviToolRunResult> {
+    const started = Date.now();
+    this.traceOutput.appendLine(`--- ${label} ${'-'.repeat(Math.max(1, 76 - label.length))}`);
+    this.traceOutput.appendLine(`Tool             : ${executable}`);
+    this.traceOutput.appendLine(`Working directory: ${cwd}`);
+    this.traceOutput.appendLine(`Arguments        : ${args.map(renderArgument).join(' ')}`);
+    this.traceOutput.appendLine('');
+    return await new Promise<CviToolRunResult>((resolve) => {
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
+      const finish = (code: number | null, launchError?: Error): void => {
+        if (settled) return;
+        settled = true;
+        const combined = [stdout, stderr].filter(Boolean).join('\n');
+        const diagnostics = launchError
+          ? [{ severity: 'error' as const, message: launchError.message, toolLabel: label, rawLine: launchError.message }]
+          : parseCviDiagnostics(combined, label, cwd);
+        if (!launchError && code !== 0 && !diagnostics.some((item) => item.severity === 'error')) diagnostics.push({ severity: 'error', message: `${label} exited with code ${String(code)}.`, toolLabel: label, rawLine: combined.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] ?? `Exit code ${String(code)}` });
+        const result: CviToolRunResult = { success: !launchError && code === 0, code, stdout, stderr, logText: '', logFile: '', durationMs: Date.now() - started, diagnostics };
+        this.recordToolResult(label, executable, args, cwd, result);
+        resolve(result);
+      };
+      const child = spawn(executable, args, { cwd, windowsHide: true, shell: false });
+      this.activeCompilerChildren.add(child);
+      child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); this.traceOutput.append(data.toString()); });
+      child.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); this.traceOutput.append(data.toString()); });
+      child.on('error', (error) => { this.activeCompilerChildren.delete(child); finish(null, error); });
+      child.on('close', (code) => { this.activeCompilerChildren.delete(child); finish(code); });
+    });
+  }
+
+  private externalSyntheticResult(label: string, message: string): CviToolRunResult {
+    const result: CviToolRunResult = { success: false, code: null, stdout: '', stderr: message, logText: '', logFile: '', durationMs: 0, diagnostics: [{ severity: 'error', message, toolLabel: label, rawLine: message }] };
+    this.recordToolResult(label, 'MSVC external build', [], '', result);
+    return result;
   }
 
   private async runCviCompile(compileExe: string, args: string[], cwd: string, label: string): Promise<CviToolRunResult> {
@@ -592,16 +1125,31 @@ export class CviBuildService {
         } catch { /* log file may be temporarily locked by CVI */ }
       };
       const timer = setInterval(drainLog, 150);
+      this.activeLogTimers.add(timer);
       const finish = (code: number | null, launchError?: Error): void => {
         if (closed) return;
         closed = true;
         clearInterval(timer);
+        this.activeLogTimers.delete(timer);
+        if (this.disposed) {
+          resolve({ success: false, code, stdout, stderr, logText, logFile, durationMs: Date.now() - started, diagnostics: [] });
+          return;
+        }
         drainLog();
         const durationMs = Date.now() - started;
         const combinedOutput = [stdout, stderr, logText].filter(Boolean).join('\n');
         const diagnostics = launchError
           ? [{ severity: 'error' as const, message: `Unable to start ${compileExe}: ${launchError.message}`, toolLabel: label, rawLine: launchError.message, hint: 'Check that the LabWindows/CVI installation path is valid and that compile.exe can be launched from VS Code.' }]
-          : parseCviDiagnostics(combinedOutput, label);
+          : parseCviDiagnostics(combinedOutput, label, cwd);
+        if (!launchError && code !== 0 && !diagnostics.some((item) => item.severity === 'error')) {
+          diagnostics.push({
+            severity: 'error',
+            message: `${path.basename(compileExe)} exited with code ${String(code)} without a recognized source diagnostic.`,
+            toolLabel: label,
+            rawLine: combinedOutput.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] ?? `Exit code ${String(code)}`,
+            hint: 'Open LabWindows/CVI - Build Trace and inspect the retained CVI log. The failure may come from a build step, linker, project configuration, licensing, or an older CVI diagnostic format.'
+          });
+        }
         const result: CviToolRunResult = { success: !launchError && code === 0, code, stdout, stderr, logText, logFile, durationMs, diagnostics };
         this.recordToolResult(label, compileExe, allArgs, cwd, result);
         if (launchError) {
@@ -612,10 +1160,11 @@ export class CviBuildService {
         resolve(result);
       };
       const child = spawn(compileExe, allArgs, { cwd, windowsHide: true, shell: false });
+      this.activeCompilerChildren.add(child);
       child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); this.traceOutput.append(data.toString()); });
       child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); this.traceOutput.append(data.toString()); });
-      child.on('error', (error) => finish(null, error));
-      child.on('close', (code) => finish(code));
+      child.on('error', (error) => { this.activeCompilerChildren.delete(child); finish(null, error); });
+      child.on('close', (code) => { this.activeCompilerChildren.delete(child); finish(code); });
     });
   }
 
@@ -635,21 +1184,17 @@ export class CviBuildService {
       this.publishCurrentDiagnostics(report);
     }
 
+    // stdout/stderr and the CVI -log file are streamed live into the trace while
+    // compile.exe is running. Do not replay their complete contents here: doing so
+    // duplicated every diagnostic and could double very large build traces.
     this.traceOutput.appendLine('');
-    this.traceOutput.appendLine('stdout:');
-    this.traceOutput.appendLine(result.stdout.trimEnd() || '  <empty>');
-    this.traceOutput.appendLine('');
-    this.traceOutput.appendLine('stderr:');
-    this.traceOutput.appendLine(result.stderr.trimEnd() || '  <empty>');
-    this.traceOutput.appendLine('');
-    this.traceOutput.appendLine('CVI log file:');
-    this.traceOutput.appendLine(`  ${result.logFile}`);
-    this.traceOutput.appendLine('');
-    this.traceOutput.appendLine('CVI log content captured by extension:');
-    this.traceOutput.appendLine(result.logText.trimEnd() || '  <empty>');
-    this.traceOutput.appendLine('');
-    this.traceOutput.appendLine(`Exit code: ${String(result.code)}`);
-    this.traceOutput.appendLine(`Duration : ${formatDuration(result.durationMs)}`);
+    this.traceOutput.appendLine('Capture summary:');
+    this.traceOutput.appendLine(`  stdout bytes : ${Buffer.byteLength(result.stdout)}`);
+    this.traceOutput.appendLine(`  stderr bytes : ${Buffer.byteLength(result.stderr)}`);
+    this.traceOutput.appendLine(`  tool log bytes: ${Buffer.byteLength(result.logText)}`);
+    if (result.logFile) this.traceOutput.appendLine(`  tool log file : ${result.logFile}`);
+    this.traceOutput.appendLine(`  Exit code    : ${String(result.code)}`);
+    this.traceOutput.appendLine(`  Duration     : ${formatDuration(result.durationMs)}`);
     this.traceOutput.appendLine('');
 
     const status = result.success ? '[OK]' : '[X]';
@@ -672,6 +1217,21 @@ export class CviBuildService {
     } else if (result.diagnostics.some((item) => item.severity === 'warning') && this.logDetail() !== 'compact') {
       this.renderDiagnostics(result.diagnostics.filter((item) => item.severity === 'warning'), result.stdout, result.stderr, result.logText);
     }
+  }
+
+  private recordSyntheticWarning(label: string, message: string, file?: string): void {
+    const report = this.currentReport;
+    if (!report) {
+      return;
+    }
+    report.warnings.push({
+      severity: 'warning',
+      file,
+      message,
+      toolLabel: label,
+      rawLine: message,
+      hint: 'Review the selected CVI build configuration in CVI Project Build Settings.'
+    });
   }
 
   private recordSyntheticFailure(label: string, message: string): void {
@@ -812,7 +1372,7 @@ function formatDiagnosticLocation(diagnostic: ParsedCviDiagnostic): string {
   return diagnostic.file;
 }
 
-function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagnostic[] {
+function parseCviDiagnostics(output: string, toolLabel: string, baseDirectory = ''): ParsedCviDiagnostic[] {
   const diagnostics: ParsedCviDiagnostic[] = [];
   const lines = output.split(/\r?\n/);
   const gccLocation = /^(.+?):(\d+):(\d+):\s*(fatal error|error|warning|note):\s*(.+)$/i;
@@ -820,6 +1380,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
   const msvcLocation = /^(.+?)\((\d+)(?:,(\d+))?\):\s*(fatal error|error|warning)\s*([A-Z]+\d+)?\s*:\s*(.+)$/i;
   const cviQuotedLocation = /^"?([^"\r\n]+?\.(?:c|h|uir|prj))"?\s*,?\s*line\s+(\d+)(?:\s*,?\s*column\s+(\d+))?\s*[:\-]\s*(fatal error|error|warning|note)\s*[:\-]?\s*(.+)$/i;
   const cviLocation = /^(.+?\.(?:c|h|uir|prj))\s*\((\d+)(?:\s*,\s*(\d+))?\)\s*[:\-]\s*(fatal error|error|warning|note)\s*[:\-]?\s*(.+)$/i;
+  const cviLineLocation = /^\s*"?([^"\r\n]+?\.(?:c|h|uir|prj))"?\s*[:,-]?\s*line\s+(\d+)(?:\s*[,;]\s*(?:column\s+)?(\d+))?\s*[:\-]\s*(fatal error|error|warning|note)\s*[:\-]?\s*(.+)$/i;
   const cviCodeFirst = /^(fatal error|error|warning|note)\s*(?:([A-Z]+\d+|\-?\d+)\s*)?[:\-]\s*(.+)$/i;
 
   for (let index = 0; index < lines.length; index++) {
@@ -829,7 +1390,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[5].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], baseDirectory),
         line: Number(match[2]),
         column: Number(match[3]),
         message,
@@ -845,7 +1406,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[4].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[3]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], baseDirectory),
         line: Number(match[2]),
         message,
         sourceLine: findLikelySourceLine(lines, index + 1),
@@ -860,7 +1421,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[6].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], baseDirectory),
         line: Number(match[2]),
         column: match[3] ? Number(match[3]) : undefined,
         code: match[5]?.trim(),
@@ -872,17 +1433,29 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       });
       continue;
     }
-    match = line.match(cviQuotedLocation) ?? line.match(cviLocation);
+    match = line.match(cviQuotedLocation) ?? line.match(cviLocation) ?? line.match(cviLineLocation);
     if (match) {
       const message = match[5].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], baseDirectory),
         line: Number(match[2]),
         column: match[3] ? Number(match[3]) : undefined,
         message,
         sourceLine: findLikelySourceLine(lines, index + 1),
         hint: hintForDiagnostic(message),
+        toolLabel,
+        rawLine: line
+      });
+      continue;
+    }
+
+    if (/CVI could not execute one or more of your build steps|build (?:step|action).*(?:failed|error)/i.test(line)) {
+      const message = line.trim();
+      diagnostics.push({
+        severity: 'error',
+        message,
+        hint: hintForDiagnostic(`build step ${message}`),
         toolLabel,
         rawLine: line
       });
@@ -910,6 +1483,39 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
   }
 
   return coalesceDiagnostics(diagnostics);
+}
+
+function resolveDiagnosticFile(fileValue: string, baseDirectory: string): string {
+  const raw = fileValue.trim().replace(/^"|"$/g, '');
+  if (!raw) return raw;
+  const normalized = normalizeRuntimePath(raw);
+  if (path.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
+    return normalized;
+  }
+  if (!baseDirectory) return normalized;
+  return normalizeRuntimePath(resolveCviReferencePath(baseDirectory, raw));
+}
+
+function sanitizeExtraCompilerArguments(values: string[]): { arguments: string[]; ignored: string[] } {
+  const result: string[] = [];
+  const ignored: string[] = [];
+  for (let index = 0; index < values.length; index += 1) {
+    const value = String(values[index] ?? '').trim();
+    if (!value) continue;
+    const lower = value.toLowerCase();
+    const managedMode = /^-(?:debug|release|debug64|release64|rebuild)$/i.test(value);
+    const managedConfig = /^-config(?:=|$)/i.test(value);
+    const managedLog = /^-log(?:=|$)/i.test(value);
+    if (managedMode || managedConfig || managedLog) {
+      ignored.push(value);
+      if ((lower === '-config' || lower === '-log') && index + 1 < values.length) {
+        ignored.push(String(values[++index] ?? ''));
+      }
+      continue;
+    }
+    result.push(value);
+  }
+  return { arguments: result, ignored };
 }
 
 function normalizeSeverity(value: string): ParsedCviDiagnostic['severity'] {
@@ -999,6 +1605,9 @@ function hintForDiagnostic(message: string): string | undefined {
   if (lower.includes('module machine type') || lower.includes('x86') && lower.includes('x64') || lower.includes('architecture')) {
     return 'This looks like an architecture mismatch. Check the active CVI build mode and ensure every .lib/.obj/.dll import library matches x86 or x64.';
   }
+  if (lower.includes('build step') || lower.includes('build action')) {
+    return 'A CVI pre-build, custom-build or post-build action failed. Check the action command, project working directory, required CALL for batch files, environment variables and the generated cvibuild.<project> build-step files.';
+  }
   if (lower.includes('winmain') || lower.includes('main')) {
     return 'The selected target type or subsystem may not match the entry point. Check whether the CVI project is configured as EXE, DLL or static library and verify the expected entry function.';
   }
@@ -1026,3 +1635,53 @@ function coalesceDiagnostics(diagnostics: ParsedCviDiagnostic[]): ParsedCviDiagn
 
 function renderArgument(value: string): string { return /\s/.test(value) ? `"${value}"` : value; }
 function replaceExtension(filePath: string, extension: string): string { return path.join(path.dirname(filePath), `${path.basename(filePath, path.extname(filePath))}${extension}`); }
+
+
+function uniquePaths(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed) continue;
+    const normalized = path.normalize(trimmed);
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
+export function parseCviDefineOptions(value: string): string[] {
+  const result: string[] = [];
+  const regex = /(?:^|\s)\/D(?:"([^"]+)"|(\S+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(value)) !== null) {
+    const define = (match[1] ?? match[2] ?? '').trim();
+    if (define) result.push(define);
+  }
+  return result;
+}
+
+export function splitWindowsArguments(value: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i];
+    if (ch === '"') { quoted = !quoted; continue; }
+    if (/\s/.test(ch) && !quoted) {
+      if (current) { result.push(current); current = ''; }
+      continue;
+    }
+    current += ch;
+  }
+  if (current) result.push(current);
+  return result;
+}
+
+function sanitizeFilePart(value: string): string { return value.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '') || 'item'; }
+function msvcResponseArgument(value: string): string { return /[\s"]/u.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value; }
+function sourceContainsToken(filePath: string, expression: RegExp): boolean { try { return expression.test(fs.readFileSync(filePath, 'utf8')); } catch { return false; } }
+
+function defaultExternalBuildSettings(): CviExternalBuildSettings { return { engine: 'cvi', vcvarsallPath: '', buildDirectory: '', additionalCompilerOptions: '', additionalLinkerOptions: '', additionalLibraries: [], useCviExternalSupportFiles: true, debugInVsCode: true }; }

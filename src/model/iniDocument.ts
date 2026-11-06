@@ -3,7 +3,7 @@ function escapeRegExp(value: string): string {
 }
 
 export class IniSection {
-  constructor(public readonly name: string, public lines: string[] = []) {}
+  constructor(public name: string, public lines: string[] = []) {}
 
   get(key: string): string | undefined {
     const pattern = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=\\s*(.*)$`, 'i');
