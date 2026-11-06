@@ -601,7 +601,7 @@ export class CviBuildService {
         const combinedOutput = [stdout, stderr, logText].filter(Boolean).join('\n');
         const diagnostics = launchError
           ? [{ severity: 'error' as const, message: `Unable to start ${compileExe}: ${launchError.message}`, toolLabel: label, rawLine: launchError.message, hint: 'Check that the LabWindows/CVI installation path is valid and that compile.exe can be launched from VS Code.' }]
-          : parseCviDiagnostics(combinedOutput, label);
+          : parseCviDiagnostics(combinedOutput, label, cwd);
         const result: CviToolRunResult = { success: !launchError && code === 0, code, stdout, stderr, logText, logFile, durationMs, diagnostics };
         this.recordToolResult(label, compileExe, allArgs, cwd, result);
         if (launchError) {
@@ -738,7 +738,7 @@ export class CviBuildService {
       if (!item.file) {
         continue;
       }
-      const normalizedFile = normalizeRuntimePath(item.file);
+      const normalizedFile = this.resolveProjectFilePath(item.file);
       const zeroLine = Math.max(0, (item.line ?? 1) - 1);
       const zeroColumn = Math.max(0, (item.column ?? 1) - 1);
       const range = new vscode.Range(zeroLine, zeroColumn, zeroLine, Math.max(zeroColumn + 1, zeroColumn + (item.sourceLine?.trim().length ?? 1)));
@@ -756,6 +756,31 @@ export class CviBuildService {
     for (const [filePath, values] of byFile) {
       this.diagnostics.set(vscode.Uri.file(filePath), values);
     }
+  }
+
+  private resolveProjectFilePath(rawFile: string): string {
+    const normalized = normalizeRuntimePath(rawFile);
+    if (fs.existsSync(normalized)) {
+      return normalized;
+    }
+    const baseName = path.basename(normalized).toLowerCase();
+    const refs: CviWorkspaceProjectRef[] = [];
+    if (this.workspaces.activeProjectRef) {
+      refs.push(this.workspaces.activeProjectRef);
+    }
+    for (const ref of this.workspaces.currentWorkspace?.projects ?? []) {
+      if (!refs.some((r) => r.absolutePath === ref.absolutePath)) {
+        refs.push(ref);
+      }
+    }
+    for (const ref of refs) {
+      const project = this.workspaces.getProject(ref);
+      const matched = project?.files.find((f) => path.basename(f.absolutePath).toLowerCase() === baseName);
+      if (matched) {
+        return normalizeRuntimePath(matched.absolutePath);
+      }
+    }
+    return normalized;
   }
 
   private createBuildLogPath(cwd: string, label: string): string {
@@ -812,9 +837,12 @@ function formatDiagnosticLocation(diagnostic: ParsedCviDiagnostic): string {
   return diagnostic.file;
 }
 
-function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagnostic[] {
+function parseCviDiagnostics(output: string, toolLabel: string, cwd?: string): ParsedCviDiagnostic[] {
   const diagnostics: ParsedCviDiagnostic[] = [];
   const lines = output.split(/\r?\n/);
+  const compilingLine = /^\s*Compiling\s+(.+?\.(?:c|cpp|cc|cxx))\s*$/i;
+  const compiledFiles = new Map<string, string>();
+  let lastCompiledFile: string | undefined;
   const gccLocation = /^(.+?):(\d+):(\d+):\s*(fatal error|error|warning|note):\s*(.+)$/i;
   const gccLocationNoColumn = /^(.+?):(\d+):\s*(fatal error|error|warning|note):\s*(.+)$/i;
   const msvcLocation = /^(.+?)\((\d+)(?:,(\d+))?\):\s*(fatal error|error|warning)\s*([A-Z]+\d+)?\s*:\s*(.+)$/i;
@@ -824,12 +852,19 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
+    const compilingMatch = line.match(compilingLine);
+    if (compilingMatch) {
+      const fullCompiledPath = resolveDiagnosticFile(compilingMatch[1], cwd);
+      lastCompiledFile = fullCompiledPath;
+      compiledFiles.set(path.basename(fullCompiledPath).toLowerCase(), fullCompiledPath);
+      continue;
+    }
     let match = line.match(gccLocation);
     if (match) {
       const message = match[5].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], cwd, compiledFiles, lastCompiledFile),
         line: Number(match[2]),
         column: Number(match[3]),
         message,
@@ -845,7 +880,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[4].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[3]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], cwd, compiledFiles, lastCompiledFile),
         line: Number(match[2]),
         message,
         sourceLine: findLikelySourceLine(lines, index + 1),
@@ -860,7 +895,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[6].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], cwd, compiledFiles, lastCompiledFile),
         line: Number(match[2]),
         column: match[3] ? Number(match[3]) : undefined,
         code: match[5]?.trim(),
@@ -877,7 +912,7 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
       const message = match[5].trim();
       diagnostics.push({
         severity: normalizeSeverity(match[4]),
-        file: match[1],
+        file: resolveDiagnosticFile(match[1], cwd, compiledFiles, lastCompiledFile),
         line: Number(match[2]),
         column: match[3] ? Number(match[3]) : undefined,
         message,
@@ -910,6 +945,33 @@ function parseCviDiagnostics(output: string, toolLabel: string): ParsedCviDiagno
   }
 
   return coalesceDiagnostics(diagnostics);
+}
+
+function resolveDiagnosticFile(
+  rawFile: string,
+  cwd?: string,
+  compiledFiles?: Map<string, string>,
+  lastCompiledFile?: string
+): string {
+  let cleaned = normalizeRuntimePath(rawFile.trim().replace(/^["']+|["']+$/g, '').trim());
+  if (/^[\\/][^\\/]/.test(cleaned) && !/^[a-zA-Z]:/.test(cleaned)) {
+    cleaned = cleaned.replace(/^[\\/]+/, '');
+  }
+  if (path.isAbsolute(cleaned)) {
+    return cleaned;
+  }
+  const baseLower = path.basename(cleaned).toLowerCase();
+  if (lastCompiledFile && path.basename(lastCompiledFile).toLowerCase() === baseLower) {
+    return lastCompiledFile;
+  }
+  const fromCompiled = compiledFiles?.get(baseLower);
+  if (fromCompiled) {
+    return fromCompiled;
+  }
+  if (cwd && cleaned) {
+    return path.resolve(cwd, cleaned);
+  }
+  return cleaned;
 }
 
 function normalizeSeverity(value: string): ParsedCviDiagnostic['severity'] {
