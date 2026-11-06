@@ -741,7 +741,11 @@ export class CviParser {
       if (!relativePath) {
         continue;
       }
-      const absolutePath = path.resolve(workspaceDirectory, relativePath);
+      // Convert with fromCviPath only if it's an absolute CVI-style path (e.g., "/d/..."), 
+      // otherwise keep it as-is if it is relative
+      const targetPath = /^\/[a-zA-Z]\//.test(relativePath) ? fromCviPath(relativePath) : relativePath;
+      const absolutePath = path.resolve(workspaceDirectory, targetPath);
+
       projects.push({
         index,
         relativePath,
