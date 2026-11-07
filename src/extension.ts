@@ -157,12 +157,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await vscode.commands.executeCommand(command);
   };
 
-  const runNativeDebug = async (): Promise<boolean> => {
+  const runNativeDebug = async (buildOverride?: boolean): Promise<boolean> => {
     if (!await builds.ensureDebugBuildMode()) {
       output.appendLine('[CVI] Native debugger launch cancelled: no debug build configuration is active.');
       return false;
     }
-    const shouldBuild = vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('buildBeforeNativeDebug', true);
+    const shouldBuild = buildOverride ?? vscode.workspace.getConfiguration('labwindowsCvi').get<boolean>('buildBeforeNativeDebug', true);
     if (shouldBuild) {
       output.appendLine('[CVI] Running local compile.exe preflight build before native debugging.');
       const built = await builds.buildNative(false);
@@ -271,6 +271,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.build', () => builds.build(false)),
     register('labwindowsCvi.externalBuild', () => builds.build(false)),
     register('labwindowsCvi.externalDebug', () => builds.debugWithExternalCompiler()),
+    register('labwindowsCvi.debugWithoutBuild', async () => {
+      const ref = workspaces.activeProjectRef;
+      if (!ref?.exists) {
+        vscode.window.showErrorMessage('No existing active CVI project is available to debug.');
+        return;
+      }
+      if (builds.getBuildEngine(ref) === 'msvc') {
+        await builds.debugExistingExternalTarget(ref);
+      } else {
+        await runNativeDebug(false);
+      }
+    }),
     register('labwindowsCvi.rebuild', () => builds.build(true)),
     register('labwindowsCvi.clean', () => builds.clean()),
     register('labwindowsCvi.showBuildProblems', () => builds.showBuildProblems()),

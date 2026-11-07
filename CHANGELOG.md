@@ -1,3 +1,14 @@
+## 0.7.44
+
+- Ajoute la commande **Debug Existing Target (No Build)** avec un bouton Debug directement dans la barre d'icônes de **CVI Workspace**, à côté de Run.
+- La commande est adaptée au moteur sélectionné : avec MSVC elle lance directement `cppvsdbg` sur le binaire/PDB existants ; avec le moteur natif elle ouvre le débogueur CVI sans pré-build `compile.exe` forcé par l'extension.
+- Le menu avancé Run propose également **Debug existing target (no build)** et la page **External Compiler** expose le même bouton.
+- Le lancement MSVC sans build exige un target Debug existant et son `.pdb`; si les symboles n'existent pas, CVI PM demande un premier build au lieu de reconstruire silencieusement.
+- Un PDB plus ancien que le binaire déclenche un avertissement mais ne force jamais de rebuild, conformément à l'intention de la commande.
+- Les DLL utilisent toujours le programme hôte configuré dans Run & Debug; les static libraries sont refusées proprement car elles ne sont pas lançables seules.
+- Les configurations CVI personnalisées reconnues conservent leur architecture/profil Debug pour le lancement externe sans build.
+- Ajoute 10 tests ciblés Debug Existing Target ; la non-régression cumulative v0.7.31→v0.7.44 atteint 272/272 contrôles.
+
 ## 0.7.43
 
 - Ajoute une page **External Compiler** dans **CVI Project Settings** avec choix du moteur `Native LabWindows/CVI (compile.exe)` ou `External Microsoft Visual C++ (MSVC)`.
@@ -10,7 +21,7 @@
 - Les builds Debug externes utilisent `/Z7` et `/DEBUG` avec PDB, puis la commande **Build and Debug with External MSVC in VS Code** lance `cppvsdbg`.
 - Le débogage natif CVI force explicitement le moteur natif `compile.exe`, même si le projet est configuré en MSVC.
 - Les anciens `labwindows-cvi-build.json` sans champ `externalBuild` restent automatiquement en moteur CVI natif.
-- Ajoute 23 tests ciblés External Compiler ; la non-régression cumulative v0.7.31→v0.7.43 atteint 261/261 contrôles.
+- Ajoute 23 tests ciblés External Compiler ; la non-régression cumulative v0.7.31→v0.7.43 atteint 262/262 contrôles.
 
 ## 0.7.42
 

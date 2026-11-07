@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.43",
+  "version": "0.7.44",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -109,7 +109,8 @@
     "onCommand:labwindowsCvi.generateFileSymbolsHeader",
     "onCommand:labwindowsCvi.generateFileSymbolsSource",
     "onCommand:labwindowsCvi.externalBuild",
-    "onCommand:labwindowsCvi.externalDebug"
+    "onCommand:labwindowsCvi.externalDebug",
+    "onCommand:labwindowsCvi.debugWithoutBuild"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -249,6 +250,11 @@
         "command": "labwindowsCvi.externalBuild",
         "title": "LabWindows/CVI: Build with Selected Build Engine",
         "icon": "$(tools)"
+      },
+      {
+        "command": "labwindowsCvi.debugWithoutBuild",
+        "title": "LabWindows/CVI: Debug Existing Target (No Build)",
+        "icon": "$(debug-alt)"
       },
       {
         "command": "labwindowsCvi.externalDebug",
@@ -597,7 +603,7 @@
       },
       {
         "command": "labwindowsCvi.editBuildSettingsSafeMode",
-        "title": "Project Build Settings (Safe Mode)\u2026",
+        "title": "Project Build Settings (Safe Mode)…",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
@@ -951,6 +957,11 @@
           "command": "labwindowsCvi.run",
           "when": "view == labwindowsCvi.workspaceExplorer",
           "group": "navigation@4"
+        },
+        {
+          "command": "labwindowsCvi.debugWithoutBuild",
+          "when": "view == labwindowsCvi.workspaceExplorer",
+          "group": "navigation@4.5"
         },
         {
           "command": "labwindowsCvi.chooseRunAction",

@@ -84,6 +84,15 @@ export class CviBuildService implements vscode.Disposable {
     return ref ? this.resolveBuildMode(ref) : this.configuredBuildMode;
   }
 
+  getBuildEngine(projectRef?: CviWorkspaceProjectRef): 'cvi' | 'msvc' {
+    const ref = projectRef ?? this.workspaces.activeProjectRef;
+    if (!ref?.exists) return 'cvi';
+    let mode = this.resolveBuildMode(ref);
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    if (customConfiguration) mode = this.modeForConfiguration(ref.absolutePath, customConfiguration, mode);
+    return this.projectSettings.getSettings(ref, mode).externalBuild?.engine === 'msvc' ? 'msvc' : 'cvi';
+  }
+
   private get configuredBuildMode(): CviBuildMode {
     return vscode.workspace.getConfiguration('labwindowsCvi').get<CviBuildMode>('buildMode', 'debug');
   }
@@ -128,6 +137,7 @@ export class CviBuildService implements vscode.Disposable {
     const selected = await vscode.window.showQuickPick([
       { label: '$(play) Build and run', value: 'buildRun', description: 'Build with the selected project build engine and run the target' },
       { label: '$(run) Run without build', value: 'runOnly', description: 'Run the existing EXE, or the configured Program Name for a DLL target, without building' },
+      { label: '$(debug-alt) Debug existing target (no build)', value: 'debugExisting', description: 'Launch the selected debugger using the existing target without forcing a build first' },
       { label: '$(debug-alt) Native CVI debug', value: 'debug', description: 'Build with CVI, synchronize breakpoints and run the native CVI debugger' },
       { label: '$(debug) External MSVC debug in VS Code', value: 'externalDebug', description: 'Build with MSVC and launch cppvsdbg using generated PDB symbols' }
     ], { title: 'LabWindows/CVI run action' });
@@ -136,6 +146,8 @@ export class CviBuildService implements vscode.Disposable {
     }
     if (selected.value === 'runOnly') {
       await this.runWithoutBuild(projectRef);
+    } else if (selected.value === 'debugExisting') {
+      await vscode.commands.executeCommand('labwindowsCvi.debugWithoutBuild');
     } else if (selected.value === 'debug') {
       await vscode.commands.executeCommand('labwindowsCvi.nativeRun');
     } else if (selected.value === 'externalDebug') {
@@ -492,14 +504,18 @@ export class CviBuildService implements vscode.Disposable {
     }
   }
 
-  async debugWithExternalCompiler(projectRef?: CviWorkspaceProjectRef): Promise<void> {
+  async debugWithExternalCompiler(projectRef?: CviWorkspaceProjectRef, buildFirst = true): Promise<void> {
     const ref = projectRef ?? this.workspaces.activeProjectRef;
     if (!ref?.exists) {
       vscode.window.showErrorMessage('No existing CVI project is available for external debugging.');
       return;
     }
-    const mode = this.resolveBuildMode(ref);
-    const settings = this.projectSettings.getSettings(ref, mode);
+    let mode = this.resolveBuildMode(ref);
+    const customConfiguration = this.resolveCustomBuildConfiguration(ref);
+    if (customConfiguration) mode = this.modeForConfiguration(ref.absolutePath, customConfiguration, mode);
+    const settings = customConfiguration
+      ? this.projectSettings.getSettingsForConfiguration(ref, customConfiguration, mode)
+      : this.projectSettings.getSettings(ref, mode);
     if (settings.externalBuild?.engine !== 'msvc') {
       vscode.window.showWarningMessage('External VS Code debugging requires the project Build Engine to be set to Microsoft Visual C++ in CVI Project Settings > External Compiler.');
       return;
@@ -512,24 +528,65 @@ export class CviBuildService implements vscode.Disposable {
       vscode.window.showWarningMessage('VS Code external debugging is disabled in this project External Compiler settings.');
       return;
     }
-    const built = await this.build(false, ref);
-    if (!built) return;
+    if (buildFirst) {
+      const built = await this.build(false, ref);
+      if (!built) return;
+    }
+    await this.launchExternalMsvcDebugger(ref, mode, settings, buildFirst);
+  }
 
+  async debugExistingExternalTarget(projectRef?: CviWorkspaceProjectRef): Promise<void> {
+    await this.debugWithExternalCompiler(projectRef, false);
+  }
+
+  private async launchExternalMsvcDebugger(
+    ref: CviWorkspaceProjectRef,
+    mode: CviBuildMode,
+    settings: ReturnType<CviProjectSettingsService['getSettings']>,
+    builtImmediatelyBeforeLaunch: boolean
+  ): Promise<void> {
     const customConfiguration = this.resolveCustomBuildConfiguration(ref);
     const target = customConfiguration
       ? this.parser.getTargetPathForConfiguration(ref.absolutePath, customConfiguration, mode)
       : this.parser.getTargetPath(ref.absolutePath, mode);
     const project = this.workspaces.getProject(ref);
     const run = settings.run;
+    if (project?.targetType === 'Static Library') {
+      vscode.window.showWarningMessage('A static library cannot be launched directly in the debugger. Debug an executable or DLL host project that links this library.');
+      return;
+    }
+    if (!target || !fs.existsSync(target)) {
+      vscode.window.showErrorMessage('Unable to start the VS Code debugger because the existing external build target does not exist. Build the project once, then use Debug Existing Target.');
+      return;
+    }
+    const pdb = replaceExtension(target, '.pdb');
+    if (!fs.existsSync(pdb)) {
+      vscode.window.showErrorMessage(`Unable to start external debugging without a build because the PDB file is missing: ${pdb}. Build the Debug target once to generate symbols.`);
+      return;
+    }
+    if (!builtImmediatelyBeforeLaunch) {
+      try {
+        const targetTime = fs.statSync(target).mtimeMs;
+        const pdbTime = fs.statSync(pdb).mtimeMs;
+        if (targetTime - pdbTime > 2000) {
+          this.output.appendLine(`[CVI] Debug Existing Target warning: ${path.basename(pdb)} is older than ${path.basename(target)}. VS Code will launch without rebuilding; symbols may be stale.`);
+          vscode.window.showWarningMessage('The existing PDB is older than the target binary. Debug will start without rebuilding, but source/symbol mapping may be stale.');
+        }
+      } catch { /* timestamp diagnostics are best effort */ }
+    }
     let program = target;
     if (project?.targetType === 'Dynamic Link Library') {
       program = this.resolveRuntimeReference(run.externalProcessPath, path.dirname(ref.absolutePath));
     }
     if (!program || !fs.existsSync(program)) {
-      vscode.window.showErrorMessage('Unable to start the VS Code debugger because the external build target/host executable does not exist.');
+      vscode.window.showErrorMessage('Unable to start the VS Code debugger because the existing target/host executable does not exist.');
       return;
     }
     const cwd = this.resolveRuntimeReference(run.workingDirectory, path.dirname(ref.absolutePath)) || path.dirname(program);
+    if (!fs.existsSync(cwd)) {
+      vscode.window.showErrorMessage(`Unable to start the VS Code debugger because the working directory does not exist: ${cwd}`);
+      return;
+    }
     const args = run.arguments.trim() ? this.projectSettings.parseArguments(run.arguments) : [];
     const started = await vscode.debug.startDebugging(undefined, {
       name: `CVI External MSVC — ${ref.name}`,

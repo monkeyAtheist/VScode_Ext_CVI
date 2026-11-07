@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const state = { input: undefined, warningResponse: undefined, warnings: [], infos: [], errors: [], failDelete: false, config: {} };
+const state = { input: undefined, warningResponse: undefined, warnings: [], infos: [], errors: [], failDelete: false, config: {}, debugConfigs: [], debugStartResult: true };
 class EventEmitter {
   constructor(){ this.event = () => ({ dispose(){} }); }
   fire(){}
@@ -17,6 +17,9 @@ module.exports = {
     async showInformationMessage(message, ...args){ state.infos.push({message,args}); return undefined; },
     async showErrorMessage(message, ...args){ state.errors.push(message); return undefined; },
     async showOpenDialog(){ return undefined; }
+  },
+  debug: {
+    async startDebugging(folder, config){ state.debugConfigs.push({folder, config}); return state.debugStartResult; }
   },
   workspace: {
     getConfiguration: () => ({ get: (key, fallback) => Object.prototype.hasOwnProperty.call(state.config, key) ? state.config[key] : fallback, async update(key, value){ state.config[key] = value; } }),

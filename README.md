@@ -1,8 +1,8 @@
-# LabWindows/CVI Project Manager 0.7.43
+# LabWindows/CVI Project Manager 0.7.44
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.7.43` keeps the CVI workspace/project manager, native build/debug controls, configuration-aware Target/Compiler/Run settings, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
+Version `0.7.44` keeps the CVI workspace/project manager, native build/debug controls, configuration-aware Target/Compiler/Run settings, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
 
 ## Main views
 
@@ -40,6 +40,17 @@ The extension can:
 - discover common CVI installations and store a manually selected installation.
 
 
+
+## Direct debug without rebuild
+
+Version 0.7.44 adds **Debug Existing Target (No Build)** directly to the **CVI Workspace** title toolbar. The command deliberately separates launching the debugger from compiling the project:
+
+- with **External MSVC**, CVI PM launches `cppvsdbg` against the existing Debug/Debug64 EXE (or DLL host) and requires the matching PDB to already exist;
+- with the **Native CVI** engine, CVI PM opens the native debugger without running the extension's optional `compile.exe` preflight first;
+- the command never performs a hidden fallback build. Missing EXE/PDB files are reported explicitly;
+- DLL targets keep using the configured host executable, while static libraries cannot be launched directly.
+
+The existing **Build + Debug** commands remain available when a fresh binary is required. The advanced Run menu and the External Compiler settings page expose both workflows.
 
 ## Extension lifecycle and workspace switching
 

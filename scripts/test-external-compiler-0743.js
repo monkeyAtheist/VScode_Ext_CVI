@@ -23,7 +23,7 @@ function output(){ return {appendLine(){},append(){},clear(){},show(){}}; }
 function diag(){return {clear(){},set(){}};}
 
 (async()=>{
-await test('package version is 0.7.43',()=>assert.strictEqual(pkg.version,'0.7.43'));
+await test('package version keeps v0.7.43+ external compiler support',()=>assert(Number(pkg.version.split('.')[2])>=43));
 await test('project settings model exposes native CVI and MSVC build engines',()=>{
   assert(settingsSource.includes("export type CviBuildEngine = 'cvi' | 'msvc'"));
   assert(settingsSource.includes('externalBuild: CviExternalBuildSettings'));
