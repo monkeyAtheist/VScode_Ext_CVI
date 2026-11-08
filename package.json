@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.7.44",
+  "version": "0.8.0",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -52,6 +52,7 @@
     "onCommand:labwindowsCvi.refreshFileSymbols",
     "onCommand:labwindowsCvi.revealFileSymbol",
     "onCommand:labwindowsCvi.chooseRunAction",
+    "onCommand:labwindowsCvi.buildAndRun",
     "onCommand:labwindowsCvi.runWithoutBuild",
     "onCommand:labwindowsCvi.selectBuildModeD32",
     "onCommand:labwindowsCvi.selectBuildModeR32",
@@ -173,102 +174,107 @@
     "commands": [
       {
         "command": "labwindowsCvi.openHome",
-        "title": "LabWindows/CVI: Open Home",
+        "title": "Open Home",
         "icon": "$(home)"
       },
       {
         "command": "labwindowsCvi.openWorkspace",
-        "title": "LabWindows/CVI: Open Workspace or Project",
+        "title": "Open Workspace or Project",
         "icon": "$(folder-opened)"
       },
       {
         "command": "labwindowsCvi.closeWorkspace",
-        "title": "LabWindows/CVI: Close Current Workspace or Project",
+        "title": "Close Current Workspace or Project",
         "icon": "$(close)"
       },
       {
         "command": "labwindowsCvi.createWorkspaceProject",
-        "title": "LabWindows/CVI: Create Workspace (legacy alias)"
+        "title": "Create Workspace (legacy alias)"
       },
       {
         "command": "labwindowsCvi.refresh",
-        "title": "LabWindows/CVI: Refresh Workspace",
+        "title": "Refresh Workspace",
         "icon": "$(refresh)"
       },
       {
         "command": "labwindowsCvi.configureInstallation",
-        "title": "LabWindows/CVI: Select Installation",
+        "title": "Select Installation",
         "icon": "$(settings-gear)"
       },
       {
         "command": "labwindowsCvi.selectAutocompleteProfile",
-        "title": "LabWindows/CVI: Select Autocompletion Profile",
+        "title": "Select Autocompletion Profile",
         "icon": "$(settings-gear)"
       },
       {
         "command": "labwindowsCvi.syncCppTools",
-        "title": "LabWindows/CVI: Synchronize C/C++ IntelliSense Configuration",
+        "title": "Synchronize C/C++ IntelliSense Configuration",
         "icon": "$(symbol-namespace)"
       },
       {
         "command": "labwindowsCvi.diagnoseCppTools",
-        "title": "LabWindows/CVI: Diagnose C/C++ IntelliSense Configuration",
+        "title": "Diagnose C/C++ IntelliSense Configuration",
         "icon": "$(pulse)"
       },
       {
         "command": "labwindowsCvi.repairCppToolsProvider",
-        "title": "LabWindows/CVI: Repair C/C++ IntelliSense Provider Selection",
+        "title": "Repair C/C++ IntelliSense Provider Selection",
         "icon": "$(wrench)"
       },
       {
         "command": "labwindowsCvi.validateNativeWorkspaceStructure",
-        "title": "LabWindows/CVI: Validate Native Workspace Structure",
+        "title": "Validate Native Workspace Structure",
         "icon": "$(checklist)",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.repairNativeWorkspaceCompatibility",
-        "title": "LabWindows/CVI: Repair Native Workspace Compatibility",
+        "title": "Repair Native Workspace Compatibility",
         "icon": "$(shield)",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.addWorkspaceFolderForIntelliSense",
-        "title": "LabWindows/CVI: Add CVI Folder to VS Code Workspace for IntelliSense"
+        "title": "Add CVI Folder to VS Code Workspace for IntelliSense"
       },
       {
         "command": "labwindowsCvi.selectBuildMode",
-        "title": "LabWindows/CVI: Select Build Mode",
+        "title": "Select Build Mode",
         "icon": "$(symbol-enum)"
       },
       {
         "command": "labwindowsCvi.build",
-        "title": "LabWindows/CVI: Build Active Project",
+        "title": "Build Active Project",
         "icon": "$(tools)"
       },
       {
         "command": "labwindowsCvi.externalBuild",
-        "title": "LabWindows/CVI: Build with Selected Build Engine",
+        "title": "Build with Selected Build Engine",
         "icon": "$(tools)"
       },
       {
         "command": "labwindowsCvi.debugWithoutBuild",
-        "title": "LabWindows/CVI: Debug Existing Target (No Build)",
+        "title": "Debug Active Target",
         "icon": "$(debug-alt)"
       },
       {
         "command": "labwindowsCvi.externalDebug",
-        "title": "LabWindows/CVI: Build and Debug with External MSVC in VS Code",
+        "title": "Build and Debug with External MSVC in VS Code",
         "icon": "$(debug-alt)"
       },
       {
         "command": "labwindowsCvi.rebuild",
-        "title": "LabWindows/CVI: Rebuild Active Project"
+        "title": "Rebuild Active Project"
       },
       {
         "command": "labwindowsCvi.run",
-        "title": "LabWindows/CVI: Build and Run Active Target",
+        "title": "Run Active Target",
         "icon": "$(play)"
+      },
+      {
+        "command": "labwindowsCvi.buildAndRun",
+        "title": "Build and Run Active Target",
+        "icon": "$(run-all)"
       },
       {
         "command": "labwindowsCvi.openWorkspaceInCvi",
@@ -434,7 +440,7 @@
       },
       {
         "command": "labwindowsCvi.debugInCvi",
-        "title": "LabWindows/CVI: Build & Run Debug",
+        "title": "Build & Run Debug",
         "category": "LabWindows/CVI",
         "icon": "$(debug-alt)"
       },
@@ -563,23 +569,23 @@
       },
       {
         "command": "labwindowsCvi.importFileTemplate",
-        "title": "LabWindows/CVI: Import Creation Template From File...",
+        "title": "Import Creation Template From File...",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.manageFileTemplates",
-        "title": "LabWindows/CVI: Manage Creation Templates...",
+        "title": "Manage Creation Templates...",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.chooseBuildAction",
-        "title": "LabWindows/CVI: Build / Rebuild / Clean Active Project",
+        "title": "Build / Rebuild / Clean Active Project",
         "icon": "$(tools)",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.clean",
-        "title": "LabWindows/CVI: Clean Active Project",
+        "title": "Clean Active Project",
         "icon": "$(trash)",
         "category": "LabWindows/CVI"
       },
@@ -626,13 +632,13 @@
       },
       {
         "command": "labwindowsCvi.chooseRunAction",
-        "title": "LabWindows/CVI: Run Options...",
+        "title": "Run Options...",
         "icon": "$(list-selection)",
         "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.runWithoutBuild",
-        "title": "LabWindows/CVI: Run Active Target Without Build",
+        "title": "Run Active Target Without Build (Alias)",
         "category": "LabWindows/CVI"
       },
       {
@@ -692,73 +698,73 @@
       },
       {
         "command": "labwindowsCvi.synchronizeBreakpoints",
-        "title": "LabWindows/CVI: Synchronize VS Code Breakpoints to Native Workspace",
+        "title": "Synchronize VS Code Breakpoints to Native Workspace",
         "category": "LabWindows/CVI",
         "icon": "$(debug-breakpoint)"
       },
       {
         "command": "labwindowsCvi.clearSynchronizedBreakpoints",
-        "title": "LabWindows/CVI: Remove Synchronized Breakpoints from Native Workspace",
+        "title": "Remove Synchronized Breakpoints from Native Workspace",
         "category": "LabWindows/CVI",
         "icon": "$(debug-breakpoint-unverified)"
       },
       {
         "command": "labwindowsCvi.diagnoseBreakpointBridge",
-        "title": "LabWindows/CVI: Diagnose Native Breakpoint Bridge",
+        "title": "Diagnose Native Breakpoint Bridge",
         "category": "LabWindows/CVI",
         "icon": "$(pulse)"
       },
       {
         "command": "labwindowsCvi.chooseNativeDebugAction",
-        "title": "LabWindows/CVI: Native Debug Controls...",
+        "title": "Native Debug Controls...",
         "category": "LabWindows/CVI",
         "icon": "$(debug-alt-small)"
       },
       {
         "command": "labwindowsCvi.nativeBuild",
-        "title": "LabWindows/CVI: Build",
+        "title": "Build",
         "category": "LabWindows/CVI",
         "icon": "$(tools)"
       },
       {
         "command": "labwindowsCvi.nativeRun",
-        "title": "LabWindows/CVI: Build & Run Debug",
+        "title": "Build & Run Debug",
         "category": "LabWindows/CVI",
         "icon": "$(play)"
       },
       {
         "command": "labwindowsCvi.nativePause",
-        "title": "LabWindows/CVI: Pause",
+        "title": "Pause",
         "category": "LabWindows/CVI",
         "icon": "$(debug-pause)"
       },
       {
         "command": "labwindowsCvi.nativeContinue",
-        "title": "LabWindows/CVI: Continue",
+        "title": "Continue",
         "category": "LabWindows/CVI",
         "icon": "$(debug-continue)"
       },
       {
         "command": "labwindowsCvi.nativeStop",
-        "title": "LabWindows/CVI: Stop",
+        "title": "Stop",
         "category": "LabWindows/CVI",
         "icon": "$(debug-stop)"
       },
       {
         "command": "labwindowsCvi.nativeState",
-        "title": "LabWindows/CVI: Read Native CVI State",
+        "title": "Read Native CVI State",
         "category": "LabWindows/CVI",
         "icon": "$(pulse)"
       },
       {
         "command": "labwindowsCvi.refreshNativeDebugView",
-        "title": "LabWindows/CVI: Refresh Native Debug Status",
+        "title": "Refresh Native Debug Status",
         "category": "LabWindows/CVI",
         "icon": "$(refresh)"
       },
       {
         "command": "labwindowsCvi.diagnoseNativeCommandBridge",
-        "title": "LabWindows/CVI: Diagnose Native Command Bridge",
+        "title": "Diagnose Native Command Bridge",
         "category": "LabWindows/CVI",
         "icon": "$(tools)"
       },
@@ -835,13 +841,13 @@
       },
       {
         "command": "labwindowsCvi.showBuildProblems",
-        "title": "LabWindows/CVI: Show Build Problems",
+        "title": "Show Build Problems",
         "category": "LabWindows/CVI",
         "icon": "$(warning)"
       },
       {
         "command": "labwindowsCvi.showFullBuildTrace",
-        "title": "LabWindows/CVI: Show Full Build Trace",
+        "title": "Show Full Build Trace",
         "category": "LabWindows/CVI",
         "icon": "$(output)"
       },
@@ -887,7 +893,7 @@
       },
       {
         "command": "labwindowsCvi.createWorkspace",
-        "title": "LabWindows/CVI: Create Workspace",
+        "title": "Create Workspace",
         "icon": "$(new-folder)"
       },
       {

@@ -54,7 +54,7 @@ function makeService(tmp, withPdb = true) {
 }
 
 (async()=>{
-  await test('package version is 0.7.44',()=>assert.strictEqual(pkg.version,'0.7.44'));
+  await test('package version keeps v0.7.44+ debug-existing support',()=>assert.ok(/^0\.7\.(?:4[4-9]|[5-9]\d)$/.test(pkg.version), `unexpected package version ${pkg.version}`));
   await test('manifest contributes Debug Existing Target command with debug icon',()=>{
     const cmd = pkg.contributes.commands.find(c=>c.command==='labwindowsCvi.debugWithoutBuild');
     assert(cmd); assert(/Debug Existing Target/.test(cmd.title)); assert.strictEqual(cmd.icon,'$(debug-alt)');

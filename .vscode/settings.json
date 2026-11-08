@@ -32,5 +32,6 @@
     "cpm.useBuildModeArchitectureFlags": false,
     "cpm.cleanRuntimeDllsOnDeploy": true,
     "cpm.deployRuntimeDlls": "never",
-    "cpm.sdlCopyAllRuntimeDlls": true
+    "cpm.sdlCopyAllRuntimeDlls": true,
+    "qpm.buildMode": "debug"
 }

@@ -1,3 +1,13 @@
+## 0.7.45
+
+- Sépare clairement **Run** de **Build + Run**, sur le même principe que CPM : `labwindowsCvi.run` exécute désormais la cible existante sans lancer de compilation.
+- Ajoute la commande `labwindowsCvi.buildAndRun` pour conserver explicitement l'ancien comportement build puis exécution.
+- Le bouton Play de la barre **CVI Workspace** et de la status bar devient un vrai Run sans build.
+- Le Home, les Quick Actions et le panneau Project Settings exposent désormais séparément **Run** et **Build + Run**.
+- `labwindowsCvi.runWithoutBuild` reste disponible comme alias de compatibilité pour les anciens raccourcis/workflows.
+- `labwindowsCvi.executeProject` conserve volontairement son comportement historique Build + Run pour ne pas modifier les menus contextuels existants.
+- `CviBuildService.run()` est aligné sur la nouvelle sémantique et délègue à `runWithoutBuild()`.
+
 ## 0.7.44
 
 - Ajoute la commande **Debug Existing Target (No Build)** avec un bouton Debug directement dans la barre d'icônes de **CVI Workspace**, à côté de Run.

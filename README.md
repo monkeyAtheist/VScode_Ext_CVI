@@ -1,8 +1,8 @@
-# LabWindows/CVI Project Manager 0.7.44
+# LabWindows/CVI Project Manager 0.7.45
 
 Visual Studio Code extension for managing NI LabWindows/CVI workspaces and projects without maintaining project-specific `tasks.json` or `launch.json` files.
 
-Version `0.7.44` keeps the CVI workspace/project manager, native build/debug controls, configuration-aware Target/Compiler/Run settings, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
+Version `0.7.45` keeps the CVI workspace/project manager, native build/debug controls, configuration-aware Target/Compiler/Run settings, embedded JC Lib catalog, communication bundles, Doxygen-ready templates, editor snippets, documentation helpers and the CVI context-menu color value picker.
 
 ## Main views
 
@@ -40,6 +40,11 @@ The extension can:
 - discover common CVI installations and store a manually selected installation.
 
 
+
+
+## Run versus Build + Run
+
+Version 0.7.45 separates execution from compilation. The main **Run** command (`labwindowsCvi.run`) launches the existing target without rebuilding it. **Build + Run** is exposed as a separate command (`labwindowsCvi.buildAndRun`) when a fresh binary is required. The legacy `labwindowsCvi.runWithoutBuild` command remains available as a compatibility alias, and project context-menu execution keeps its historical Build + Run behavior.
 
 ## Direct debug without rebuild
 

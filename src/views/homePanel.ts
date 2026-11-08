@@ -138,7 +138,8 @@ function renderHtml(state: HomeState): string {
   const projectActions = hasProject ? `
         <div class="actions project-actions">
           <button data-command="labwindowsCvi.chooseBuildAction">Build / rebuild / clean</button>
-          <button class="secondary" data-command="labwindowsCvi.run">Build + run</button>
+          <button class="secondary" data-command="labwindowsCvi.run">Run</button>
+          <button class="secondary" data-command="labwindowsCvi.buildAndRun">Build + run</button>
           <button class="secondary" data-command="labwindowsCvi.chooseRunAction">Run options</button>
           <button class="secondary" data-command="labwindowsCvi.selectBuildMode">Build mode</button>
           <button class="secondary" data-command="labwindowsCvi.selectTargetType">Target type</button>

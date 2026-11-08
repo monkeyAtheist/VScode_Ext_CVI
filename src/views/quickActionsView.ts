@@ -100,6 +100,8 @@ export class QuickActionsView implements vscode.TreeDataProvider<QuickActionNode
       info('Build steps', summary.buildSteps, 'list-ordered'),
       info('Dependencies', summary.dependencies, 'references'),
       info('Project files', summary.files, summary.hasMissingFiles ? 'warning' : 'pass'),
+      action('Run', 'labwindowsCvi.run', 'play'),
+      action('Build & Run', 'labwindowsCvi.buildAndRun', 'run-all'),
       action('Open project build settings…', 'labwindowsCvi.editBuildSettings', 'settings-gear'),
       action('Open build settings in safe mode…', 'labwindowsCvi.editBuildSettingsSafeMode', 'shield'),
       action('Debug controls…', 'labwindowsCvi.chooseNativeDebugAction', 'debug-alt-small'),

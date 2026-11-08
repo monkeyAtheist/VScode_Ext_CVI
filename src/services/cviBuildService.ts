@@ -136,9 +136,9 @@ export class CviBuildService implements vscode.Disposable {
   async chooseRunAction(projectRef?: CviWorkspaceProjectRef): Promise<void> {
     const selected = await vscode.window.showQuickPick([
       { label: '$(play) Build and run', value: 'buildRun', description: 'Build with the selected project build engine and run the target' },
-      { label: '$(run) Run without build', value: 'runOnly', description: 'Run the existing EXE, or the configured Program Name for a DLL target, without building' },
-      { label: '$(debug-alt) Debug existing target (no build)', value: 'debugExisting', description: 'Launch the selected debugger using the existing target without forcing a build first' },
-      { label: '$(debug-alt) Native CVI debug', value: 'debug', description: 'Build with CVI, synchronize breakpoints and run the native CVI debugger' },
+      { label: '$(run) Run', value: 'runOnly', description: 'Run the existing EXE, or the configured Program Name for a DLL target, without building' },
+      { label: '$(debug-alt) Debug', value: 'debugExisting', description: 'Launch the selected debugger using the existing target without forcing a build first' },
+      { label: '$(debug-alt) Build and debug', value: 'debug', description: 'Build with CVI, synchronize breakpoints and run the native CVI debugger' },
       { label: '$(debug) External MSVC debug in VS Code', value: 'externalDebug', description: 'Build with MSVC and launch cppvsdbg using generated PDB symbols' }
     ], { title: 'LabWindows/CVI run action' });
     if (!selected) {
@@ -160,10 +160,10 @@ export class CviBuildService implements vscode.Disposable {
   async selectBuildMode(): Promise<void> {
     const ref = this.workspaces.activeProjectRef;
     const standard = [
-      { label: 'Debug x86', value: 'debug', nativeName: 'Debug', description: 'compile.exe -debug' },
-      { label: 'Release x86', value: 'release', nativeName: 'Release', description: 'compile.exe -release' },
-      { label: 'Debug x64', value: 'debug64', nativeName: 'Debug64', description: 'compile.exe -debug64' },
-      { label: 'Release x64', value: 'release64', nativeName: 'Release64', description: 'compile.exe -release64' }
+      { label: 'Debug x86 (32b)', value: 'debug', nativeName: 'Debug', description: 'compile.exe -debug' },
+      { label: 'Release x86 (32b)', value: 'release', nativeName: 'Release', description: 'compile.exe -release' },
+      { label: 'Debug x64 (64b)', value: 'debug64', nativeName: 'Debug64', description: 'compile.exe -debug64' },
+      { label: 'Release x64 (64b)', value: 'release64', nativeName: 'Release64', description: 'compile.exe -release64' }
     ] as const;
     const custom = ref?.exists ? this.parser.getNativeBuildConfigurations(ref.absolutePath)
       .filter((entry) => entry.isCustom)
@@ -603,7 +603,7 @@ export class CviBuildService implements vscode.Disposable {
   }
 
   async run(projectRef?: CviWorkspaceProjectRef): Promise<void> {
-    await this.buildAndRun(projectRef);
+    await this.runWithoutBuild(projectRef);
   }
 
   async buildAndRun(projectRef?: CviWorkspaceProjectRef): Promise<void> {
