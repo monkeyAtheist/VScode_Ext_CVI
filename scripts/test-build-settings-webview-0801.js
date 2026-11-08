@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('assert');const path=require('path');const Module=require('module');
+process.env.NODE_PATH=path.join(__dirname,'..','test-mocks');Module._initPaths();
+const {CviParser}=require('../out/model/cviParser');
+const {CviProjectSettingsService}=require('../out/services/cviProjectSettingsService');
+const {BuildSettingsPanel}=require('../out/views/buildSettingsPanel');
+const root='/mnt/data/example_workspace/Exemple Workspace_projet';
+const parser=new CviParser(); const ws=parser.parseWorkspace(path.join(root,'GR_IHM.cws'));
+const ref=ws.projects[0];
+const fake={currentWorkspace:ws,activeProjectRef:ref,getProject:r=>parser.parseProject(r.absolutePath),getProjectBuildMode:()=> 'debug',getProjectBuildConfiguration:()=> 'Debug',onDidChange:()=>({dispose(){}}),refresh(){}};
+const output={append(){},appendLine(){},show(){},clear(){}};
+const settings=new CviProjectSettingsService(fake,parser,output);
+const panel=new BuildSettingsPanel(fake,parser,settings); panel.selectedScope='debug';
+const html=panel.render(ref); assert(html.includes('Windows import-library generation')); assert(html.includes('DLL Analyzer')); assert(html.includes('.a / .lib Analyzer'));
+const m=/<script>([\s\S]*)<\/script>/.exec(html);assert(m,'script not found');new Function(m[1]);
+console.log('PASS generated Build Settings webview JavaScript syntax');
+console.log('RESULT 1 passed, 0 failed');

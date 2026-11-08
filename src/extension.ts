@@ -21,6 +21,7 @@ import { CviBreakpointSyncService } from './services/cviBreakpointSyncService';
 import { CviNativeCommandService } from './services/cviNativeCommandService';
 import { CviColorValueService } from './services/cviColorValueService';
 import { CviContextToolsService } from './services/cviContextToolsService';
+import { CviImportLibraryService } from './services/cviImportLibraryService';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('LabWindows/CVI');
@@ -37,7 +38,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const nativeCommands = new CviNativeCommandService(context, workspaces, installations, breakpointSync, output);
   const colorValues = new CviColorValueService();
   const contextTools = new CviContextToolsService(context);
-  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output, buildTraceOutput, buildDiagnostics);
+  const importLibraries = new CviImportLibraryService(workspaces, projectSettings, installations, output);
+  const builds = new CviBuildService(parser, workspaces, installations, projectSettings, breakpointSync, output, buildTraceOutput, buildDiagnostics, importLibraries);
   const treeProvider = new CviTreeProvider(workspaces);
   const treeView = vscode.window.createTreeView('labwindowsCvi.workspaceExplorer', { treeDataProvider: treeProvider, dragAndDropController: treeProvider, showCollapseAll: true, canSelectMany: true });
   const symbols = new CviSymbolService(context.extensionPath, workspaces);
@@ -181,6 +183,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     buildTraceOutput,
     buildDiagnostics,
     nativeCommands,
+    importLibraries,
     builds,
     projectSettings,
     workspaces,
@@ -342,7 +345,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('labwindowsCvi.moveFileToFolder', (node?: FileNode) => node ? workspaces.moveFileToFolder(node.ref, node.file) : undefined),
     register('labwindowsCvi.compileFile', (node?: FileNode) => node ? builds.compileFile(node.file.absolutePath, node.ref) : undefined),
     register('labwindowsCvi.generatePrototypes', (node?: FileNode) => node ? workspaces.generatePrototypes(node.ref, node.file) : undefined),
-    register('labwindowsCvi.prepareDllImportLibraryGeneration', (node?: FileNode) => node ? builds.prepareDllImportLibraryGeneration(node.file.absolutePath) : undefined),
+    register('labwindowsCvi.prepareDllImportLibraryGeneration', (node?: FileNode) => importLibraries.generateFromHeaderSelection(node, treeView.selection)),
+    register('labwindowsCvi.generateImportLibraryFromHeaders', (node?: FileNode) => importLibraries.generateFromHeaderSelection(node, treeView.selection)),
+    register('labwindowsCvi.generateImportLibraryFromDll', (node?: FileNode) => importLibraries.generateFromDll(node?.file.absolutePath, node?.ref)),
+    register('labwindowsCvi.extractDllDefinitionFile', (node?: FileNode) => importLibraries.extractDefinitionFromDll(node?.file.absolutePath, node?.ref)),
+    register('labwindowsCvi.openImportLibraryReport', () => importLibraries.openReport()),
+    register('labwindowsCvi.analyzeDll', (node?: FileNode) => buildSettings.showDllAnalyzer(node?.ref, node?.file.absolutePath)),
+    register('labwindowsCvi.analyzeLibrary', (node?: FileNode) => buildSettings.showLibraryAnalyzer(node?.ref, node?.file.absolutePath)),
     register('labwindowsCvi.refreshFileSymbols', () => fileSymbolsProvider.refresh()),
     register('labwindowsCvi.revealFileSymbol', (symbol?: CviSourceSymbol) => symbol ? fileSymbolsProvider.reveal(symbol) : undefined),
     register('labwindowsCvi.copyFileSymbol', (symbol?: CviSourceSymbol) => fileSymbolsProvider.copySymbol(symbol)),

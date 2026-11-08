@@ -1,3 +1,17 @@
+## 0.8.1
+
+- Réintègre sur la vraie base **0.8.0** les outils de bibliothèques qui avaient été développés par erreur sur la branche 0.7.46.
+- Ajoute la génération de bibliothèques d’import Windows `.lib` depuis un ou plusieurs headers, avec filtrage des fonctions `static`, sélection des symboles, choix d’architecture et génération `.def`.
+- Ajoute la génération batch `.dll -> .lib` à partir des exports PE réels, avec ajout de plusieurs DLL, Browse/Remove par ligne, sélection des exports et choix du fichier de sortie.
+- Ajoute **DLL Analyzer** : architecture, PE32/PE32+, versions, SHA-256, exports/imports, sections, ressources, Authenticode, CLR et métadonnées CodeView/PDB.
+- Ajoute **.a / .lib Analyzer** : classification static/import/mixed, membres d’archive, architectures, symboles et DLL référencées.
+- Ajoute la page **Libraries** dans CVI Project Settings et les pages dédiées aux deux analyseurs.
+- Ajoute pour les builds DLL externes MSVC le choix indépendant des sorties `.lib`, `.dll.a`, `.a`, combinaisons ou aucune import library.
+- Conserve les Target Settings natifs LabWindows/CVI comme autorité pour les builds `compile.exe`; les outils portables n’écrasent pas les réglages natifs du `.prj`.
+- Étend le context value des fichiers avec leur extension pour exposer les actions adaptées aux `.dll`, `.lib` et `.a`.
+- Ajoute une insertion transactionnelle des fichiers générés dans le projet CVI.
+- Validation ciblée : compilation TypeScript PASS, 25/25 tests Library Tools PASS, syntaxe du webview Settings PASS, tous les fichiers JavaScript générés passent `node --check`, VSIX testé avec `unzip -t`.
+
 ## 0.7.45
 
 - Sépare clairement **Run** de **Build + Run**, sur le même principe que CPM : `labwindowsCvi.run` exécute désormais la cible existante sans lancer de compilation.

@@ -6,10 +6,11 @@ import { CviBuildMode, CviWorkspaceProjectRef } from '../model/types';
 import { CviParser } from '../model/cviParser';
 import { CviInstallation, CviWorkspace } from '../model/types';
 import { CviInstallationService } from './cviInstallationService';
-import { CviExternalBuildSettings, CviProjectSettingsService } from './cviProjectSettingsService';
+import { CviDllImportLibraryFormat, CviExternalBuildSettings, CviProjectSettingsService } from './cviProjectSettingsService';
 import { CviWorkspaceService } from './cviWorkspaceService';
 import { CviBreakpointSyncService } from './cviBreakpointSyncService';
 import { normalizeRuntimePath, resolveCviReferencePath } from '../utils/pathUtils';
+import { CviImportLibraryService } from './cviImportLibraryService';
 
 
 type CviBuildLogDetail = 'compact' | 'normal' | 'verbose';
@@ -60,7 +61,8 @@ export class CviBuildService implements vscode.Disposable {
     private readonly breakpoints: CviBreakpointSyncService,
     private readonly output: vscode.OutputChannel,
     private readonly traceOutput: vscode.OutputChannel,
-    private readonly diagnostics: vscode.DiagnosticCollection
+    private readonly diagnostics: vscode.DiagnosticCollection,
+    private readonly importLibraries?: CviImportLibraryService
   ) {}
 
   private currentReport: CviBuildReport | undefined;
@@ -396,9 +398,15 @@ export class CviBuildService implements vscode.Disposable {
           candidates.add(replaceExtension(target, '.cdb'));
           candidates.add(replaceExtension(target, '.pdb'));
         }
-        // Do not guess a DLL import-library path here. CVI can use a custom import
-        // library base name/copy destination, and deleting <target>.lib blindly can
-        // remove a user-managed library that is not the artifact of this mode.
+        // Do not guess a native CVI DLL import-library path. CVI can use a custom
+        // import-library base name/copy destination. External MSVC artifacts are
+        // different: CVI PM owns the conventional sibling files and can clean them.
+        if (project?.targetType === 'Dynamic Link Library' && buildSettings.externalBuild.engine === 'msvc') {
+          candidates.add(replaceExtension(target, '.lib'));
+          candidates.add(replaceExtension(target, '.exp'));
+          candidates.add(this.gnuDllImportLibraryPath(target));
+          candidates.add(this.gnuLegacyDllImportLibraryPath(target));
+        }
       }
 
       this.appendSection('CLEAN GENERATED TARGET');
@@ -1069,8 +1077,77 @@ export class CviBuildService implements vscode.Disposable {
       return await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'lib.exe', ['/nologo', `/OUT:${targetPath}`, ...commonInputs], cwd, `${label} — librarian`, buildDir);
     }
     const pdb = replaceExtension(targetPath, '.pdb');
-    const linkArgs = ['/NOLOGO', `/OUT:${targetPath}`, ...(debug ? ['/DEBUG', `/PDB:${pdb}`] : []), ...(project.targetType === 'Dynamic Link Library' ? ['/DLL'] : []), ...commonInputs, cvirt, cvisupp, ...linkExtras];
-    return await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'link.exe', linkArgs, cwd, `${label} — link`, buildDir);
+    const dllOutputs = project.targetType === 'Dynamic Link Library'
+      ? this.resolvedExternalDllImportOutputs(external.dllImportLibraryFormat)
+      : { gnuA: false, gnuDllA: false, windowsLib: false };
+    const linkArgs = [
+      '/NOLOGO',
+      `/OUT:${targetPath}`,
+      ...(debug ? ['/DEBUG', `/PDB:${pdb}`] : []),
+      ...(project.targetType === 'Dynamic Link Library'
+        ? ['/DLL', dllOutputs.windowsLib ? `/IMPLIB:${replaceExtension(targetPath, '.lib')}` : '/NOIMPLIB']
+        : []),
+      ...commonInputs,
+      cvirt,
+      cvisupp,
+      ...linkExtras
+    ];
+    const linkResult = await this.runMsvcTool(vcvarsall, is64 ? 'x64' : 'x86', 'link.exe', linkArgs, cwd, `${label} — link`, buildDir);
+    if (!linkResult.success || project.targetType !== 'Dynamic Link Library') return linkResult;
+
+    await this.materializeExternalDllImportLibraries(ref, targetPath, dllOutputs);
+    return linkResult;
+  }
+
+  private resolvedExternalDllImportOutputs(format: CviDllImportLibraryFormat | undefined): { gnuA: boolean; gnuDllA: boolean; windowsLib: boolean } {
+    const value: CviDllImportLibraryFormat = format ?? 'auto';
+    const effective = value === 'auto' ? 'windows-lib' : value;
+    return {
+      gnuA: effective === 'gnu-a' || effective === 'gnu-both' || effective === 'gnu-a-windows-lib' || effective === 'all',
+      gnuDllA: effective === 'gnu-dll-a' || effective === 'gnu-both' || effective === 'both' || effective === 'all',
+      windowsLib: effective === 'windows-lib' || effective === 'gnu-a-windows-lib' || effective === 'both' || effective === 'all'
+    };
+  }
+
+  private gnuDllImportLibraryPath(dllPath: string): string {
+    const parsed = path.parse(dllPath);
+    const base = parsed.name.toLowerCase().startsWith('lib') ? parsed.name : `lib${parsed.name}`;
+    return path.join(parsed.dir, `${base}.dll.a`);
+  }
+
+  private gnuLegacyDllImportLibraryPath(dllPath: string): string {
+    const parsed = path.parse(dllPath);
+    const base = parsed.name.toLowerCase().startsWith('lib') ? parsed.name : `lib${parsed.name}`;
+    return path.join(parsed.dir, `${base}.a`);
+  }
+
+  private async materializeExternalDllImportLibraries(
+    ref: CviWorkspaceProjectRef,
+    dllPath: string,
+    outputs: { gnuA: boolean; gnuDllA: boolean; windowsLib: boolean }
+  ): Promise<void> {
+    if (!outputs.gnuA && !outputs.gnuDllA) return;
+    if (!this.importLibraries) {
+      this.output.appendLine('[CVI] Warning: GNU import-library generation service is unavailable; DLL build itself succeeded.');
+      return;
+    }
+    const primary = outputs.gnuDllA ? this.gnuDllImportLibraryPath(dllPath) : this.gnuLegacyDllImportLibraryPath(dllPath);
+    const result = await this.importLibraries.generateBuiltDllGnuImportLibrary(ref, dllPath, primary);
+    if (!result.ok) {
+      this.output.appendLine(`[CVI] Warning: DLL built, but GNU import library was not generated: ${result.message}`);
+      vscode.window.showWarningMessage(`DLL built, but GNU import library was not generated: ${result.message}`);
+      return;
+    }
+    this.output.appendLine(`[CVI] DLL import library (GNU): ${primary}`);
+    if (outputs.gnuA && outputs.gnuDllA) {
+      const alias = this.gnuLegacyDllImportLibraryPath(dllPath);
+      try {
+        fs.copyFileSync(primary, alias);
+        this.output.appendLine(`[CVI] DLL import library (GNU legacy .a alias): ${alias}`);
+      } catch (error) {
+        this.output.appendLine(`[CVI] Warning: unable to create GNU .a alias: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
   }
 
   private findVcvarsall(configured: string): string | undefined {
@@ -1741,4 +1818,4 @@ function sanitizeFilePart(value: string): string { return value.replace(/[^A-Za-
 function msvcResponseArgument(value: string): string { return /[\s"]/u.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value; }
 function sourceContainsToken(filePath: string, expression: RegExp): boolean { try { return expression.test(fs.readFileSync(filePath, 'utf8')); } catch { return false; } }
 
-function defaultExternalBuildSettings(): CviExternalBuildSettings { return { engine: 'cvi', vcvarsallPath: '', buildDirectory: '', additionalCompilerOptions: '', additionalLinkerOptions: '', additionalLibraries: [], useCviExternalSupportFiles: true, debugInVsCode: true }; }
+function defaultExternalBuildSettings(): CviExternalBuildSettings { return { engine: 'cvi', vcvarsallPath: '', buildDirectory: '', additionalCompilerOptions: '', additionalLinkerOptions: '', additionalLibraries: [], useCviExternalSupportFiles: true, debugInVsCode: true, dllImportLibraryFormat: 'auto' }; }

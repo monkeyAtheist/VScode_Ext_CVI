@@ -15,6 +15,26 @@ export interface CviRunSettings {
 
 export type CviBuildEngine = 'cvi' | 'msvc';
 
+export type CviImportLibraryArchitecture = 'auto' | 'x86' | 'x64' | 'arm64';
+export type CviImportLibraryGenerator = 'auto' | 'msvc-lib' | 'llvm-lib' | 'llvm-dlltool' | 'gnu-dlltool';
+export type CviDllImportLibraryFormat = 'auto' | 'gnu-a' | 'gnu-dll-a' | 'windows-lib' | 'gnu-both' | 'gnu-a-windows-lib' | 'both' | 'all' | 'none';
+
+export interface CviImportLibraryConfiguration {
+  generator: CviImportLibraryGenerator;
+  generatorPath: string;
+  architecture: CviImportLibraryArchitecture;
+  outputDirectory: string;
+  keepDefinitionFile: boolean;
+}
+
+export const DEFAULT_IMPORT_LIBRARY_CONFIGURATION: CviImportLibraryConfiguration = {
+  generator: 'auto',
+  generatorPath: '',
+  architecture: 'auto',
+  outputDirectory: 'lib',
+  keepDefinitionFile: true
+};
+
 export interface CviExternalBuildSettings {
   engine: CviBuildEngine;
   vcvarsallPath: string;
@@ -24,6 +44,7 @@ export interface CviExternalBuildSettings {
   additionalLibraries: string[];
   useCviExternalSupportFiles: boolean;
   debugInVsCode: boolean;
+  dllImportLibraryFormat: CviDllImportLibraryFormat;
 }
 
 export interface CviProjectBuildSettings {
@@ -33,6 +54,7 @@ export interface CviProjectBuildSettings {
   dependencies: string[];
   run: CviRunSettings;
   externalBuild: CviExternalBuildSettings;
+  importLibraries: CviImportLibraryConfiguration;
   nativeBuildActions: boolean;
 }
 
@@ -56,7 +78,8 @@ const EMPTY_EXTERNAL_BUILD_SETTINGS: CviExternalBuildSettings = {
   additionalLinkerOptions: '',
   additionalLibraries: [],
   useCviExternalSupportFiles: true,
-  debugInVsCode: true
+  debugInVsCode: true,
+  dllImportLibraryFormat: 'auto'
 };
 
 export class CviProjectSettingsService implements vscode.Disposable {
@@ -444,6 +467,7 @@ function normalizeSettings(value?: Partial<CviProjectBuildSettings>, fallbackRun
       externalProcessPath: String(fallbackRun?.externalProcessPath ?? value?.run?.externalProcessPath ?? EMPTY_RUN_SETTINGS.externalProcessPath)
     },
     externalBuild: normalizeExternalBuildSettings(value?.externalBuild),
+    importLibraries: normalizeImportLibraryConfiguration(value?.importLibraries),
     nativeBuildActions: nativeBuildActions || value?.nativeBuildActions === true
   };
 }
@@ -469,6 +493,24 @@ function normalizeExternalBuildSettings(value?: Partial<CviExternalBuildSettings
     additionalLinkerOptions: String(value?.additionalLinkerOptions ?? EMPTY_EXTERNAL_BUILD_SETTINGS.additionalLinkerOptions),
     additionalLibraries: Array.isArray(value?.additionalLibraries) ? value!.additionalLibraries!.map(String).map((entry) => entry.trim()).filter(Boolean) : [],
     useCviExternalSupportFiles: value?.useCviExternalSupportFiles !== false,
-    debugInVsCode: value?.debugInVsCode !== false
+    debugInVsCode: value?.debugInVsCode !== false,
+    dllImportLibraryFormat: normalizeDllImportLibraryFormat(value?.dllImportLibraryFormat)
   };
+}
+
+function normalizeImportLibraryConfiguration(value?: Partial<CviImportLibraryConfiguration>): CviImportLibraryConfiguration {
+  const generators = new Set<CviImportLibraryGenerator>(['auto','msvc-lib','llvm-lib','llvm-dlltool','gnu-dlltool']);
+  const architectures = new Set<CviImportLibraryArchitecture>(['auto','x86','x64','arm64']);
+  return {
+    generator: generators.has(value?.generator as CviImportLibraryGenerator) ? value!.generator! : DEFAULT_IMPORT_LIBRARY_CONFIGURATION.generator,
+    generatorPath: String(value?.generatorPath ?? DEFAULT_IMPORT_LIBRARY_CONFIGURATION.generatorPath),
+    architecture: architectures.has(value?.architecture as CviImportLibraryArchitecture) ? value!.architecture! : DEFAULT_IMPORT_LIBRARY_CONFIGURATION.architecture,
+    outputDirectory: String(value?.outputDirectory ?? DEFAULT_IMPORT_LIBRARY_CONFIGURATION.outputDirectory).trim() || DEFAULT_IMPORT_LIBRARY_CONFIGURATION.outputDirectory,
+    keepDefinitionFile: value?.keepDefinitionFile !== false
+  };
+}
+
+function normalizeDllImportLibraryFormat(value: unknown): CviDllImportLibraryFormat {
+  const allowed = new Set<CviDllImportLibraryFormat>(['auto','gnu-a','gnu-dll-a','windows-lib','gnu-both','gnu-a-windows-lib','both','all','none']);
+  return allowed.has(value as CviDllImportLibraryFormat) ? value as CviDllImportLibraryFormat : 'auto';
 }

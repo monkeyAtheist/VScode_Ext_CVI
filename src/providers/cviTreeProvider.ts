@@ -258,7 +258,8 @@ function contextValueForFile(file: CviProjectFile): string {
           : 'other';
   const build = file.excludeEligible ? (file.excluded ? 'excluded' : 'included') : 'excludeNA';
   const obj = file.type === 'CSource' ? (file.compileIntoObjectFile ? 'objOn' : 'objOff') : 'objNA';
-  return `cviFile.${kind}.${build}.${obj}`;
+  const extension = path.extname(file.absolutePath).toLowerCase().replace(/^\./, '') || 'none';
+  return `cviFile.${kind}.${build}.${obj}.ext-${extension}`;
 }
 
 function statusDescription(file: CviProjectFile): string | undefined {

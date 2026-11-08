@@ -2,7 +2,7 @@
   "name": "labwindows-cvi-project-manager",
   "displayName": "LabWindows/CVI Project Manager",
   "description": "Manage LabWindows/CVI workspaces and projects directly from Visual Studio Code.",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "publisher": "JerryCrozet-ElectronicEngineer",
   "license": "MIT",
   "engines": {
@@ -111,7 +111,13 @@
     "onCommand:labwindowsCvi.generateFileSymbolsSource",
     "onCommand:labwindowsCvi.externalBuild",
     "onCommand:labwindowsCvi.externalDebug",
-    "onCommand:labwindowsCvi.debugWithoutBuild"
+    "onCommand:labwindowsCvi.debugWithoutBuild",
+    "onCommand:labwindowsCvi.generateImportLibraryFromHeaders",
+    "onCommand:labwindowsCvi.generateImportLibraryFromDll",
+    "onCommand:labwindowsCvi.extractDllDefinitionFile",
+    "onCommand:labwindowsCvi.openImportLibraryReport",
+    "onCommand:labwindowsCvi.analyzeDll",
+    "onCommand:labwindowsCvi.analyzeLibrary"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -678,8 +684,9 @@
       },
       {
         "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
-        "title": "Prepare DLL Import Library Generation in CVI...",
-        "icon": "$(library)"
+        "title": "Generate Import Library (.lib) from Header(s)... (Legacy alias)",
+        "icon": "$(library)",
+        "category": "LabWindows/CVI"
       },
       {
         "command": "labwindowsCvi.convertSelectedIntegerToDecimal",
@@ -910,6 +917,42 @@
         "command": "labwindowsCvi.renameFile",
         "title": "Rename File...",
         "icon": "$(edit)"
+      },
+      {
+        "command": "labwindowsCvi.generateImportLibraryFromHeaders",
+        "title": "Generate Import Library (.lib) from Header(s)...",
+        "category": "LabWindows/CVI",
+        "icon": "$(library)"
+      },
+      {
+        "command": "labwindowsCvi.generateImportLibraryFromDll",
+        "title": "Generate DLL Import Library (.lib)...",
+        "category": "LabWindows/CVI",
+        "icon": "$(library)"
+      },
+      {
+        "command": "labwindowsCvi.extractDllDefinitionFile",
+        "title": "Extract DLL Exports (.def)...",
+        "category": "LabWindows/CVI",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "labwindowsCvi.openImportLibraryReport",
+        "title": "Open Last Import-Library Report",
+        "category": "LabWindows/CVI",
+        "icon": "$(report)"
+      },
+      {
+        "command": "labwindowsCvi.analyzeDll",
+        "title": "Analyze DLL...",
+        "category": "LabWindows/CVI",
+        "icon": "$(inspect)"
+      },
+      {
+        "command": "labwindowsCvi.analyzeLibrary",
+        "title": "Analyze .a / .lib Library...",
+        "category": "LabWindows/CVI",
+        "icon": "$(inspect)"
       }
     ],
     "menus": {
@@ -1352,11 +1395,6 @@
           "group": "build@4"
         },
         {
-          "command": "labwindowsCvi.prepareDllImportLibraryGeneration",
-          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
-          "group": "build@5"
-        },
-        {
           "command": "labwindowsCvi.copyFileSymbol",
           "when": "view == labwindowsCvi.fileSymbols && viewItem == cviFileSymbol",
           "group": "clipboard@1"
@@ -1380,6 +1418,31 @@
           "command": "labwindowsCvi.renameFile",
           "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\./",
           "group": "modification@0"
+        },
+        {
+          "command": "labwindowsCvi.generateImportLibraryFromHeaders",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\.header\\./",
+          "group": "libraryTools@1"
+        },
+        {
+          "command": "labwindowsCvi.generateImportLibraryFromDll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.ext-dll$/",
+          "group": "libraryTools@2"
+        },
+        {
+          "command": "labwindowsCvi.extractDllDefinitionFile",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.ext-dll$/",
+          "group": "libraryTools@3"
+        },
+        {
+          "command": "labwindowsCvi.analyzeDll",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.ext-dll$/",
+          "group": "libraryTools@4"
+        },
+        {
+          "command": "labwindowsCvi.analyzeLibrary",
+          "when": "view == labwindowsCvi.workspaceExplorer && viewItem =~ /^cviFile\\..*\\.ext-(lib|a)$/",
+          "group": "libraryTools@5"
         }
       ],
       "commandPalette": [

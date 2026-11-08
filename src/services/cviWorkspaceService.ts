@@ -862,6 +862,61 @@ The files have different physical paths, but identical names in the CVI tree can
     }
   }
 
+  async addFilePaths(projectRef: CviWorkspaceProjectRef, filePaths: string[], folderOverride?: string): Promise<number> {
+    const ref = projectRef;
+    const selectedPaths = [...new Set(filePaths.map((entry) => path.resolve(entry)))];
+    if (!ref?.exists || !fs.existsSync(ref.absolutePath)) throw new Error('No accessible CVI project is selected.');
+    if (!selectedPaths.length) return 0;
+    for (const filePath of selectedPaths) {
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) throw new Error(`Cannot add missing file to CVI project: ${filePath}`);
+    }
+    if (!await this.confirmNativePathCompatibility(selectedPaths, 'add these generated files to the CVI project')) return 0;
+    const project = this.getProject(ref);
+    if (!project) throw new Error(`Cannot read ${ref.name}. Refresh the workspace and verify the project location.`);
+    const existing = new Set(project.files.map((candidate) => path.normalize(path.resolve(candidate.absolutePath)).toLowerCase()));
+    const additions = selectedPaths.filter((candidate) => !existing.has(path.normalize(candidate).toLowerCase()));
+    if (!additions.length) return 0;
+    const folder = folderOverride ?? '';
+    const collisions = this.logicalNameCollisions(project, additions.map((filePath) => ({
+      filePath,
+      targetFolder: this.targetFolderForAddedFile(filePath, folder || undefined)
+    })));
+    if (collisions.length > 0) {
+      const answer = await vscode.window.showWarningMessage(
+        `${collisions.length} generated file-name collision(s) will appear in the same CVI logical folder.`,
+        { modal: true, detail: collisions.join('\n') },
+        'Add Anyway'
+      );
+      if (answer !== 'Add Anyway') return 0;
+    }
+    await this.saveDocumentIfOpen(ref.absolutePath);
+    const workspacePath = this.workspace?.path;
+    const workspaceIsCws = Boolean(workspacePath && path.extname(workspacePath).toLowerCase() === '.cws' && fs.existsSync(workspacePath));
+    if (workspaceIsCws && workspacePath) await this.saveDocumentIfOpen(workspacePath);
+    const originalProject = fs.readFileSync(ref.absolutePath);
+    const originalWorkspace = workspaceIsCws && workspacePath ? fs.readFileSync(workspacePath) : undefined;
+    let writtenProject: Buffer | undefined;
+    let writtenWorkspace: Buffer | undefined;
+    try {
+      const count = this.parser.addFilesToProject(ref.absolutePath, additions, folder || undefined);
+      writtenProject = fs.readFileSync(ref.absolutePath);
+      if (workspaceIsCws && workspacePath) {
+        for (const candidate of additions) {
+          const indexes = this.findWorkspaceFileReferences(candidate).map((reference) => reference.projectRef.index);
+          this.parser.updateWorkspaceReferencedFileMemberships(workspacePath, candidate, indexes);
+          writtenWorkspace = fs.readFileSync(workspacePath);
+        }
+      }
+      this.refresh();
+      return count;
+    } catch (error) {
+      this.restoreBufferIfOwned(ref.absolutePath, writtenProject, originalProject);
+      if (workspacePath && originalWorkspace) this.restoreBufferIfOwned(workspacePath, writtenWorkspace, originalWorkspace);
+      this.refresh();
+      throw error;
+    }
+  }
+
   async createNewFile(projectRef?: CviWorkspaceProjectRef, folderOverride?: string): Promise<void> {
     const ref = projectRef ?? this.activeProjectRef;
     if (!ref?.exists) {
